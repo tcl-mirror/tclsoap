@@ -13,11 +13,12 @@ package provide SOAP::Utils 1.0
 
 namespace eval SOAP {
     namespace eval Utils {
-        variable rcsid {$Id: utils.tcl,v 1.2 2001/08/01 23:34:54 patthoyts Exp $}
+        variable rcsid {$Id: utils.tcl,v 1.3 2001/08/24 21:59:59 patthoyts Exp $}
         namespace export getElements \
                 getElementValue getElementName \
                 getElementValues getElementNames \
                 getElementNamedValues \
+                getElementAttributes getElementAttribute \
                 decomposeSoap decomposeXMLRPC selectNode \
                 namespaceURI nodeName
     }
@@ -165,9 +166,11 @@ proc SOAP::Utils::getXMLRPCValue {value_elt} {
 #
 proc SOAP::Utils::getElements {domNode} {
     set elements {}
-    foreach node [dom::node children $domNode] {
-        if {[dom::node cget $node -nodeType] == "element"} {
-            lappend elements $node
+    if {$domNode != {}} {
+        foreach node [dom::node children $domNode] {
+            if {[dom::node cget $node -nodeType] == "element"} {
+                lappend elements $node
+            }
         }
     }
     return $elements
@@ -186,12 +189,14 @@ proc SOAP::Utils::getElements {domNode} {
 
 proc SOAP::Utils::getElementValues {domElement} {
     set result {}
-    set nodes [getElements $domElement]
-    if {$nodes =={}} {
-        set result [getElementValue $domElement]
-    } else {
-        foreach node $nodes {
-            lappend result [getElementValues $node]
+    if {$domElement != {}} {
+        set nodes [getElements $domElement]
+        if {$nodes =={}} {
+            set result [getElementValue $domElement]
+        } else {
+            foreach node $nodes {
+                lappend result [getElementValues $node]
+            }
         }
     }
     return $result
@@ -199,12 +204,14 @@ proc SOAP::Utils::getElementValues {domElement} {
 
 proc SOAP::Utils::getElementValuesList {domElement} {
     set result {}
-    set nodes [getElements $domElement]
-    if {$nodes =={}} {
-        set result [getElementValue $domElement]
-    } else {
-        foreach node $nodes {
-            lappend result [getElementValues $node]
+    if {$domElement != {}} {
+        set nodes [getElements $domElement]
+        if {$nodes =={}} {
+            set result [getElementValue $domElement]
+        } else {
+            foreach node $nodes {
+                lappend result [getElementValues $node]
+            }
         }
     }
     return $result
@@ -214,13 +221,15 @@ proc SOAP::Utils::getElementValuesList {domElement} {
 
 proc SOAP::Utils::getElementNames {domElement} {
     set result {}
-    set nodes [getElements $domElement]
-    if {$nodes == {}} {
-	set result [getElementName $domElement]
-    } else {
-	foreach node $nodes {
-	    lappend result [getElementNames $node]
-	}
+    if {$domElement != {}} {
+        set nodes [getElements $domElement]
+        if {$nodes == {}} {
+            set result [getElementName $domElement]
+        } else {
+            foreach node $nodes {
+                lappend result [getElementNames $node]
+            }
+        }
     }
     return $result
 }
@@ -329,6 +338,28 @@ proc SOAP::Utils::getDocumentElement {node} {
         return [getDocumentElement $parent]
     }
 }
+
+# -------------------------------------------------------------------------
+
+# Return the value of the specified atribute. First check for an exact match,
+# if that fails look for an attribute name without any namespace specification.
+# Result:
+#  Returns the value of the attribute.
+#
+proc SOAP::Utils::getElementAttribute {node attrname} {
+    set r {}
+    set attrs [array get [dom::node cget $node -attributes]]
+    if {[set ndx [lsearch -exact $attrs $attrname]] == -1} {
+        set ndx [lsearch -regexp $attrs ":${attrname}\$"]
+    }
+
+    if {$ndx != -1} {
+        incr ndx
+        set r [lindex $attrs $ndx]
+    }
+    return $r
+}
+
 # -------------------------------------------------------------------------
 
 # Description:
@@ -339,14 +370,22 @@ proc SOAP::Utils::getDocumentElement {node} {
 #  node - the node for which to return a namespace
 # Result:
 #  returns either the namespace uri or an empty string.
+# Notes:
+#  The TclDOM 2.0 package provides a -namespaceURI option. The C code module
+#  does not, so we have the second chunk of code.
 #
 proc SOAP::Utils::namespaceURI {node} {
-    set nodeName [dom::node cget $node -nodeName]
-    set ndx [string last : $nodeName]
-    set nodeNS [string range $nodeName 0 $ndx]
-    set nodeNS [string trimright $nodeNS :]
-
-    return [find_namespaceURI $node $nodeNS]
+    catch {package require dom} domVersion
+    if {$domVersion >= 2.0} {
+        return [dom::node cget $node -namespaceURI]
+    } else {
+        set nodeName [dom::node cget $node -nodeName]
+        set ndx [string last : $nodeName]
+        set nodeNS [string range $nodeName 0 $ndx]
+        set nodeNS [string trimright $nodeNS :]
+        
+        return [find_namespaceURI $node $nodeNS]
+    }
 }
 
 # -------------------------------------------------------------------------
@@ -392,7 +431,7 @@ proc SOAP::Utils::find_namespaceURI {node nsname} {
     }
     
     # recurse through the parents.
-    return [find_namespaceURI [dom::node cget $node -parent] $nsname]
+    return [find_namespaceURI [dom::node parent $node] $nsname]
 }
 
 # -------------------------------------------------------------------------       
