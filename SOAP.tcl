@@ -20,37 +20,25 @@ package require rpcvar;                 # TclSOAP
 
 # -------------------------------------------------------------------------
 
-# Find a suitable DOM package to use. First we try for tDOM. If this is
-# present we need a wrapper (not complete yet). If either fails then we 
-# look for a supported version of TclXML.
-if {[catch {
-    set domVer 0.0
-    package require tdom
-    package require SOAP::dom;          # TclSOAP
-    log::log debug "using tDOM and SOAP::dom"
-}]} {
-    if { [catch {package require dom 2.0} domVer]} {
-        if { [catch {package require dom 1.6} domVer]} {
-            error "require dom package greater than 1.6"
-        }
-        package require SOAP::xpath;    # TclSOAP
+namespace eval ::SOAP {variable domVersion}
+if { [catch {package require dom 2.0} ::SOAP::domVersion]} {
+    if { [catch {package require dom 1.6} ::SOAP::domVersion]} {
+        error "require dom package greater than 1.6"
     }
+    package require SOAP::xpath;    # TclSOAP
 }
 
 # -------------------------------------------------------------------------
 
-namespace eval SOAP {
+namespace eval ::SOAP {
     variable version 1.6
-    variable domVersion $domVer
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.46 2002/08/20 00:37:59 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.44.2.1 2002/10/01 22:36:26 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
     catch {namespace import -force [uplevel {namespace current}]::rpcvar::*}
 }
-
-unset domVer
 
 # -------------------------------------------------------------------------
 
@@ -67,7 +55,7 @@ unset domVer
 #              then uri package from tcllib)
 #  namespace - the namespace within which the transport methods are defined.
 #
-proc SOAP::register {scheme namespace} {
+proc ::SOAP::register {scheme namespace} {
     variable transports
     set transports($scheme) $namespace
 }
@@ -76,7 +64,7 @@ proc SOAP::register {scheme namespace} {
 # Internal method to return the namespace hosting a SOAP transport using
 # the URL scheme 'scheme'.
 #
-proc SOAP::schemeloc {scheme} {
+proc ::SOAP::schemeloc {scheme} {
     variable transports
     if {[info exists transports($scheme)]} {
         return $transports($scheme)
@@ -92,7 +80,7 @@ proc SOAP::schemeloc {scheme} {
 #  otherwise an empty string is returned.
 #  Used by SOAP::destroy, SOAP::wait and others.
 #
-proc SOAP::transportHook {procVarName cmdname} {
+proc ::SOAP::transportHook {procVarName cmdname} {
     upvar $procVarName procvar
     
     array set URL [uri::split $procvar(proxy)]
@@ -117,7 +105,7 @@ proc SOAP::transportHook {procVarName cmdname} {
 #   parameter is a list the the first element is namespace qualified
 #   and the remainder of the list is unchanged.
 #
-proc SOAP::qualifyNamespace {name} {
+proc ::SOAP::qualifyNamespace {name} {
     if {$name != {}} {
         set name [lreplace $name 0 0 \
                 [uplevel 2 namespace origin [lindex $name 0]]]
@@ -135,7 +123,7 @@ proc SOAP::qualifyNamespace {name} {
 # Parameters:
 #  methodName - the SOAP method name
 #
-proc SOAP::methodVarName {methodName} {
+proc ::SOAP::methodVarName {methodName} {
     if {[catch {uplevel 2 namespace origin $methodName} name]} {
         error "invalid method name: \"$methodName\" is not a SOAP method"
     }
@@ -152,7 +140,7 @@ proc SOAP::methodVarName {methodName} {
 # Parameters:
 #  level - one of log::levels. See the tcllib log package documentation.
 #
-proc SOAP::setLogLevel {level} {
+proc ::SOAP::setLogLevel {level} {
     variable logLevel
     set logLevel $level
     log::lvSuppressLE emergency 0
@@ -172,7 +160,7 @@ if {[info exists SOAP::logLevel]} {
 #
 # FIXME: do for -transport as well!
 #
-proc SOAP::cget { args } {
+proc ::SOAP::cget { args } {
 
     if { [llength $args] != 2 } {
         error "wrong # args: should be \"cget methodName optionName\""
@@ -200,7 +188,7 @@ proc SOAP::cget { args } {
 # Notes:
 #  Delegates to the transport namespace to a 'dump' procedure.
 #
-proc SOAP::dump {args} {
+proc ::SOAP::dump {args} {
     if {[llength $args] == 1} {
         set type -reply
         set methodName [lindex $args 0]
@@ -231,7 +219,7 @@ proc SOAP::dump {args} {
 # Result:
 #   Sets up a configuration array for the SOAP method.
 #
-proc SOAP::configure { procName args } {
+proc ::SOAP::configure { procName args } {
     variable transports
 
     # The list of valid options, used in the error messsage
@@ -395,7 +383,7 @@ proc SOAP::configure { procName args } {
 #  and the necessary data structures to support the method call using the 
 #  specified transport.
 #
-proc SOAP::create { args } {
+proc ::SOAP::create { args } {
     if { [llength $args] < 1 } {
         error "wrong # args: should be \"create procName ?options?\""
     } else {
@@ -474,7 +462,7 @@ proc getTransportFromArgs {procVarName args} {
 # Parameters:
 #   args - a list of tcl commands to be made available as SOAP endpoints.
 #
-proc SOAP::export {args} {
+proc ::SOAP::export {args} {
     foreach item $args {
         uplevel "set \[namespace current\]::__soap_exports($item)\
                 \[namespace code $item\]"
@@ -491,7 +479,7 @@ proc SOAP::export {args} {
 # Parameters:
 #  methodName - the name of the SOAP method command
 #
-proc SOAP::destroy {methodName} {
+proc ::SOAP::destroy {methodName} {
     set procVarName [methodVarName $methodName]
 
     # Delete the SOAP command
@@ -513,7 +501,7 @@ proc SOAP::destroy {methodName} {
 # Parameters:
 #  methodName - the method binding we are interested in.
 #
-proc SOAP::wait {methodName} {
+proc ::SOAP::wait {methodName} {
     set procVarName [methodVarName $methodName]
 
     # Call the transport specific method wait proc (if any)
@@ -533,7 +521,7 @@ proc SOAP::wait {methodName} {
 # Returns:
 #   Returns the parsed and processed result of the method call
 #
-proc SOAP::invoke { procVarName args } {
+proc ::SOAP::invoke { procVarName args } {
     set procName [lindex [split $procVarName {_}] end]
     if {![array exists $procVarName]} {
         error "invalid command: \"$procName\" not defined"
@@ -572,7 +560,7 @@ proc SOAP::invoke { procVarName args } {
 #   This has been separated from `invoke' to support asynchronous
 #   transports. It calls the various unwrapping hooks in turn.
 #
-proc SOAP::invoke2 {procVarName reply} {
+proc ::SOAP::invoke2 {procVarName reply} {
     set ::lastReply $reply
 
     set procName [lindex [split $procVarName {_}] end]
@@ -639,7 +627,7 @@ namespace eval SOAP::Transport::reflect {
 # Parameters:
 #   none
 
-proc SOAP::proxyconfig {} {
+proc ::SOAP::proxyconfig {} {
     package require Tk
     if { [catch {package require base64}] } {
         if { [catch {package require Trf}] } {
@@ -699,7 +687,7 @@ proc SOAP::proxyconfig {} {
 # Result:
 #   returns the XML text of the SOAP Fault packet.
 # 
-proc SOAP::fault {faultcode faultstring {detail {}}} {
+proc ::SOAP::fault {faultcode faultstring {detail {}}} {
     set doc [dom::DOMImplementation create]
     set bod [reply_envelope $doc]
     set flt [dom::document createElement $bod "SOAP-ENV:Fault"]
@@ -734,7 +722,7 @@ proc SOAP::fault {faultcode faultstring {detail {}}} {
 # Result:
 #   returns the body node
 #
-proc SOAP::reply_envelope { doc } {
+proc ::SOAP::reply_envelope { doc } {
     set env [dom::document createElement $doc "SOAP-ENV:Envelope"]
     dom::element setAttribute $env \
             "xmlns:SOAP-ENV" "http://schemas.xmlsoap.org/soap/envelope/"
@@ -761,7 +749,7 @@ proc SOAP::reply_envelope { doc } {
 # Result:
 #   returns the DOM document root
 #
-proc SOAP::reply { doc uri methodName result } {
+proc ::SOAP::reply { doc uri methodName result } {
     set bod [reply_envelope $doc]
     set cmd [dom::document createElement $bod "ns:$methodName"]
     dom::element setAttribute $cmd "xmlns:ns" $uri
@@ -802,7 +790,7 @@ proc SOAP::reply { doc uri methodName result } {
 #   used to set additional XML attributes on the method element (needed for
 #   UDDI.)
 #
-proc SOAP::soap_request {procVarName args} {
+proc ::SOAP::soap_request {procVarName args} {
     upvar $procVarName procvar
 
     set procName [lindex [split $procVarName {_}] end]
@@ -927,7 +915,7 @@ proc SOAP::soap_request {procVarName args} {
 # Result:
 #   XML data containing the XML-RPC method call.
 #
-proc SOAP::xmlrpc_request {procVarName args} {
+proc ::SOAP::xmlrpc_request {procVarName args} {
     upvar $procVarName procvar
 
     set procName [lindex [split $procVarName {_}] end]
@@ -983,7 +971,7 @@ proc SOAP::xmlrpc_request {procVarName args} {
 # Notes:
 #   Needs work to cope with struct or array types.
 #
-proc SOAP::parse_soap_response { procVarName xml } {
+proc ::SOAP::parse_soap_response { procVarName xml } {
     upvar $procVarName procvar
 
     # Sometimes Fault packets come back with HTTP code 200
@@ -1058,7 +1046,8 @@ proc SOAP::parse_soap_response { procVarName xml } {
 #   The XML-RPC fault response doesn't allow us to add in extra values
 #   to the fault struct. So where to put the servers errorInfo?
 #
-proc SOAP::parse_xmlrpc_response { procVarName xml } {
+proc ::SOAP::parse_xmlrpc_response { procVarName xml } {
+    upvar $procVarName procvar
     set result {}
     if {$xml == {} && ![string match "http*" $procvar(proxy)]} {
         # This is probably not an error. SMTP and FTP won't return anything
@@ -1108,7 +1097,7 @@ proc SOAP::parse_xmlrpc_response { procVarName xml } {
 #   name/value pairs suitable for array set
 # Notes:
 #
-proc SOAP::parse_xmlrpc_request { xml } {
+proc ::SOAP::parse_xmlrpc_request { xml } {
     set result {}
     if {[catch {set doc [dom::DOMImplementation parse $xml]}]} {
         error "Client request is not well-formed XML.\ncall was $xml" \
@@ -1152,7 +1141,7 @@ proc SOAP::parse_xmlrpc_request { xml } {
 # Notes:
 #   Called recursively when processing arrays and structs.
 #
-proc SOAP::xmlrpc_value_from_node {valueNode} {
+proc ::SOAP::xmlrpc_value_from_node {valueNode} {
     set value {}
     set elts [getElements $valueNode]
 
@@ -1189,7 +1178,7 @@ proc SOAP::xmlrpc_value_from_node {valueNode} {
 
 # -------------------------------------------------------------------------
 
-proc SOAP::insert_headers {node headers} {
+proc ::SOAP::insert_headers {node headers} {
     set doc [SOAP::Utils::getDocumentElement $node]
     if {[set h [selectNode $doc /Envelope/Header]] == {}} {
         set e [dom::document cget $doc -documentElement]
@@ -1205,7 +1194,7 @@ proc SOAP::insert_headers {node headers} {
 
 # -------------------------------------------------------------------------
 
-proc SOAP::insert_value {node value} {
+proc ::SOAP::insert_value {node value} {
 
     set type     [rpctype $value]
     set subtype  [rpcsubtype $value]
@@ -1320,7 +1309,7 @@ proc SOAP::insert_value {node value} {
 
 package require SOAP::http;             # TclSOAP 1.6.2+
 
-package provide SOAP $SOAP::version
+package provide SOAP $::SOAP::version
 
 # -------------------------------------------------------------------------
 
