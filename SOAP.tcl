@@ -31,9 +31,9 @@ if { [catch {package require dom 2.0} ::SOAP::domVersion]} {
 # -------------------------------------------------------------------------
 
 namespace eval ::SOAP {
-    variable version 1.6
+    variable version 1.6.6
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.44.2.1 2002/10/01 22:36:26 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.44.2.2 2003/01/24 01:00:36 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
