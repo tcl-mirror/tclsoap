@@ -6,6 +6,8 @@
 # Todo:
 # - Need to do fault processing for SOAP 1.1
 # - Needs testing using SOAP::Lite's services esp. the object access demo.
+# - Clean up the http connections. Keep the last one for state and error 
+#   info but delete during the next call.
 
 package provide SOAP 1.0
 
@@ -16,7 +18,7 @@ package require dom 1.6
 
 namespace eval SOAP {
     variable version 1.0
-    variable rcs_version { $Id: SOAP.tcl,v 1.1 2001/02/15 23:21:37 pat Exp pat $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.2 2001/02/19 00:44:46 pat Exp pt111992 $ }
 }
 
 # -------------------------------------------------------------------------
@@ -118,11 +120,11 @@ proc SOAP::configure { methodName args } {
         return $doc ;# return the DOM object
     }
 
-    # create a command in the global namespace.
-    proc ::[get Commands::$methodName alias] { args } \
-            "eval SOAP::invoke $methodName \$args"
+    # create a command in the callers namespace.
+    uplevel 2 "proc [get Commands::$methodName alias] { args } {eval [namespace current]::invoke $methodName \$args}"
 
-    return [namespace which ::[get Commands::$methodName alias]]
+    # return the fully qualified command created.
+    return [uplevel 2 "namespace which [get Commands::$methodName alias]"]
 }
 
 # -------------------------------------------------------------------------
