@@ -24,7 +24,7 @@ package require xpath 0.1
 
 namespace eval SOAP {
     variable version 1.0
-    variable rcs_version { $Id: SOAP.tcl,v 1.5 2001/02/26 12:40:41 pt111992 Exp pt111992 $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.6 2001/03/02 13:23:08 pat Exp pat $ }
 }
 
 # -------------------------------------------------------------------------
@@ -121,8 +121,8 @@ proc SOAP::configure { procName args } {
         dom::element setAttribute $cmd "xmlns:ns" $uri
 
         set param 0
-        foreach {name type} $params {
-            set par [dom::document createElement $cmd $name]
+        foreach {key type} $params {
+            set par [dom::document createElement $cmd $key]
             dom::element setAttribute $par "xsi:type" "xsd:$type"
             dom::document createTextNode $par [lindex $args $param]
             incr param
