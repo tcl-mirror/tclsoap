@@ -1,0 +1,156 @@
+# domain.test - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+#
+# Provide a set of tests to excercise the SOAP::Domain package.
+#
+# @(#)$Id$
+
+# Initialize the required packages
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+    #source [file join [pwd] [file dirname [info script]] defs.tcl]
+}
+
+if {[catch {package require SOAP::Domain} domain_version]} {
+    catch {puts stderr "Cannot load SOAP::Domain package"}
+    return
+}
+
+# tclhttpd needs to be running in this interpreter.
+if { ! [ info exists ::Httpd] } {
+    catch {puts stderr "tclhttpd must be running in this interpreter"}
+    return
+}
+
+# -------------------------------------------------------------------------
+
+test domain-1.1 {Register a default handler} {
+    catch {SOAP::Domain::register -prefix /soap} result
+    set result
+} {/soap}
+
+test domain-1.2 {Register a namespace handler} {
+    catch {SOAP::Domain::register -prefix /nsoap -namespace nsoap} result
+    set result
+} {/nsoap}
+
+test domain-1.3 {Register a slave interpreter handler} {
+    catch {SOAP::Domain::register -prefix /isoap -interp isoap} result
+    set result
+} {/isoap}
+
+test domain-1.4 {Register a slave interpreter with namespace handler} {
+    catch {SOAP::Domain::register -prefix /nisoap -interp nisoap -namespace test} result
+    set result
+} {/nisoap}
+
+# -------------------------------------------------------------------------
+
+test domain-2.1 {Check the simple registration} {
+    catch {array get SOAP::Domain::opts/soap} result
+    set result
+} {-uri {} -namespace :: -prefix /soap -interp {}}
+
+test domain-2.2 {Check the namespace registration} {
+    catch {array get SOAP::Domain::opts/nsoap} result
+    set result
+} {-uri nsoap -namespace ::nsoap -prefix /nsoap -interp {}}
+
+test domain-2.3 {Check the slave interpreter registration} {
+    catch {array get SOAP::Domain::opts/isoap} result
+    set result
+} {-uri isoap -namespace :: -prefix /isoap -interp isoap}
+
+test domain-2.4 {Check the slave namespace registration} {
+    catch {array get SOAP::Domain::opts/nisoap} result
+    set result
+} {-uri nisoap-test -namespace ::test -prefix /nisoap -interp nisoap}
+
+# -------------------------------------------------------------------------
+
+# Define a method in each domain. They all return a different result so that we
+# can check we are not calling the wrong one.
+
+test domain-3.1 {Add a method to each domain} {
+    proc ::/square {num} { return [expr $num * $num] }
+    proc ::nsoap::/square {num} { return [expr ($num * $num) + 1] }
+    interp eval isoap { proc ::/square {num} { return [expr ($num * $num) + 2] } }
+    interp eval nisoap { proc ::test::/square {num} { return [expr ($num * $num) + 3] } }
+} {}
+
+test domain-3.2 {Define the SOAP access methods} {
+    catch {package require SOAP}
+    set server "http://localhost:$::Httpd(port)"
+    set result {}
+    catch {SOAP::create square -proxy ${server}/soap/square -params {num integer}} r
+    lappend result $r
+    catch {SOAP::create nsquare -proxy ${server}/nsoap/square -params {num integer}} r
+    lappend result $r
+    catch {SOAP::create isquare -proxy ${server}/isoap/square -params {num integer}} r
+    lappend result $r
+    catch {SOAP::create nisquare -proxy ${server}/nisoap/square -params {num integer}} r
+    lappend result $r
+    catch {SOAP::create junk1 -proxy ${server}/soap -params {num integer}} r
+    lappend result $r
+    catch {SOAP::create junk2 -proxy ${server}/soap/junk -params {num integer}} r
+    lappend result $r
+    set result
+} {::square ::nsquare ::isquare ::nisquare ::junk1 ::junk2}
+
+# -------------------------------------------------------------------------
+
+# Try out each method.
+
+test domain-4.1 {Test the simple handler} {
+    catch {::square 2} result
+    set result
+} {4}
+
+test domain-4.1 {Test the namespace handler} {
+    catch {::nsquare 2} result
+    set result
+} {5}
+
+test domain-4.1 {Test the slave handler} {
+    catch {::isquare 2} result
+    set result
+} {6}
+
+test domain-4.1 {Test the slave namespace handler} {
+    catch {::nisquare 2} result
+    set result
+} {7}
+
+# -------------------------------------------------------------------------
+
+# Try for some errors
+
+test domain-5.1 {Test invalid method call} {
+    catch {::junk1 2} result
+    set result
+} {SOAP-ENV:Client {Invalid SOAP request: method "junk1" not found}}
+
+test domain-5.2 {Test invalid method call} {
+    catch {::junk2 2} result
+    set result
+} {SOAP-ENV:Client {Invalid SOAP request: method "junk2" not found}}
+
+
+# -------------------------------------------------------------------------
+
+# Clean up the tests so we can re-run.
+
+catch {interp delete isoap}
+catch {interp delete nisoap}
+foreach v [namespace eval SOAP::Domain {info vars opts*}] {
+    catch {namespace eval SOAP::Domain {unset $v}}
+}
+
+::tcltest::cleanupTests
+return
+
+# Local variables:
+#    mode: tcl
+#    indent-tabs-mode: nil
+# End:
