@@ -4,7 +4,7 @@
 ** Transport Modules
    Re-arranged the transport code to simplify addition of new
    transports. Implemented HTTP, SMTP and FTP as client transport
-   methods.
+   methods. Some SOAP-with-attachmeents support with SMTP.
 
 ** Applied patch #488714
    Reverses a change to the HTTP headers configuration that isnt

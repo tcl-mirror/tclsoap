@@ -1,4 +1,4 @@
-# mailto.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+# smtp.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
 #
 # Provide an SMTP transport for the SOAP package.
 #
@@ -29,7 +29,7 @@ package require smtp;                   # tcllib
 
 namespace eval SOAP::Transport::smtp {
     variable version 1.0
-    variable rcsid {$Id$}
+    variable rcsid {$Id: smtp.tcl,v 1.1 2001/12/08 01:19:02 patthoyts Exp $}
     variable options
     
     package provide SOAP::smtp $version
@@ -43,6 +43,33 @@ namespace eval SOAP::Transport::smtp {
             sender   "$::tcl_platform(user)@[info hostname]" \
         ]
 
+    }
+
+    variable method:options {
+        mimeheaders
+        attachments
+    }
+
+}
+
+# -------------------------------------------------------------------------
+
+proc SOAP::Transport::smtp::method:configure {procVarName opt value} {
+    upvar $procVarName procvar
+    switch -glob -- $opt {
+        -mimeheaders {
+            set procvar(mimeheaders) $value
+        }
+        -attach* {
+            if {![info exists procvar(attachments)]} {
+                set procvar(attachments) $value
+            } else {
+                set procvar(attachments) [concat $procvar(attachments) $value]
+            }
+        }
+        default {
+            error "unknown option \"$opt\""
+        }
     }
 }
 
@@ -117,6 +144,19 @@ proc SOAP::Transport::smtp::xfer {procVarName url soap} {
     }
 
     set procvar(smtp) [mime::initialize -canonical text/xml -string $soap]
+
+    if {[info exists procvar(attachments)] && $procvar(attachments) != {}} {
+        set token $procvar(smtp)
+        set procvar(smtp) [mime::initialize -canonical multipart/related \
+                               -parts [concat $token $procvar(attachments)]]
+    }
+
+    if {[info exists procvar(mimeheaders)]} {
+        foreach {key value} $procvar(mimeheaders) {
+            mime::setheader $procvar(smtp) $key $value
+        }
+    }
+    
     foreach {key value} $options(headers) {
         mime::setheader $procvar(smtp) $key $value
     }
@@ -151,7 +191,7 @@ proc SOAP::Transport::smtp::xfer {procVarName url soap} {
 # Parameters:
 #  methodVarName - the name of the SOAP method configuration array
 #
-proc SOAP::Transport::smtp::cleanup {methodVarName} {
+proc SOAP::Transport::smtp::method:destroy {methodVarName} {
     upvar $methodVarName procvar
     if {[info exists procvar(smtp)] && $procvar(smtp) != {}} {
         catch { ::mime::finalize $procvar(smtp) -subordinate all }

@@ -13,12 +13,16 @@ package require http;                   # tcl
 
 namespace eval SOAP::Transport::http {
     variable version 1.0
-    variable rcsid {$Id$}
+    variable rcsid {$Id: http.tcl,v 1.1 2001/12/08 01:19:02 patthoyts Exp $}
     variable options
 
     package provide SOAP::http $version
 
     SOAP::register http [namespace current]
+
+    variable method:options {
+        httpheaders
+    }
 
     if {![info exists options]} {
         array set options {
@@ -34,6 +38,20 @@ namespace eval SOAP::Transport::http {
             proc ncode {token} {
                 return [lindex [split [code $token]] 1]
             }
+        }
+    }
+}
+
+# -------------------------------------------------------------------------
+
+proc SOAP::Transport::http::method:configure {procVarName opt value} {
+    upvar $procVarName procvar
+    switch -glob -- $opt {
+        -httpheaders {
+            set procvar(httpheaders) $value
+        }
+        default {
+            error "unknown option \"$opt\""
         }
     }
 }
@@ -124,6 +142,9 @@ proc SOAP::Transport::http::xfer { procVarName url request } {
     set local_headers {}
     if {[info exists options(headers)]} {
         set local_headers $options(headers)
+    }
+    if {[info exists procvar(httpheaders)]} {
+        set local_headers [concat $local_headers $procvar(httpheaders)]
     }
     
     # Add mandatory SOAPAction header (SOAP 1.1). This may be empty otherwise
@@ -260,12 +281,21 @@ proc SOAP::Transport::http::filter {host} {
 # -------------------------------------------------------------------------
 
 # Description:
+# Parameters:
+#
+proc SOAP::Transport::http::wait {procVarName} {
+    upvar $procVarName procvar
+    http::wait $procvar(http)
+}
+# -------------------------------------------------------------------------
+
+# Description:
 #  Called to release any retained resources from a SOAP method. For the
 #  http transport this is just the http token.
 # Parameters:
 #  methodVarName - the name of the SOAP method configuration array
 #
-proc SOAP::Transport::http::cleanup {methodVarName} {
+proc SOAP::Transport::http::method:destroy {methodVarName} {
     upvar $methodVarName procvar
     if {[info exists procvar(http)] && $procvar(http) != {}} {
         catch {::http::cleanup $procvar(http)}
@@ -298,3 +328,9 @@ proc SOAP::Transport::http::dump {methodName type} {
 
     return $result
 }
+
+# -------------------------------------------------------------------------
+# Local variables:
+#    mode: tcl
+#    indent-tabs-mode: nil
+# End:

@@ -18,10 +18,13 @@ package provide SOAP 1.6
 package require http 2.0;               # tcl 8.n
 package require log;                    # tcllib 1.0
 package require uri;                    # tcllib 1.0
-package require uri::urn;               # tcllib 1.1
+catch {package require uri::urn};       # tcllib 1.1
 package require SOAP::Utils;            # TclSOAP
 package require rpcvar;                 # TclSOAP 
 
+# Find a suitable DOM package to use. First we try for tDOM. If this is
+# present we need a wrapper (not complete yet). If either fails then we 
+# look for a supported version of TclXML.
 if {[catch {
     set domVer 0.0
     package require tdom
@@ -41,7 +44,7 @@ namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.37 2001/11/01 23:52:22 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.38 2001/12/08 01:19:02 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -70,12 +73,17 @@ proc SOAP::register {scheme namespace} {
     set transports($scheme) $namespace
 }
 
+# Description:
+# Internal method to return the namespace hosting a SOAP transport using
+# the URL scheme 'scheme'.
+#
 proc SOAP::schemeloc {scheme} {
     variable transports
     if {[info exists transports($scheme)]} {
         return $transports($scheme)
     } else {
-        error "invalid transport scheme: \"$scheme\" is not registered"
+        error "invalid transport scheme: \"$scheme\" is not registered\
+              try one of [array names transports]"
     }
 }
 
@@ -167,7 +175,7 @@ proc SOAP::cget { args } {
 
 # Description:
 #  Dump out information concerning the last SOAP transaction for a
-#  SOAP method. What you can deump depends on the transport involved.
+#  SOAP method. What you can dump depends on the transport involved.
 # Parameters:
 #  ?-option?  - specify type of data to dump.
 #  methodName - the SOAP method to dump data from.
@@ -242,17 +250,44 @@ proc SOAP::configure { procName args } {
     if {! [array exists $procVarName]} {
         error "invalid command: \"$procName\" not defined"
     }
+    upvar $procVarName procvar
+
+    # Identify the transport protocol so we can include transport specific
+    # configuration
+    set uri {}
+    set scheme {}
+    if {$procvar(proxy) != {}} {
+        set uri $procvar(proxy)
+    } elseif {[set n [lsearch -exact $args -proxy]] != -1} {
+        incr n
+        set uri [lindex $args $n]
+    }
+    if {$uri != {}} {
+        array set a [uri::split $uri]
+        if {$a(scheme) == "urn"} {
+            set a(scheme) $a(scheme):$a(nss)
+        }
+        set scheme $a(scheme)
+    }
+    catch {unset uri}
+    if {$scheme != {}} {
+        set transport_opts "[schemeloc $scheme]::method:options"
+        if {[info exists $transport_opts]} {
+            set options [concat $options [set $transport_opts]]
+        }
+        set transport_conf "[schemeloc $scheme]::method:configure"
+    }
 
     # if no args - print out the current settings.
     if { [llength $args] == 0 } {
         set r {}
-        foreach {opt value} [array get $procVarName] {
-            lappend r -$opt $value
+        foreach opt $options {
+            if {[info exists procvar($opt)]} {
+                lappend r -$opt $procvar($opt)
+            }
         }
         return $r
     }
-
-    upvar $procVarName procvar
 
     foreach {opt value} $args {
         switch -- $opt {
@@ -274,7 +309,19 @@ proc SOAP::configure { procName args } {
                 set procvar(errorCommand) [qualifyNamespace $value] 
             }
             default {
-                error "unknown option \"$opt\": must be one of ${options}"
+                # might be better to delete the args as we process them
+                # and then call this once with all the remaining args.
+                # Still - this will work fine.
+                if {[info exists transport_conf] 
+                    && [info command $transport_conf] != {}} {
+                    if {[catch {eval $transport_conf $procVarName \
+                                    [list $opt] [list $value]}]} {
+                        error "unknown option \"$opt\":\
+                            must be one of ${options}"
+                    }
+                } else {
+                    error "unknown option \"$opt\": must be one of ${options}"
+                }
             }
         }
     }
@@ -415,18 +462,40 @@ proc SOAP::destroy {methodName} {
     # Delete the SOAP command
     uplevel rename $methodName {{}}
 
-    # Call the transport cleanup (if any)
+    # Call the transport specific method destructor (if any)
     array set a [uri::split $procvar(proxy)]
     if {$a(scheme) == "urn"} {
         set a(scheme) "$a(scheme):$a(nid)"
     }
-    set cmd [schemeloc $a(scheme)]::cleanup
+    set cmd [schemeloc $a(scheme)]::method:destroy
     if {[info command $cmd] != {}} {
         $cmd $procVarName
     }
 
     # Delete the SOAP method configuration array
     unset $procVarName
+}
+
+# -------------------------------------------------------------------------
+
+# Description:
+#  Wait for any pending asynchronous method calls.
+# Parameters:
+#  methodName - the method binding we are interested in.
+#
+proc SOAP::wait {methodName} {
+    set procVarName [methodVarName $methodName]
+    upvar $procVarName procvar
+
+    # Call the transport specific method wait proc (if any)
+    array set a [uri::split $procvar(proxy)]
+    if {$a(scheme) == "urn"} {
+        set a(scheme) "$a(scheme):$a(nid)"
+    }
+    set cmd [schemeloc $a(scheme)]::wait
+    if {[info command $cmd] != {}} {
+        $cmd $procVarName
+    }
 }
 
 # -------------------------------------------------------------------------
@@ -693,17 +762,23 @@ proc SOAP::reply { doc uri methodName result } {
 #   args        - the arguments for this SOAP method
 # Result:
 #   XML data containing the SOAP method call.
+# Notes:
+#   We permit a small number of option to be specified on the method call
+#   itself. -headers is used to set SOAP Header elements and -attr can be
+#   used to set additional XML attributes on the method element (needed for
+#   UDDI.)
 #
 proc SOAP::soap_request {procVarName args} {
-    
-    set procName [lindex [split $procVarName {_}] end]
-    set params [set [subst $procVarName](params)]
-    set name [set [subst $procVarName](name)]
-    set uri [set [subst $procVarName](uri)]
-    set soapenv [set [subst $procVarName](version)]
-    set soapenc [set [subst $procVarName](encoding)]
+    upvar $procVarName procvar
 
-    # Check for options (ie: -header)
+    set procName [lindex [split $procVarName {_}] end]
+    set params  $procvar(params)
+    set name    $procvar(name)
+    set uri     $procvar(uri)
+    set soapenv $procvar(version)
+    set soapenc $procvar(encoding)
+
+    # Check for options (ie: -header) give up on the fist non-matching arg.
     array set opts {-headers {} -attributes {}}
     while {[string match -* [lindex $args 0]]} {
         switch -glob -- [lindex $args 0] {
@@ -814,10 +889,11 @@ proc SOAP::soap_request {procVarName args} {
 #   XML data containing the XML-RPC method call.
 #
 proc SOAP::xmlrpc_request {procVarName args} {
+    upvar $procVarName procvar
 
     set procName [lindex [split $procVarName {_}] end]
-    set params [set [subst $procVarName](params)]
-    set name   [set [subst $procVarName](name)]
+    set params $procvar(params)
+    set name   $procvar(name)
     
     if { [llength $args] != [expr [llength $params] / 2]} {
         set msg "wrong # args: should be \"$procName"
@@ -869,14 +945,22 @@ proc SOAP::xmlrpc_request {procVarName args} {
 #   Needs work to cope with struct or array types.
 #
 proc SOAP::parse_soap_response { procVarName xml } {
+    upvar $procVarName procvar
+
     # Sometimes Fault packets come back with HTTP code 200
     #
     # kenstir@synchronicity.com: Catch xml parse errors and present a
     #   friendlier message.  The parse method throws awful messages like
     #   "{invalid attribute list} around line 16".
-    if {[catch {set doc [dom::DOMImplementation parse $xml]}]} {
-        error "Server response is not well-formed XML.\nresponse was $xml" \
-                $::errorInfo Server
+    if {$xml == {} && ![string match "http*" $procvar(proxy)]} {
+        # This is probably not an error. SMTP and FTP won't return anything
+        # HTTP should always return though (I think).
+        return {}
+    } else {
+        if {[catch {set doc [dom::DOMImplementation parse $xml]}]} {
+            error "Server response is not well-formed XML.\n\
+                  response was $xml" $::errorInfo Server
+        }
     }
 
     set faultNode [selectNode $doc "/Envelope/Body/Fault"]
@@ -893,15 +977,15 @@ proc SOAP::parse_soap_response { procVarName xml } {
             && [string match \
                     "http://schemas.xmlsoap.org/soap/envelope/" \
                     [namespaceURI $headerNode]]} {
-        set [subst $procVarName](headers) [decomposeSoap $headerNode]
+        set procvar(headers) [decomposeSoap $headerNode]
     } else {
-        set [subst $procVarName](headers) {}
+        set procvar(headers) {}
     }
     
     set result {}
 
-    if {[info exists [subst $procVarName](name)]} {
-        set responseName "[set [subst $procVarName](name)]Response"
+    if {[info exists procvar(name)]} {
+        set responseName "$procvar(name)Response"
     } else {
         set responseName "*"
     }
@@ -937,9 +1021,15 @@ proc SOAP::parse_soap_response { procVarName xml } {
 #
 proc SOAP::parse_xmlrpc_response { procVarName xml } {
     set result {}
-    if {[catch {set doc [dom::DOMImplementation parse $xml]}]} {
-        error "Server response is not well-formed XML.\nresponse was $xml" \
-                $::errorInfo Server
+    if {$xml == {} && ![string match "http*" $procvar(proxy)]} {
+        # This is probably not an error. SMTP and FTP won't return anything
+        # HTTP should always return though (I think).
+        return {}
+    } else {
+        if {[catch {set doc [dom::DOMImplementation parse $xml]}]} {
+            error "Server response is not well-formed XML.\n\
+                  response was $xml" $::errorInfo Server
+        }
     }
 
     set faultNode [selectNode $doc "/methodResponse/fault"]
