@@ -39,7 +39,7 @@ namespace eval SOAP {
 	# -----------------------------------------------------------------
 
 	variable rcsid {
-	    $Id: SOAP-CGI.tcl,v 1.5 2001/08/07 15:49:52 patthoyts Exp $
+	    $Id: SOAP-CGI.tcl,v 1.6 2001/08/08 15:35:34 patthoyts Exp $
 	}
 	variable methodName  {}
 	variable debugging   0
@@ -231,17 +231,18 @@ proc SOAP::CGI::dtrace args {
 #   as necessary.
 #
 proc SOAP::CGI::do_encoding {xml} {
-    binary scan $xml ccc c0 c1 c2
-    if {$c0 == -1 && $c1 == -2} {
-	dtrace "encoding: UTF-16 little endian"
-	set xml [encoding convertfrom unicode $xml]
-    } elseif {$c0 == -2 && $c1 == -1} {
-	dtrace "encoding: UTF-16 big endian"
-	binary scan $xml S* xml
-	set xml [encoding convertfrom unicode [binary format s* $xml]]
-    } elseif {$c0 == -17 && $c1 == -69 && $c2 == -65} {
-	dtrace "encoding: UTF-8"
-	set xml [encoding convertfrom utf-8 $xml]
+    if {[binary scan $xml ccc c0 c1 c2] == 3} {
+	if {$c0 == -1 && $c1 == -2} {
+	    dtrace "encoding: UTF-16 little endian"
+	    set xml [encoding convertfrom unicode $xml]
+	} elseif {$c0 == -2 && $c1 == -1} {
+	    dtrace "encoding: UTF-16 big endian"
+	    binary scan $xml S* xml
+	    set xml [encoding convertfrom unicode [binary format s* $xml]]
+	} elseif {$c0 == -17 && $c1 == -69 && $c2 == -65} {
+	    dtrace "encoding: UTF-8"
+	    set xml [encoding convertfrom utf-8 $xml]
+	}
     }
     return $xml
 }
@@ -353,6 +354,41 @@ proc SOAP::CGI::soap_header {doc} {
 
 # -------------------------------------------------------------------------
 
+proc SOAP::CGI::namespaceURI {node} {
+    set nodeName [dom::node cget $node -nodeName]
+    set ndx [string last : $nodeName]
+    set nodeNS [string range $nodeName 0 $ndx]
+    set nodeNS [string trimright $nodeNS :]
+    if {$nodeNS == {}} {
+	return {}
+    }
+
+    return [find_namespaceURI $node $nodeNS]
+}
+
+# the unqualified part of a node name
+proc SOAP::CGI::nodeName {node} {
+    set nodeName [dom::node cget $node -nodeName]
+    set nodeName [string range $nodeName [string last : $nodeName] end]
+    return [string trimleft $nodeName :]
+}
+
+# look for xmlns:nsname in node or it's parents. Return {} if not found.
+proc SOAP::CGI::find_namespaceURI {node nsname} {
+    if {$node == {}} { return {} }
+    set atts [dom::node cget $node -attributes]
+    foreach {attname attvalue} [array get $atts] {
+	if {[string match "xmlns:$nsname" $attname]} {
+	    return $attvalue
+	}
+    }
+    
+    # we havn't found a match so move up a level.
+    return [find_namespaceURI [dom::node cget $node -parent] $nsname]
+}
+
+# -------------------------------------------------------------------------
+
 # Description:
 #   Handle incoming SOAP requests.
 #   We extract the name of the SOAP method and the arguments and search for
@@ -368,7 +404,8 @@ proc SOAP::CGI::soap_call {doc {interp {}}} {
 	# Check SOAP version by examining the namespace of the Envelope elt.
 	set envnode [selectNode $doc "/Envelope"]
 	if {$envnode != {}} {
-	    set envns [dom::node cget $envnode -namespaceURI]
+	    #set envns [dom::node cget $envnode -namespaceURI]
+	    set envns [namespaceURI $envnode]
 	    if {$envns != "" && \
 		    ! [string match $envns \
 		    "http://schemas.xmlsoap.org/soap/envelope/"]} {
@@ -384,17 +421,10 @@ proc SOAP::CGI::soap_call {doc {interp {}}} {
 
 	# Get the method name from the XML request.
 	set methodNode [selectNode $doc "/Envelope/Body/*"]
-	set methodName [dom::node cget $methodNode -nodeName]
+	set methodName [nodeName $methodNode]
 
 	# Get the XML namespace for this method.
-	set methodNamespace [array get \
-		[dom::node cget $methodNode -attributes]]
-	set nsindex [lsearch -regexp $methodNamespace {http://.*/xmlns}]
-	if {$nsindex != -1} {
-	    set methodNamespace [lindex $methodNamespace [expr $nsindex + 1]]
-	} else {
-	    set methodNamespace {}
-	}
+	set methodNamespace [namespaceURI $methodNode]
 	dtrace "methodinfo: ${methodNamespace}::${methodName}"
 
 	# Extract the parameters.
@@ -662,7 +692,7 @@ proc SOAP::CGI::main {{xml {}} {debug 0}} {
 		set html "<!doctype HTML public \"-//W3O//DTD W3 HTML 2.0//EN\">\n"
 		append html "<html>\n<head>\n<title>CGI Error</title>\n</head>\n<body>"
 		append html "<h1>CGI Error</h1>\n<p>$msg</p>\n"
-		append html "<br>\n<pre>$::errorInfo</pre>\n"
+		append html "<br />\n<pre>$::errorInfo</pre>\n"
 		append html "<p><font size=\"-1\">$rcsid</font></p>"
 		append html "</body>\n</html>"
 		write $html text/html "500 Internal Server Error"
