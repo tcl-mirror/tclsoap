@@ -1,6 +1,7 @@
-<!doctype HTML public "-//W3O//DTD W3 HTML 2.0//EN">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
   <head>
-    <link href="tclsoap.css" rel="stylesheet" type="text/css">
+    <link  rel="stylesheet" type="text/css" href="tclsoap.css">
     <title>XML-RPC URL Domain Package for TclHTTPD</title>
     <meta http-equiv="Description" name="Description"
       content="XML-RPC package for Tcl. Provides remote procedure calls
@@ -55,44 +56,50 @@
 <div class="body">
 
   <!-- ----------------------------------------------------------------- -->
-  <h1><font color="red">This code has been superceeded as of version
-  1.6</font></h1>
 
-      <p>The <tt>XMLRPC::Domain</tt> package provides a wrapper enabling the
-	simple use of Tcl procedures as XML-RPC methods. This package is
-	almost identical to the 
-	<a href="SOAPURLDomain.html"><tt>SOAP::Domain</tt></a>
-	package as can be seen by the following example of the
-	<tt>square</tt> method, here implemented over XML-RPC instead
-	of SOAP:</p>
+      <p>The <tt>SOAP::Domain</tt> package makes in easy to provide a
+      web service implementation in TclHTTPD and to provide both SOAP and
+      XML-RPC access. Here is a simple example that
+      can be placed in the <tt>custom/</tt> subdirectory of tclhttpd
+      that will provide a simple web service.</p>
 
-<pre>package require XMLRPC::Domain
-XMLRPC::Domain::register -prefix /rpc -namespace zsplat::RPC
+      <pre>package require SOAP::Domain
+SOAP::Domain::register -prefix /rpc
 
-proc zsplat::RPC::/square {num} {
+proc square {num} {
     if { [catch {expr $num + 0}] } {
         error "parameter num must be a number"
     }
     return [expr $num * $num]
 }
+SOAP::export square
+XMLRPC::export square
   </pre>
 
-  <p>The only significant difference between the XMLRPC and the SOAP
-    Domain packages is that the XML-RPC version supports a method for
-    providing hints to the framework about the type of the result of
-    the users procedure. Here is an example of a procedure that
-    returns an XML-RPC dateTime.iso8601 result:
+  <p>The first line loads
+  in SOAP service support for Tclhttpd. Then we register a url prefix
+  with the server that will be redirected to call our web service
+  methods. We then define a method and then we use the <tt>export</tt>
+  commands to state that this is a public procedure. We do not, after
+  all, want people to call any command in the interpreter.</p>
 
-<pre>package require XMLRPC::TypedVariable
+  <p>More complex methods are likely to need to specify the return
+  variable type. As tcl doesn't have types we have a package to assist
+  us and to tag the return value with an XML-RPC type. For instance,
+  one of the XML-RPC types is a date-time point: </p>
 
-proc zsplat::RPC::/time {} {
+  <pre>package require rpcvar
+
+proc date {} {
     set result [clock format [clock seconds] -format {%Y%m%dT%H:%M:%S}]
-    set result [XMLRPC::TypedVariable::create dateTime.iso8601 $result]
-    return $result
+    return [rpcvar::rpcvar "dateTime.iso8601" $result]
 }
+
+SOAP::export date
+XMLRPC::export date
   </pre>
 
-    The result here is initially a string formatted in the iso8601
+    <p>The result here is initially a string formatted in the iso8601
     point in time format. As there is no real way for Tcl to distinguish
     between this string and a non-date string we have to provide a
     hint so that the XML-RPC reply has the correct type
@@ -105,17 +112,14 @@ proc zsplat::RPC::/time {} {
   <p>A more significant example of this is a method returning an
     array:</p>
 
-<pre>proc zsplat::RPC::/sort {args} {
-    eval set n $args
-    set result [lsort $n]
-    set result [XMLRPC::TypedVariable::create array $result]
-    return $result
+<pre>proc sort {lst} {
+    return [rpcvar::rpcvar array [lsort $lst]]
 }
   </pre>
  
     Here, we are returning an array of sorted elements. The type of
     each element will have to be guessed by the framework as the
-    elements themselves are not TypedVariables.</p>
+    elements themselves cannot be provided with a type.</p>
 
   <p>XML-RPC supports <tt>struct</tt> results as well as arrays. This
     is supported from Tcl as Tcl arrays. The struct element name is
@@ -133,7 +137,7 @@ proc zsplat::RPC::/time {} {
 </td></tr>
 <tr class="footer">
 <td class="footer" colspan="2">
-$Id: XMLRPCDomain.html,v 1.2 2001/10/09 21:01:11 patthoyts Exp $
+$Id: XMLRPCDomain.html,v 1.3 2001/10/11 22:40:37 patthoyts Exp $
 </td></tr>
 
     </table>
