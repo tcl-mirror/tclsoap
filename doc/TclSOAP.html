@@ -1,0 +1,295 @@
+<!doctype HTML public "-//W3O//DTD W3 HTML 2.0//EN">
+  <head>
+    <title>SOAP 1.1 Package for Tcl 8.3</title>
+    <meta http-equiv="Description" name="Description"
+      content="SOAP package for Tcl. Provides remote procedure calls
+      using the SOAP protocol over HTTP." />
+    <meta http-equiv="Keywords" name="Keywords"
+      content="Tcl,SOAP,Simple Object Access Protocol,XML" />
+  </head>
+
+  <body bgcolor="white" text="black">
+
+  <img src="tclsoap.gif" alt="TclSOAP Logo" align="bottom" border="0" />
+  <p><h1 align="center">Soap for Tcl</h1></p>
+  <hr noshade="noshade" size="2" />
+
+  <h1>Contents</h1>
+  <ol>
+  <li><a href="#introduction">Introduction</a></li>
+  <li><a href="#methods">Methods</a></li>
+  <li><a href="#download">Download</a></li>
+  </ol>
+
+  <hr noshade="noshade" size="2" />
+
+  <h1><a name="introduction">Introduction</a></h1>
+
+  <p>I have been testing out using SOAP from Tcl and have come up with
+  the following package to provide Tcl commands for SOAP remote
+  procedure calls. The following code demonstrates the ease of use for
+  simple RPC calls. This is a work in progress and some parts need
+  more work. In particular the transport layer needs to be able to be
+  configured to cope with proxy HTTP servers and authenticating proxys
+  and the like. Still it may be usefull as-is.</p>
+
+  <p>This example connects the Tcl procedure <tt>getTemp</tt> to the
+  remote method hosted by <a href="http://www.xmethods.net/">XMethods</a>.
+  In all these examples Tcl commands are prefixed with the <tt>%</tt> character
+  that is my prompt under tclsh. Results are printed without the
+  preceeding prompt character.
+
+    <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
+           bgcolor="#c0c0c0"><tr><td align="left"><pre>
+% package require SOAP 1.1
+1.1
+% SOAP::create getTemp \
+	-uri "urn:xmethods-Temperature" \
+	-proxy "http://services.xmethods.net/soap/servlet/rpcrouter" \
+	-params { "zipcode" "string" }
+::getTemp
+% getTemp 90810
+41.2
+  </pre></td></tr></table>
+
+  We bring in the package and then define the method. The
+  configuration requires a URI for the XML namespace of the SOAP
+  method and a URL for the service. The params configure option allows
+  the Tcl procedure to do simple parameter checking without passing
+  duff packets over the network.
+  </p>
+
+  <p>Another example, this time using the extremely clever 
+    <a href="http://www.soaplite.com/"><tt>SOAP::Lite</tt></a>
+    Perl package as a server, a Celcius to Fahrenheit convertor. We
+    shall test it using that peculiar temperature -40. This time I
+    want the Tcl procedure to be called <tt>C2F</tt>.
+    <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
+           bgcolor="#c0c0c0"><tr><td align="left"><pre>
+% package require SOAP
+1.1
+% SOAP::create C2F \
+	-uri "http://www.soaplite.com/Temperatures" \
+	-proxy "http://services.soaplite.com/temper.cgi" \
+	-params { "temp" "float"}\
+	-name c2f
+::C2F
+% C2F -40.0
+-40
+%
+    </pre></td></tr></table>
+    </p>
+
+    <p>It will be possible to use different transport protocols to
+    transfer the SOAP packets. At this time only HTTP is
+    supported. You may need to configure the transport subsystem so
+    the SOAP::configure command has a -transport option. For example,
+    at work I live behind a Microsoft NT firewalling proxy web
+    server. So I need to tell the SOAP transport about the proxy. This
+    is an authenticating proxy, so I have to add a header to all HTTP
+    requests using the Proxy-Authorization HTTP field. Heres' how I
+    set up my system and then create a command for the <tt>SOAP::Lite</tt>
+    languages method.
+
+    <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
+           bgcolor="#c0c0c0"><tr><td align="left"><pre>
+% package require SOAP
+1.1
+% SOAP::configure -transport http -proxy proxyhost:8080 \
+	-headers { "Proxy-Authorization" "Basic dXNlcm5hbWUgOiBwYXNzd29yZA==" }
+% SOAP::create languages \
+	-uri "http://www.soaplite.com/Demo" \
+	-proxy "http://services.soaplite.com/hibye.cgi" \
+	-params {}
+::languages
+% languages
+sh Perl C
+%
+    </pre></td></tr></table>
+    </p>
+
+    <p>To setup a method to use a different transport there is a
+    <i>-transport</i> option for the method configure command. This should be
+    set to the name of a procedure that will be called with the URL of
+    the SOAP service and the XML data of the SOAP request. It should
+    return the reply packet or error. For example, I have a dummy
+    transport procedure that prints the SOAP request and doesn't send
+    it anywhere. To see what is being generated for a method:
+
+    <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
+           bgcolor="#c0c0c0"><tr><td align="left"><pre>	   	   
+# A dummy SOAP transport procedure to examine the SOAP requests generated.
+
+proc SOAP::transport_print { url soap } {
+    puts "$soap"
+    return {}
+}
+
+% SOAP::configure languages -transport SOAP::transport_print
+::languages
+% languages
+&lt;?xml version='1.0'?&gt;
+&lt;SOAP-ENV:Envelope
+    xmlns:xsi="http://www.w3.org/1999/XMLSchema-instance" 
+    xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" 
+    SOAP-ENV:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" 
+    xmlns:xsd="http://www.w3.org/1999/XMLSchema"&gt;
+&lt;SOAP-ENV:Body&gt;
+   &lt;ns:languages xmlns:ns="http://www.soaplite.com/Demo" /&gt;
+&lt;/SOAP-ENV:Body&gt;
+&lt;/SOAP-ENV:Envelope&gt;
+%
+    </pre></td></tr></table>
+    </p>
+
+    <hr size="2" />
+
+    <h1><a name="methods">Methods</a></h1>
+
+<!-- SOAP::Create -->
+    <dl>
+    <dt>SOAP::create <i>methodName ?option value ...?</i></dt>
+       <dd><p>Create a Tcl binding for a remote procedure call using
+        SOAP. See <b>configure</b> for the permitted options.</p></dd>
+
+<!-- SOAP::configure -transport -->
+    <dt>SOAP::configure -transport <i>protocol ?option value ...?</i></dt>
+    <dd><p>Used for global configuration of the available
+    transports. The options passed in to this command are dependent on
+    the transport mchanism. The only transports currently available<p>
+    <p>The HTTP
+    transport may require a proxy server and possible other headers to
+    be included. This is where to add this information. For example,
+    to pass an authenticating proxy server I need to provide the name
+    of the server and a Proxy-Authorize HTTP header using the Trf
+    package to provide the base64 encoding procedure.
+    <tt><pre>
+SOAP::configure -transport http -proxy wwwproxy:8080 \ 
+       -headers { "Proxy-Authorize" "Basic [base64 -enc user:pass]" }
+       </pre></tt></p>
+    </dd>
+
+<!-- SOAP::configure -->
+    <dt>SOAP::configure <i>methodName ?option value ...?</i></dt>
+    <dd><dl>
+
+    <dt>-uri <i>URI</i></dt>
+       <dd>The URI for the XML namespace in which this
+       method has been defined.</dd>
+
+    <dt>-proxy <i>URL</i></dt>
+       <dd>Specify the URL of the server providing the
+       implementation of this method.</dd>
+
+    <dt>-params <i>list</i></dt>
+       <dd>Configure the parameters required for this
+       method. <i>list</i> should be a list of pairs consisting of the
+       parameter name and the parameter type. The Tcl procedure will
+       check the number of parameters when constructing the SOAP
+       request. e.g.: <tt><pre>
+SOAP::configure getTemp -params { "zipcode" "string" }
+SOAP::configure c2f -params { "temperature" "float" }
+SOAP::configure hi -params {}
+       </pre></tt></dd>
+
+    <dt>-transport <i>protocolProc</i></dt>
+       <dd>Select the transport protocol used for this
+       method. <i>protocolProc</i> should be a Tcl command procedure that
+       takes the URL of the SOAP server and the SOAP XML data to be
+       sent. This procedure will send the request and receive the
+       answer.</dd>
+
+    <dt>-name <i>methodName</i></dt>
+       <dd>By default a Tcl command is created in the current
+       namespace with the same name as the SOAP method. If the Tcl procedure is
+       created with a different name then the <i>-name</i> configuration
+       option must be used to set the SOAP method name explicitly.
+       </dd>
+
+    <dt>-action <i>SOAPActionValue</i></dt>
+       <dd>The SOAP 1.1 specification requires SOAP POST requests to
+       have an HTTP SOAPAction header. This may have an empty value if
+       not required (which is the default) or it may be required to be
+       set to a specific value to pass though firewalls.</dd>
+
+    <dt>-reply</dt>
+       <dd>currently unused. will be a hook procedure to post-process
+       the reply.</dd>
+    </dl></dd>
+
+<!-- SOAP::cget -->
+    <dt>SOAP::cget <i>methodName option</i></dt>
+      <dd><p>Retrieve a configuration value from the method. The
+    <i>optionName</i> should be one of those listed for
+    <i>configure</i>. There is one additional read-only value to be
+    obtained:<br>
+    <dl><dt>http</dt>
+      <dd>retrieve the handle for the last HTTP
+      request. This is only set if the transport in use is HTTP. You can
+      examine the HTTP data using  procedures from the http package. i.e.:<br>
+      <tt>puts "[::http::data [SOAP::cget getTemp http]]"</tt><br>
+      or <br>
+      <tt>set r [::http::code [SOAP::cget getTemp http]]</tt>
+      </dd>
+    </dl>
+    </p></dd>
+
+<!-- SOAP::invoke -->
+    <dt>SOAP::invoke <i>methodName methodParameters</i></dt>
+       <dd><p>Make a SOAP call to the configured server. This is not
+       expected to be called by a user but is called by the Tcl command
+       procedure for this SOAP method.</p></dd>
+
+    </dl>
+
+  </p>
+
+  <hr noshade="noshade" size="2" />
+
+  <h1><a name="download">Download</a></h1>
+
+  <p>The package can be downloaded from 
+  <a href="../../TclSOAP-1.1.tar.gz">http://www.zsplat.freeserve.co.uk/TclSOAP-1.1.tar.gz</a>.
+  This file should be unpacked somewhere handy and you should set
+  your TCLLIBPATH environment variable to suit. For windows users,
+  you may as well unpack it to <tt>Program Files\Tcl\lib\tcl8.3</tt>
+  </p>
+
+  <p>The source is spread over the following files. These files have
+    all been htmlized under emacs so if you want to <em>use</em> them,
+    rather than just look at them, get the tar.gz distribution.
+
+    <dl>
+    <dt><a href="SOAP.tcl.html">SOAP.tcl</a></dt>
+    <dd>The SOAP package.</dd>
+    <dt><a href="SOAP-parse.tcl.html">SOAP-parse.tcl</a></dt>
+    <dd>An auxiliary package to used to parse reply packets.</dd>
+    <dt><a href="SOAP-service.tcl.html">SOAP-service.tcl</a></dt>
+    <dd>A sample Tcl SOAP server using HTTP.</dd>
+    <dt><a href="xpath.tcl.html">xpath.tcl</a></dt>
+    <dd>A simple pseudo-XPath XML querying package.</dd>
+    <dt><a href="SOAP-tests.tcl.html">SOAP-tests.tcl</a></dt>
+    <dd>A number of test methods from various public SOAP servers on
+    the internet.</dd>
+    </dl>
+  </p>
+
+  <hr noshade="noshade" size="2" />
+
+  <p>This page is maintained by Pat Thoyts. You can find out about
+     me on <a href="../../resume.html">my contact page</a>.</p>
+
+    <font size="2">
+<!-- Created: Wed Jul 19 21:03:57 GMT 1995 -->
+<!-- hhmts start -->
+Last modified: Wed Mar 14 00:26:30 GMT 2001
+<!-- hhmts end -->
+    </font>
+
+  </body>
+</html>
+
+<!-- Local variables:           -->
+<!--   truncate-lines: "t"      -->
+<!--   indent-tabs-mode: nil    -->
+<!-- End:                       -->
