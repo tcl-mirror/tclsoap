@@ -1,5 +1,16 @@
+# tclhttpd-sample.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+#
 # Example implementing a SOAP service under tclhttpd using
 # the SOAP::Domain 1.4 package
+#
+# -------------------------------------------------------------------------
+# This software is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the accompanying file `LICENSE'
+# for more details.
+# -------------------------------------------------------------------------
+#
+# @(#)$Id$
 
 # Load the SOAP service support framework
 package require SOAP::Domain
@@ -8,10 +19,13 @@ package require SOAP::Domain
 namespace eval urn:tclsoap:DomainTest {
 
 
-    proc random {} {
-        return [rpcvar::rpcvar float [expr {rand() * 10}]]
+    proc random {num} {
+        if {[catch {expr {rand() * $num}} msg]} {
+            return -code error -errorcode Client -errorinfo $msg \
+                "invalid arg: \"num\" must be a number"
+        }
+        return [rpcvar::rpcvar float $msg]
     }
-
 
     # We have to publish the public methods...
     SOAP::export random
@@ -27,4 +41,5 @@ SOAP::Domain::register \
 # e.g.:
 #  SOAP::create random \
 #         -proxy http://localhost:8015/domaintest \
-#         -uri urn:tclsoap:DomainTest 
+#         -uri urn:tclsoap:DomainTest \
+#         -params {num float}

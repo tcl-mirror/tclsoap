@@ -1,3 +1,6 @@
+* TclSOAP 1.6.4
+---------------
+
 ** Re-added the SOAP::Domain package for tclhttpd support.
    I've managed to leave this pretty much as it was before the CGI
    work. The SOAP parsing now uses the same code as the CGI package

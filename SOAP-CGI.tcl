@@ -39,7 +39,7 @@ namespace eval SOAP {
 	# -----------------------------------------------------------------
 
 	variable rcsid {
-	    $Id: SOAP-CGI.tcl,v 1.10 2001/08/28 22:53:21 patthoyts Exp $
+	    $Id: SOAP-CGI.tcl,v 1.11 2001/12/09 23:28:59 patthoyts Exp $
 	}
 	variable methodName  {}
 	variable debugging   0
@@ -433,7 +433,7 @@ proc SOAP::CGI::soap_call {doc {interp {}}} {
 	#
 	set detail [list "errorCode" $::errorCode "stackTrace" $::errorInfo]
 	set code [lindex $detail 1]
-	switch {$code} {
+	switch -exact -- $code {
 	    "VersionMismatch" {
 		set code "SOAP-ENV:VersionMismatch"
 	    }
@@ -448,7 +448,7 @@ proc SOAP::CGI::soap_call {doc {interp {}}} {
 	    }
 	}
 	set xml [SOAP::fault $code "$msg" $detail]
-	error $xml {} SOAP
+	return -code error -errorcode SOAP $xml
     }
 
     # publish the answer

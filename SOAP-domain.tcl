@@ -15,13 +15,14 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package require SOAP::CGI
-package require rpcvar
+package require SOAP::CGI;              # TclSOAP 1.6
+package require rpcvar;                 # TclSOAP 1.6
+package require log;                    # tcllib 1.0
 
 namespace eval SOAP::Domain {
     variable version 1.4  ;# package version number
     variable debug 0      ;# flag to toggle debug output
-    variable rcs_id {$Id: SOAP-domain.tcl,v 1.11 2001/08/08 15:33:05 patthoyts dead $}
+    variable rcs_id {$Id: SOAP-domain.tcl,v 1.12 2002/02/26 22:58:46 patthoyts Exp $}
 
     namespace export register
 
@@ -45,7 +46,8 @@ namespace eval SOAP::Domain {
 proc SOAP::Domain::register {args} {
 
     if { [llength $args] < 1 } {
-        error "invalid # args: should be \"register ?option value  ...?\""
+        return -code error "invalid # args:\
+              should be \"register ?option value  ...?\""
     }
 
     # set the default options. These work out to be the current interpreter,
@@ -64,8 +66,9 @@ proc SOAP::Domain::register {args} {
             -int* {set opts(-interp) $value}
             -uri  {set opts(-uri) $value}
             default {
-                error "unrecognised option \"$opt\": must be \"-prefix\",\
-                        \"-namespace\", \"-interp\" or \"-uri\""
+                set names [join [array names opts -*] ", "]
+                return -code error "unrecognised option \"$opt\":\
+                       must be one of $names"
             }
         }
     }
@@ -83,7 +86,7 @@ proc SOAP::Domain::register {args} {
 
     # check we didn't already have this registered.
     if { [info exists $optname] } {
-        error "URL prefix \"$opts(-prefix)\" already registered"
+        return -code error "URL prefix \"$opts(-prefix)\" already registered"
     }
 
     # set up the URL domain handler procedure.
@@ -103,7 +106,7 @@ proc SOAP::Domain::register {args} {
 
     # Register the URL handler with tclhttpd now.
     Url_PrefixInstall $opts(-prefix) \
-            "interp eval [list $opts(-interp)] $opts(-namespace)::URLhandler"
+        [list interp eval $opts(-interp) $opts(-namespace)::URLhandler]
 
     # log the uri/domain registration
     array set [namespace current]::opts$opts(-prefix) [array get opts]
@@ -133,26 +136,26 @@ proc SOAP::Domain::domain_handler {optsname sock args} {
     # check this is an XML post
     set failed [catch {set type $data(mime,content-type)} msg]
     if { $failed } {
-        Httpd_ReturnData $sock text/xml \
-                [SOAP::fault SOAP-ENV:Client "Invalid SOAP request: not XML data"] \
-                500
+        set msg "Invalid SOAP request: not XML data"
+        log::log debug $msg
+        Httpd_ReturnData $sock text/xml [SOAP::fault SOAP-ENV:Client $msg] 500
         return $failed
     }
     
     # make sure we were sent some XML
     set failed [catch {set query $data(query)} msg]
     if { $failed } {
-        Httpd_ReturnData $sock text/xml \
-                [SOAP::fault SOAP-ENV:Client "Invalid SOAP request: no data sent"] \
-                500
+        set msg "Invalid SOAP request: no data sent"
+        log::log debug $msg
+        Httpd_ReturnData $sock text/xml [SOAP::fault SOAP-ENV:Client $msg] 500
         return $failed
     }
 
     # Check that we have a properly registered domain
     if { ! [info exists options] } {
-        Httpd_ReturnData $sock text/xml \
-                [SOAP::fault SOAP-ENV:Server "Internal server error: domain improperly registered"] \
-                500
+        set msg "Internal server error: domain improperly registered"
+        log::log debug $msg
+        Httpd_ReturnData $sock text/xml [SOAP::fault SOAP-ENV:Server $msg] 500
         return 1
     }        
 

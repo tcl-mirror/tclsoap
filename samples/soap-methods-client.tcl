@@ -11,7 +11,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: soap-methods-client.tcl,v 1.3 2001/08/01 23:47:06 patthoyts Exp $
+# @(#)$Id: soap-methods-client.tcl,v 1.4 2001/12/09 23:28:59 patthoyts Exp $
 
 package require SOAP
 package require SOAP::http
@@ -20,46 +20,52 @@ package require SOAP::http
 #   Setup the client methods for our sample services. Optionally specify the
 #   serving host.
 #
-proc define_domain_methods {{proxy http://localhost:8015/soap}} {
-    set uri urn:tclsoap-Test
-    set methods {}
-
-    set name rcsid
-    lappend methods [ SOAP::create $name -name rcsid -uri $uri \
-	    -proxy "${proxy}/${name}" -params {} ]
+namespace eval test {
     
-    set name zbase64
-    lappend methods [ SOAP::create $name -name base64 -uri $uri \
-	    -proxy "${proxy}/base64" -params {msg string} ]
-
-    set name ztime
-    lappend methods [ SOAP::create $name -name time -uri $uri \
-	    -proxy "${proxy}/time" -params {} ]
+    variable uri urn:tclsoap:Test
+    variable methods {}
     
-    set name square
-    lappend methods [ SOAP::create $name -name square -uri $uri \
-	    -proxy "${proxy}/${name}" -params {num double} ]
-    
-    set name sum
-    lappend methods [ SOAP::create $name -name sum -uri $uri \
-	    -proxy "${proxy}/${name}" -params {lhs double rhs double} ]
+    proc init {proxy} {
+        variable methods
+        variable uri
 
-    set name sort
-    lappend methods [ SOAP::create $name -name sort -uri $uri \
-	    -proxy "${proxy}/${name}" -params {myArray array} ]
-
-    set name platform
-    lappend methods [ SOAP::create $name -name platform -uri $uri \
-	    -proxy "${proxy}/${name}" -params {} ]
-
-    set name xml
-    lappend methods [ SOAP::create $name -name xml -uri $uri \
-	    -proxy "${proxy}/${name}" -params {} ]
-	
-    return $methods
+        set name rcsid
+        lappend methods [ SOAP::create $name -name rcsid -uri $uri \
+                              -proxy $proxy -params {} ]
+        
+        set name base64
+        lappend methods [ SOAP::create $name -name base64 -uri $uri \
+                              -proxy $proxy -params {msg string} ]
+        
+        set name time
+        lappend methods [ SOAP::create $name -name time -uri $uri \
+                              -proxy $proxy -params {} ]
+        
+        set name square
+        lappend methods [ SOAP::create $name -name square -uri $uri \
+                              -proxy $proxy -params {num double} ]
+        
+        set name sum
+        lappend methods [ SOAP::create $name -name sum -uri $uri \
+                              -proxy $proxy -params {lhs double rhs double} ]
+        
+        set name sort
+        lappend methods [ SOAP::create $name -name sort -uri $uri \
+                          -proxy $proxy -params {myArray array} ]
+        
+        set name platform
+        lappend methods [ SOAP::create $name -name platform -uri $uri \
+                              -proxy $proxy -params {} ]
+        
+        set name xml
+        lappend methods [ SOAP::create $name -name xml -uri $uri \
+                              -proxy $proxy -params {} ]
+        
+        return $methods
+    }
 }
 
-define_domain_methods
+puts "Call 'test::init endpoint-url'"
 
 # -------------------------------------------------------------------------
 #

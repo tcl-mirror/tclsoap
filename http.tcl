@@ -13,7 +13,7 @@ package require http;                   # tcl
 
 namespace eval SOAP::Transport::http {
     variable version 1.0
-    variable rcsid {$Id: http.tcl,v 1.3 2001/12/21 01:47:25 patthoyts Exp $}
+    variable rcsid {$Id: http.tcl,v 1.4 2001/12/21 16:57:52 patthoyts Exp $}
     variable options
 
     package provide SOAP::http $version
@@ -238,7 +238,7 @@ proc ::http::geturl_followRedirects {url args} {
             default  { return $token }
         }
         upvar \#0 $token state
-        array set meta [set ${token}(meta)]
+        array set meta $state(meta)
         if {![info exist meta(Location)]} {
             return $token
         }

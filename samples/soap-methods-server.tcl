@@ -11,7 +11,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: soap-methods-server.tcl,v 1.2 2001/07/16 23:39:51 patthoyts Exp $
+# @(#)$Id: soap-methods-server.tcl,v 1.3 2001/08/01 23:47:06 patthoyts Exp $
 
 # Load the SOAP URL domain handler into the web server and register it under
 # the /soap URL. All methods need to be defined in the SOAP::Domain
@@ -20,69 +20,77 @@
 #
 package require SOAP::Domain
 package require rpcvar
-namespace import -force rpcvar::*
+package require base64
 
-SOAP::Domain::register -prefix /soap -namespace tclsoap::Test
+SOAP::Domain::register          \
+    -prefix    /soap            \
+    -namespace urn:tclsoap:Test \
+    -uri       urn:tclsoap:Test
 
-namespace eval tclsoap::Test {}
+namespace eval urn:tclsoap:Test {
+
+    namespace import -force ::rpcvar::*
+
+    SOAP::export base64 time rcsid square sum sort platform xml
+
+}
 
 # -------------------------------------------------------------------------
 # base64 - convert the input string parameter to a base64 encoded string
 #
-proc tclsoap::Test::/base64 {text} {
-    package require base64
+proc urn:tclsoap:Test::base64 {text} {
     return [rpcvar base64 [base64::encode $text]]
 }
 
 # -------------------------------------------------------------------------
 # time - return the servers idea of the time
 #
-proc tclsoap::Test::/time {} {
+proc urn:tclsoap:Test::time {} {
     return [clock format [clock seconds]]
 }
 
 # -------------------------------------------------------------------------
 # rcsid - return the RCS version string for this package
 #
-proc tclsoap::Test::/rcsid {} {
+proc urn:tclsoap:Test::rcsid {} {
     return ${::SOAP::Domain::rcs_id}
 }
 
 # -------------------------------------------------------------------------
 # square - test validation of numerical methods.
 #
-proc tclsoap::Test::/square {num} {
+proc urn:tclsoap:Test::square {num} {
     if { [catch {expr $num + 0}] } {
-        error "parameter num must be a number"
+        return -code error -errorcode Client "parameter num must be a number"
     }
-    return [expr $num * $num]
+    return [expr {$num * $num}]
 }
 
 # -------------------------------------------------------------------------
 # sum - test two parameter method
 #
-proc tclsoap::Test::/sum {lhs rhs} {
-    return [expr $lhs + $rhs]
+proc urn:tclsoap:Test::sum {lhs rhs} {
+    return [expr {$lhs + $rhs}]
 }
 
 # -------------------------------------------------------------------------
 # sort - sort a list
 #
-proc tclsoap::Test::/sort {myArray} {
+proc urn:tclsoap:Test::sort {myArray} {
     return [rpcvar "array" [lsort $myArray]]
 }
 
 # -------------------------------------------------------------------------
 # platform - return a structure.
 #
-proc tclsoap::Test::/platform {} {
+proc urn:tclsoap:Test::platform {} {
     return [rpcvar struct ::tcl_platform]
 }
 
 # -------------------------------------------------------------------------
 # xml - return some XML data. Just to show it's not a problem.
 #
-proc tclsoap::Test::/xml {} {
+proc urn:tclsoap:Test::xml {} {
     set xml {<?xml version="1.0" ?>
 <memos>
    <memo>
@@ -97,20 +105,3 @@ proc tclsoap::Test::/xml {} {
 }
     return $xml
 }
-
-# -------------------------------------------------------------------------
-# Test out a COM calling extension.
-#
-proc tclsoap::Test::/WiRECameras/get_Count {} {
-    package require Renicam
-    return [renicam count]
-}
-
-# -------------------------------------------------------------------------
-
-proc tclsoap::Test::/WiRECameras/Add {} {
-    package require Renicam
-    return [renicam add]
-}
-
-# -------------------------------------------------------------------------
