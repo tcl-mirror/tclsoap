@@ -1,8 +1,8 @@
-# xpath.test - Copyright (C) 2001 Pat Thoyts <pat@zsplat.freeserve.co.uk>
+# xpath.test - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
 #
 # Provide a set of tests to excercise the SOAP::xpath package.
 #
-# @(#)$Id$
+# @(#)$Id: xpath.test,v 1.1 2001/04/13 12:29:49 pat Exp pat $
 
 # Initialize the required packages
 
