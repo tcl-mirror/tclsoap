@@ -11,7 +11,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.4 2001/08/28 22:57:04 patthoyts Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.5 2001/12/09 21:48:05 patthoyts Exp $
 
 FILES= \
 	SOAP.tcl		\
@@ -23,6 +23,15 @@ FILES= \
 	xpath.tcl		\
 	http.tcl		\
 	smtp.tcl		\
+	ftp.tcl			\
+	beep.tcl		\
+	pkgIndex.tcl
+
+INTEROPFILES= \
+	silab.tcl		\
+	soapinterop.tcl		\
+	soapinteropB.tcl	\
+	soapinteropC.tcl	\
 	pkgIndex.tcl
 
 #========================================================================
@@ -80,6 +89,8 @@ CONFIG_CLEAN_FILES =
 # Start of user-definable TARGETS section
 #========================================================================
 
+interopdir     = $(pkglibdir)/interop
+
 #========================================================================
 # TEA TARGETS.  Please note that the "libraries:" target refers to platform
 # independent files, and the "binaries:" target inclues executable programs and
@@ -120,6 +131,15 @@ install-libraries: libraries
 		    $(INSTALL_DATA) $(srcdir)/$$i $(pkglibdir)/$$i ; \
 	    fi; \
 	done;
+	$(mkinstalldirs) $(interopdir)
+	@echo "Installing SOAP Interoperability Tests in $(interopdir)"
+	@for i in $(INTEROPFILES) ; do \
+	    if test -f $(srcdir)/interop/$$i; then  \
+		echo "Installing $$i in $(interopdir)/$$i" ; \
+		    $(INSTALL_DATA) $(srcdir)/interop/$$i $(interopdir)/$$i ; \
+	    fi; \
+	done;
+
 
 #========================================================================
 # Install documentation.  Unix manpages should go in the $(mandir)
