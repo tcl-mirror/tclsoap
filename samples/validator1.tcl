@@ -185,7 +185,8 @@ proc validate.echoStructTest {} {
 	    substruct0 [stoogeStruct] \
 	    substruct1 [stoogeStruct] \
 	    substruct2 [stoogeStruct] \
-	    substruct3 [stoogeStruct] ]
+	    substruct3 [stoogeStruct] \
+	    substruct4 [stoogeStruct] ]
     set r [echoStructTest $q]
     if {[llength $q] != [llength $r]} {
 	error "echoStructTest failed: lists differ"
@@ -263,11 +264,14 @@ proc validate.nestedStructTest {} {
     set check [expr $s(larry) + $s(moe) + $s(curly)]
     set q    [list \
 	         year2000 [list \
+		    month03 [list \
+		       day01 [stoogeStruct] \
+		       day02 [stoogeStruct] \
+		       day03 [stoogeStruct]] \
 	            month04 [list \
 		       day01 [array get s] \
-                    ] \
-	         ] \
-	      ]
+		       day02 [stoogeStruct] \
+		       day03 [stoogeStruct]]]]
     
     set r [nestedStructTest $q]
     if {$r != $check} { error "nestedStructTest failed" }
