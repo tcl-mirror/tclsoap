@@ -15,14 +15,15 @@ package provide SOAP 1.6
 
 # -------------------------------------------------------------------------
 
-package require http 2.0
-package require SOAP::Utils
-package require rpcvar
+package require http 2.0;               # tcl
+package require log;                    # tcllib
+package require SOAP::Utils;            # TclSOAP
+package require rpcvar;                 # TclSOAP
 
 if {[catch {
     package require tdom
     package require SOAP::dom
-    puts "using tDOM and SOAP::dom"
+    log::log debug "using tDOM and SOAP::dom"
 }]} {
     if { [catch {package require dom 2.0} domVer]} {
         if { [catch {package require dom 1.6} domVer]} {
@@ -36,7 +37,8 @@ if {[catch {
 namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
-    variable rcs_version { $Id: SOAP.tcl,v 1.35 2001/10/10 02:55:32 patthoyts Exp $ }
+    variable logLevel warning
+    variable rcs_version { $Id: SOAP.tcl,v 1.36 2001/10/11 22:38:38 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -71,6 +73,20 @@ proc SOAP::methodVarName {methodName} {
     set name [uplevel 2 namespace origin $methodName]
     regsub -all {::+} $name {_} name
     return [namespace current]::$name
+}
+
+# -------------------------------------------------------------------------
+
+proc SOAP::setLogLevel {level} {
+    variable logLevel
+    set logLevel $level
+    log::lvSuppressLE emergency 0
+    log::lvSuppressLE $logLevel 1
+    log::lvSuppress $logLevel 0
+    return $logLevel
+}
+if {[info exists SOAP::logLevel]} {
+    SOAP::setLogLevel $SOAP::logLevel
 }
 
 # -------------------------------------------------------------------------
@@ -153,6 +169,13 @@ proc SOAP::configure { procName args } {
 
     if { $procName == "-transport" } {
         return [eval "transport_configure $args"]
+    }
+    if { [string match "-logLevel" $procName] } {
+        if {[llength $args] > 0} {
+            setLogLevel [lindex $args 0]
+        }
+        variable logLevel
+        return $logLevel
     }
 
     # construct the name of the options array from the procName.
@@ -488,6 +511,14 @@ proc SOAP::Transport::http::xfer { procVarName url request } {
     # store the http structure reference for possible access later.
     set [subst $procVarName](http) $token
 
+    log::log debug "[::http::status $token] - [::http::code $token]"
+
+    # Check for Proxy Authentication requests and handle it.
+    if {[::http::ncode $token] == 407} {
+        SOAP::proxyconfig
+        return [xfer $procVarName $url $request]
+    }
+
     # Some other sort of error ...
     if {[::http::status $token] != "ok"} {
          error "SOAP transport error: \"[::http::code $token]\""
@@ -632,7 +663,7 @@ proc SOAP::proxyconfig {} {
     }
 
     toplevel .tx
-    wm title .tx "Proxy Configuration"
+    wm title .tx "Proxy Authentication Configuration"
     set m [message .tx.m1 -relief groove -justify left -width 6c -aspect 200 \
             -text "Enter details of your proxy server (if any) and your username and password if it is needed by the proxy."]
     set f1 [frame .tx.f1]
@@ -655,6 +686,9 @@ proc SOAP::proxyconfig {} {
     pack $f2 -side bottom -fill x
     pack $m  -side top -fill x -expand 1
     pack $f1 -side top -anchor n -fill both -expand 1
+    
+    #bind .tx <Enter> "$f2.b invoke"
+
     tkwait window .tx
     SOAP::configure -transport http -proxy $SOAP::conf_proxy
     if { [info exists SOAP::conf_userid] } {
@@ -1036,6 +1070,49 @@ proc SOAP::parse_xmlrpc_response { procVarName xml } {
     # element list whose first element has 3 elements!
     if {$n_params == 1} {set result [lindex $result 0]}
     return $result
+}
+
+# -------------------------------------------------------------------------
+# Description:
+#   Parse an XML-RPC call payload. Extracts method name and parameters.
+# Parameters:
+#   procVarName  - the name of the XML-RPC method configuration variable
+#   xml          - the XML payload of the response
+# Result:
+#   A list containing the name of the called method as first element
+#   and the extracted parameter(s) as second element. Array types are
+#   converted into lists and struct types are turned into lists of
+#   name/value pairs suitable for array set
+# Notes:
+#
+proc SOAP::parse_xmlrpc_request { xml } {
+    set result {}
+    if {[catch {set doc [dom::DOMImplementation parse $xml]}]} {
+        error "Client request is not well-formed XML.\ncall was $xml" \
+                $::errorInfo Server
+    }
+
+    set methodNode [selectNode $doc "/methodCall/methodName"]
+    set methodName [getElementValue $methodNode]
+
+    # Get the parameters.
+
+    # If there is only one parameter, simplify things for the user,
+    # ie: sort {one two three} should return a 3 element list, not a
+    # single element list whose first element has 3 elements!
+
+    set paramsNode [selectNode $doc "/methodCall/params"]
+    set paramValues {}
+    if {$paramsNode != {}} {
+	set paramValues [decomposeXMLRPC $paramsNode]
+    }
+    if {[llength $paramValues] == 1} {
+        set paramValues [lindex $paramValues 0]
+    }
+
+    catch {dom::DOMImplementation destroy $doc}
+
+    return [list $methodName $paramValues]
 }
 
 # -------------------------------------------------------------------------

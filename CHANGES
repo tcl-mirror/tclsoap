@@ -1,7 +1,7 @@
 * TclSOAP 1.6.2
 ---------------
 
-** Implemented SOAP Version support - TODOL Test
+** Implemented SOAP Version support - TODO: Test
    SOAP::configure now has a -version option taking the uri of the
    SOAP envelope namespace.
 
@@ -13,6 +13,14 @@
    Added a -attribute option to the SOAP method call code to allow the
    user to add additional attributes to the method element. Required for
    UDDI support.
+
+** Debug Messages
+   Use the tcllib log module for any debug messages so they can be
+   turned off by judicious use of SOAP::configure -logLevel
+
+** Applied modified patch #458851
+   Enhanced XMLRPC::reply to cope with multiple reply parameters. 
+   Added implementation of parse_xmlrpc_request to the SOAP.tcl file.
 
 * TclSOAP 1.6.1
 ---------------

@@ -18,7 +18,7 @@ package require rpcvar
 
 namespace eval XMLRPC {
     variable version 1.0
-    variable rcs_version { $Id: XMLRPC.tcl,v 1.4 2001/08/01 23:34:54 patthoyts Exp $ }
+    variable rcs_version { $Id: XMLRPC.tcl,v 1.5 2001/08/08 15:35:34 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force [uplevel {namespace current}]::rpcvar::*}
@@ -107,11 +107,33 @@ proc XMLRPC::fault {faultcode faultstring {detail {}}} {
 # Result:
 #   Returns the DOM document root of the generated reply packet
 #
-proc XMLRPC::reply {doc uri methodName result} {
+proc XMLRPC::_reply {doc uri methodName result} {
     set d_root [dom::document createElement $doc "methodResponse"]
     set d_params [dom::document createElement $d_root "params"]
     set d_param [dom::document createElement $d_params "param"]
     insert_value $d_param $result
+    return $doc
+}
+
+# -------------------------------------------------------------------------
+# Description:
+#   Generate a reply packet for a reply containing multiple result elements
+# Parameters:
+#   doc         empty DOM document element
+#   uri         URI of the SOAP method
+#   methodName  the SOAP method name
+#   args        the reply data, one element per result.
+# Result:
+#   Returns the DOM document root of the generated reply packet
+#
+proc XMLRPC::reply {doc uri methodName args} {
+    set d_root   [dom::document createElement $doc  "methodResponse"]
+    set d_params [dom::document createElement $d_root "params"]
+
+    foreach result $args {
+        set d_param  [dom::document createElement $d_params "param"]
+        insert_value $d_param $result
+    }
     return $doc
 }
 
