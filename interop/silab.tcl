@@ -3,9 +3,10 @@
 # Run the SOAP Interoperability Test Suite Round 2: Base tests.
 # Generates a html page of the results.
 #
-# $Id: silab.tcl,v 1.2 2001/10/09 21:02:28 patthoyts Exp $
+# $Id: silab.tcl,v 1.3 2001/10/11 22:40:37 patthoyts Exp $
 
 package require soapinterop::base
+package require soapinterop::B
 package require soapinterop::C
 
 set logdir   {../doc/silab}
