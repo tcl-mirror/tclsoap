@@ -39,7 +39,7 @@ namespace eval SOAP {
 	# -----------------------------------------------------------------
 
 	variable rcsid {
-	    $Id: SOAP-CGI.tcl,v 1.7 2001/08/20 23:58:30 patthoyts Exp $
+	    $Id: SOAP-CGI.tcl,v 1.8 2001/08/23 20:31:30 patthoyts Exp $
 	}
 	variable methodName  {}
 	variable debugging   0
@@ -350,68 +350,6 @@ proc SOAP::CGI::soap_header {doc} {
 	    }
 	}
     }
-}
-
-# -------------------------------------------------------------------------
-
-# Description:
-#  Get the namespace of the given node. This code will examine the nodes 
-#  attributes and if necessary the parent nodes attributes until it finds
-#  a relevant namespace declaration.
-# Parameters:
-#  node - the node for which to return a namespace
-# Result:
-#  returns either the namespace uri or an empty string.
-#
-proc SOAP::CGI::namespaceURI {node} {
-    set nodeName [dom::node cget $node -nodeName]
-    set ndx [string last : $nodeName]
-    set nodeNS [string range $nodeName 0 $ndx]
-    set nodeNS [string trimright $nodeNS :]
-
-    return [find_namespaceURI $node $nodeNS]
-}
-
-# Description:
-#   Obtain the unqualified part of a node name.
-# Parameters:
-#   node - a DOM node
-# Result:
-#   the node name without any namespace prefix.
-#
-proc SOAP::CGI::nodeName {node} {
-    set nodeName [dom::node cget $node -nodeName]
-    set nodeName [string range $nodeName [string last : $nodeName] end]
-    return [string trimleft $nodeName :]
-}
-
-# Description:
-#   Obtain the uri for the nsname namespace name working up the DOM tree
-#   from the given node.
-# Parameters:
-#   node - the starting point in the tree.
-#   nsname - the namespace name. May be an null string.
-# Result:
-#   Returns the namespace uri or an empty string.
-#
-proc SOAP::CGI::find_namespaceURI {node nsname} {
-    if {$node == {}} { return {} }
-    set atts [dom::node cget $node -attributes]
-
-    # check for the default namespace
-    if {$nsname == {} && [info exists [subst $atts](xmlns)]} {
-	return [set [subst $atts](xmlns)]
-    }
-    
-    # check the defined namespace names.
-    foreach {attname attvalue} [array get $atts] {
-	if {[string match "xmlns:$nsname" $attname]} {
-	    return $attvalue
-	}
-    }
-    
-    # recurse through the parents.
-    return [find_namespaceURI [dom::node cget $node -parent] $nsname]
 }
 
 # -------------------------------------------------------------------------
