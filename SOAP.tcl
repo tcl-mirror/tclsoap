@@ -24,7 +24,7 @@ package require xpath 0.1
 
 namespace eval SOAP {
     variable version 1.0
-    variable rcs_version { $Id: SOAP.tcl,v 1.4 2001/02/25 17:15:57 pt111992 Exp pt111992 $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.5 2001/02/26 12:40:41 pt111992 Exp pt111992 $ }
 }
 
 # -------------------------------------------------------------------------
@@ -52,21 +52,21 @@ proc SOAP::get2 { nameSpace varName } {
 # Currently the id used in the commands namespace isn't unique. Should use
 # qualified alias name as the id.
 
-proc SOAP::configure { methodName args } {
+proc SOAP::configure { procName args } {
 
-    if { $methodName == "-transport" } {
+    if { $procName == "-transport" } {
         return [eval "transport_configure $args"]
     }
 
-    set valid [catch { eval set url \$Commands::${methodName}::proxy } msg]
+    set valid [catch { eval set url \$Commands::${procName}::proxy } msg]
     if { $valid != 0 } {
-        error "invalid command: \"$methodName\" not defined"
+        error "invalid command: \"$procName\" not defined"
     }
 
     if { [llength $args] == 0 } {
         set r {}
-        foreach item { uri proxy params reply alias transport action } {
-            set val [get Commands::$methodName $item]
+        foreach item { uri proxy params reply name transport action } {
+            set val [get Commands::$procName $item]
             lappend r "-$item" $val
         }
         return $r
@@ -74,34 +74,34 @@ proc SOAP::configure { methodName args } {
 
     foreach {opt value} $args {
         switch -- $opt {
-            -uri       { set Commands::${methodName}::uri $value }
-            -proxy     { set Commands::${methodName}::proxy $value }
-            -params    { set Commands::${methodName}::params $value }
-            -reply     { set Commands::${methodName}::reply $value }
-            -transport { set Commands::${methodName}::transport $value }
-            -alias     { set Commands::${methodName}::alias $value }
-            -action    { set Commands::${methodName}::action $value }
+            -uri       { set Commands::${procName}::uri $value }
+            -proxy     { set Commands::${procName}::proxy $value }
+            -params    { set Commands::${procName}::params $value }
+            -reply     { set Commands::${procName}::reply $value }
+            -transport { set Commands::${procName}::transport $value }
+            -name      { set Commands::${procName}::name $value }
+            -action    { set Commands::${procName}::action $value }
             default {
                 error "unknown option \"$opt\""
             }
         }
     }
 
-    if { [get Commands::$methodName alias] == {} } { 
-        set Commands::${methodName}::alias $methodName
+    if { [get Commands::$procName name] == {} } { 
+        set Commands::${procName}::name $procName
     }
 
-    if { [get Commands::$methodName transport] == {} } {
-        set Commands::${methodName}::transport transport_http
+    if { [get Commands::$procName transport] == {} } {
+        set Commands::${procName}::transport transport_http
     } 
 
-    proc Commands::${methodName}::xml {methodName args} {
-        variable uri ; variable params ; variable reply
+    proc Commands::${procName}::xml {procName args} {
+        variable uri ; variable params ; variable reply; variable name
 
         if { [llength $args] != [expr [llength $params] / 2]} {
-            set msg "wrong # args: should be \"$methodName"
-            foreach { name type } $params {
-                append msg " " $name
+            set msg "wrong # args: should be \"$procName\""
+            foreach { id type } $params {
+                append msg " " $id
             }
             append msg "\""
             error $msg
@@ -117,7 +117,7 @@ proc SOAP::configure { methodName args } {
         dom::element setAttribute $envx "SOAP-ENV:encodingStyle" \
                 "http://schemas.xmlsoap.org/soap/encoding/"
         set bod [dom::document createElement $envx "SOAP-ENV:Body"]
-        set cmd [dom::document createElement $bod "ns:$methodName" ]
+        set cmd [dom::document createElement $bod "ns:$name" ]
         dom::element setAttribute $cmd "xmlns:ns" $uri
 
         set param 0
@@ -130,60 +130,60 @@ proc SOAP::configure { methodName args } {
         return $doc ;# return the DOM object
     }
 
-    uplevel 1 "proc [get Commands::$methodName alias] { args } {eval [namespace current]::invoke $methodName \$args}"
+    uplevel 1 "proc $procName { args } {eval [namespace current]::invoke $procName \$args}"
 
     # return the fully qualified command created.
-    return [uplevel 1 "namespace which [get Commands::$methodName alias]"]
+    return [uplevel 1 "namespace which $procName"]
 }
 
 # -------------------------------------------------------------------------
 
 proc SOAP::create { args } {
     if { [llength $args] < 1 } {
-        error "wrong # args: should be \"create methodName ?options?\""
+        error "wrong # args: should be \"create procName ?options?\""
     } else {
-        set methodName [lindex $args 0]
+        set procName [lindex $args 0]
         set args [lreplace $args 0 0]
     }
 
     # Create a namespace to hold the variables for this command.
-    namespace eval Commands::$methodName {
+    namespace eval Commands::$procName {
         variable uri       {} ;# the XML namespace URI for this method 
         variable proxy     {} ;# URL for the location of a provider
         variable params    {} ;# list of name type pairs for the parameters
         variable reply     {} ;# the type of the reply (string, integer ...)
         variable transport {} ;# the transport procedure for this method
-        variable alias     {} ;# Tcl command name for this method
+        variable name      {} ;# SOAP method name
         variable action    {} ;# Contents of the SOAPAction header
         variable http      {} ;# the http data variable (if used)
     }
 
     # call configure from the callers level so it can get the namespace.
-    return [uplevel 1 "[namespace current]::configure $methodName $args"]
+    return [uplevel 1 "[namespace current]::configure $procName $args"]
 }
 
 # -------------------------------------------------------------------------
 
 # Perform a SOAP method using the configured transport.
 
-proc SOAP::invoke { methodName args } {
-    set valid [catch { set url [get2 Commands::$methodName proxy] } msg]
+proc SOAP::invoke { procName args } {
+    set valid [catch { set url [get2 Commands::$procName proxy] } msg]
     if { $valid != 0 } {
-        error "invalid command: \"$methodName\" not defined"
+        error "invalid command: \"$procName\" not defined"
     }
     
     # Get the DOM object containing our request
     # We have to strip out the DOCTYPE element though. It would be better to
     # remove the DOM element, but that didn't work.
-    set doc [eval "Commands::${methodName}::xml $methodName $args"]
+    set doc [eval "Commands::${procName}::xml $procName $args"]
     set prereq [dom::DOMImplementation serialize $doc]
     set req {}
     dom::DOMImplementation destroy $doc          ;# clean up
     regsub {<!DOCTYPE[^>]*>\n} $prereq {} req    ;# hack
 
     # Send the SOAP packet using the configured transport.
-    set transport [ get Commands::$methodName transport ]
-    set reply [ $transport $methodName $url $req ]
+    set transport [ get Commands::$procName transport ]
+    set reply [ $transport $procName $url $req ]
 
     # Parse the SOAP reply. ---- DO FAULT PROCESSING HERE ----
     package require xpath
@@ -196,6 +196,7 @@ proc SOAP::invoke { methodName args } {
     } else {
         package require SOAP::Parse
         set not_dom [SOAP::Parse::parse $reply]
+        #set not_dom [xpath::xpath $dom "Envelope/Body//*"]
     }
 
     return $not_dom
@@ -208,7 +209,7 @@ proc SOAP::invoke { methodName args } {
 # setup the http package independently eg:
 #  ::http::config -proxyhost wwwproxy
 
-proc SOAP::transport_http { methodName url request } {
+proc SOAP::transport_http { procName url request } {
     variable version
 
     # setup the HTTP POST request
@@ -228,11 +229,11 @@ proc SOAP::transport_http { methodName url request } {
     set headers [get Transport::http headers]
 
     # Add mandatory SOAPAction header (SOAP 1.1). This may be empty
-    lappend headers "SOAPAction" [get Commands::$methodName action]
+    lappend headers "SOAPAction" [get Commands::$procName action]
 
     # cleanup the last http request
-    if { [get Commands::${methodName} http] != {} } {
-        catch { eval "::http::cleanup \$Commands::${methodName}::http" }
+    if { [get Commands::${procName} http] != {} } {
+        catch { eval "::http::cleanup \$Commands::${procName}::http" }
     }
 
     # POST and get the reply.
@@ -240,7 +241,7 @@ proc SOAP::transport_http { methodName url request } {
             -type text/xml -query $request ]
 
     # store the http structure for possible access later.
-    set Commands::${methodName}::http $reply
+    set Commands::${procName}::http $reply
 
     if { [::http::ncode $reply ] == 500 } {
         package require xpath
@@ -264,7 +265,7 @@ proc SOAP::transport_http { methodName url request } {
 
 # A dummy SOAP transport procedure to examine the SOAP requests generated.
 
-proc SOAP::transport_print { methodName url soap } {
+proc SOAP::transport_print { procName url soap } {
     puts "$soap"
     return {}
 }
