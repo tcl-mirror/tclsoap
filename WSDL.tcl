@@ -17,7 +17,7 @@ package require SOAP::Utils;            # TclSOAP
 
 namespace eval SOAP::WSDL {
     variable version 1.0
-    variable rcsid {$Id$}
+    variable rcsid {$Id: WSDL.tcl,v 1.1.2.1 2002/11/07 23:08:00 patthoyts Exp $}
     variable logLevel debug #warning
     
     #namespace export 
@@ -56,6 +56,11 @@ proc SOAP::WSDL::parse_definitions {Node} {
     set targetNamespace [getElementAttribute $Node targetNamespace]
     log::log debug "tns $targetNamespace"
 
+    array set messages {}
+    foreach messageNode [getElementsByName $Node message] {
+        parse_message $Node $messageNode messages
+    }
+
     foreach serviceNode [getElementsByName $Node service] {
         set ns [namespaceURI $serviceNode]
         if {[string match $URI(wsdl) $ns]} {
@@ -88,7 +93,7 @@ proc SOAP::WSDL::parse_port {defNode portNode} {
                  [baseElementName [getElementName $addressNode]]]} {
             set transport [namespaceURI $addressNode]
             set location  [getElementAttribute $addressNode location]
-            log::log debug "address: $transport $location"
+            log::log debug "address: transport=$transport endpoint=$location"
         }
     }
 
@@ -98,10 +103,20 @@ proc SOAP::WSDL::parse_port {defNode portNode} {
         log::log debug "binding $bindingName"
         if {[string match $bindingName $portBinding]} {
             log::log debug "matched binding $bindingName"
-            # interested in binding style, transport and the operation tags.
+            parse_binding $defNode $bindingNode
         }
     }
 
+    return 0
+}
+
+proc SOAP::WSDL::parse_binding {defNode bindingNode} {
+    # interested in binding style, transport and the operation tags.
+    foreach node [getElementsByName $bindingNode operation] {
+        set qual [namespaceURI $node]:[getElementName $node]
+        set opname [getElementAttribute $node name]
+        log::log debug ">> $qual $opname"
+    }
     return 0
 }
 
@@ -109,17 +124,35 @@ proc SOAP::WSDL::parse_types {Node} {
     return 0
 }
 
-proc SOAP::WSDL::parse_message {Node} {
-    set methodName [getElementAttribute $Node name]
-    log::log debug "method $methodName"
+proc SOAP::WSDL::qualifyName {node name} {
+    set ndx [string last : $name]
+    set nodeNS [string trimright [string range $name 0 $ndx] :]
+    set nodeBase [string trimleft [string range $name $ndx end] :]
+    
+    set nodeNS [SOAP::Utils::find_namespaceURI $node $nodeNS]
+    return $nodeNS:$nodeBase
+}
+    
+proc SOAP::WSDL::parse_message {definitionsNode messageNode arrayName} {
+    upvar $arrayName messages
+    set name [getElementAttribute $messageNode name]
+    set params {}
+    foreach part [getElementsByName $messageNode part] {
+        set paramName [getElementAttribute $part name]
+        set paramType [qualifyName $part [getElementAttribute $part type]]
+        lappend params $paramName $paramType
+    }
+    set messages($name) $params
+    log::log debug "method $name -params {$params}"
     return 0
 }
 
-proc SOAP::WSDL::parse_portType {Node} {
-    return 0
-}
-
-proc SOAP::WSDL::parse_binding {Node} {
+proc SOAP::WSDL::parse_portType {definitionsNode portTypeNode} {
+    foreach opNode [getElementsByName $portTypeNode operation] {
+        set opName [getElementAttribute $opNode name]
+        
+        log::log debug "operation: $opName"
+    }
     return 0
 }
 
