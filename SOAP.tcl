@@ -30,7 +30,7 @@ if { [catch {package require dom 2.0} domVer]} {
 namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
-    variable rcs_version { $Id: SOAP.tcl,v 1.23 2001/07/16 23:44:48 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.24 2001/08/01 23:34:54 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -508,11 +508,11 @@ proc SOAP::Transport::http::asynchronous2 {procVarName token} {
 #   url          - URL of the remote server method implementation
 #   soap         - the XML payload for this SOAP method call
 #
-proc SOAP::transport_print { procVarName url soap } {
-    puts "$soap"
-    return {}
+namespace eval Transport::print {
+    proc print { procVarName url soap } {
+        puts "$soap"
+    }
 }
-
 # -------------------------------------------------------------------------
 
 # Description:
@@ -541,7 +541,13 @@ proc SOAP::transport_configure { transport args } {
                         set Transport::http::options(proxy) $value
                     }
                     -headers {
-                        set Transport::http::options(headers) $value
+                        if {[catch {
+                            set h $Transport::http::options(headers)}]
+                        } {
+                            set h {}
+                        }
+                        set Transport::http::options(headers) \
+                                [concat $h $value]
                     }
                     -progress {
                         set Transport::http::options(progress) $value
@@ -875,11 +881,7 @@ proc SOAP::xmlrpc_value_from_node {valueNode} {
 }
 
 # -------------------------------------------------------------------------
-# -------------------------------------------------------------------------
 
-# FIX ME : change to call SOAP::insert_value as this code can be shared 
-#          between the client and the server methods. CGI already delegates
-#          to this code.
 proc SOAP::insert_value {node value} {
 
     set type     [rpctype $value]
@@ -891,7 +893,6 @@ proc SOAP::insert_value {node value} {
         set typexmlns xsd
     }
 
-    #puts "$typexmlns $type $subtype [string match {*()} $type]"
     if {[string match {*()} $type] || [string match array $type]} {
         # array type: arrays are indicated by a () suffix or the word 'array'
         set itemtype [string trimright $type ()]
@@ -937,16 +938,6 @@ proc SOAP::insert_value {node value} {
     }
 }
 
-# test the insert_value code.
-proc t {val} {
-    set doc [dom::DOMImplementation create]
-    set rsp [dom::document createElement $doc "testResponse"]
-    set elt [dom::document createElement $rsp "return"]
-    SOAP::insert_value $elt $val
-    set r [dom::DOMImplementation serialize $doc]
-    dom::DOMImplementation destroy $doc
-    return $r
-}
 # -------------------------------------------------------------------------
 
 # Local variables:

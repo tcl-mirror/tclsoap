@@ -2,7 +2,7 @@
 #
 # Provide a set of tests to excercise the XMLRPC package.
 #
-# @(#)$Id$
+# @(#)$Id: xmlrpc.test,v 1.1 2001/06/21 00:15:13 patthoyts Exp $
 
 # Initialize the required packages
 
@@ -85,7 +85,7 @@ test xmlrpc-2.3 {XML generation with two arguments} {
 
 test xmlrpc-2.4 {XML generation with array argument} {
     set failed [catch {::XMLRPC::configure ::xmlrpcTest \
-            -params {nums array(int)} } result]
+            -params {nums int()} } result]
     if { ! $failed } {
         set failed [catch {::xmlrpcTest {1 2 3}} result]
     }

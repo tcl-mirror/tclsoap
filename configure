@@ -451,7 +451,7 @@ echo > confdefs.h
 
 # A filename unique to this package, relative to the directory that
 # configure is in, which we can look for to find out if srcdir is correct.
-ac_unique_file=SOAP-CGI.tcl
+ac_unique_file=SOAP.tcl
 
 # Find the source files, if location was not specified.
 if test -z "$srcdir"; then
@@ -547,7 +547,7 @@ CONFIGDIR=${srcdir}/config
 PACKAGE=tclsoap
 
 MAJOR_VERSION=1
-MINOR_VERSION=5
+MINOR_VERSION=6
 PATCHLEVEL=""
 
 VERSION=${MAJOR_VERSION}.${MINOR_VERSION}${PATCHLEVEL}

@@ -15,7 +15,7 @@ package provide XMLRPC::TypedVariable 1.1
 namespace eval XMLRPC::TypedVariable {
     variable version 1.1
     variable magic {XTVar}
-    variable rcs_id {$Id: XMLRPC-typed.tcl,v 1.2 2001/07/06 00:37:30 patthoyts Exp $}
+    variable rcs_id {$Id: XMLRPC-typed.tcl,v 1.3 2001/07/16 23:44:48 patthoyts Exp $}
 
     namespace export create destroy is_typed_variable get_type get_value \
             get_subtype
@@ -36,6 +36,27 @@ proc XMLRPC::TypedVariable::create { type value } {
     variable magic
     set typed [list $magic $type $value]
     return $typed
+}
+
+# rpcval ?-namespace soap-uri? type value
+proc rpcval {args} {
+    set xmlns {}
+    while {[string match -* [lindex $args 0]]} {
+        switch -glob -- [lindex $args 0] {
+            -n* {
+                set xmlns [lindex $args 1]
+                set args [lreplace $args 0 0]
+            }
+            --  { 
+                set args [lreplace $args 0 0]
+                break 
+            }
+            default { return -code error "unknown option \"[lindex $args 0]\""}
+        }
+        set args [lreplace $args 0 0]
+    }
+
+    return [list XTVar2 $xmlns [lindex $args 0] [lindex $args 1]]
 }
 
 # -------------------------------------------------------------------------

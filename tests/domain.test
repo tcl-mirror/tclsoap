@@ -2,9 +2,11 @@
 #
 # Provide a set of tests to excercise the SOAP::Domain package.
 #
-# @(#)$Id$
+# @(#)$Id: domain.test,v 1.1 2001/04/18 23:59:18 pat Exp $
 
 # Initialize the required packages
+
+error "The SOAP::Domain and XMLRPC::Domain code is broken"
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest
@@ -73,17 +75,24 @@ test domain-2.4 {Check the slave namespace registration} {
 # can check we are not calling the wrong one.
 
 test domain-3.1 {Add a method to each domain} {
-    proc ::/square {num} { return [expr $num * $num] }
-    proc ::nsoap::/square {num} { return [expr ($num * $num) + 1] }
-    interp eval isoap { proc ::/square {num} { return [expr ($num * $num) + 2] } }
-    interp eval nisoap { proc ::test::/square {num} { return [expr ($num * $num) + 3] } }
+    SOAP::export [proc ::square {num} { return [expr $num * $num] }]
+    namespace eval ::uri:tclsoap-Test {
+        SOAP::export [proc square {num} { return [expr ($num * $num) + 1] }]
+    }
+    interp eval isoap {SOAP::export [proc ::square {num} {return [expr ($num * $num) + 2]}]}
+    interp eval nisoap { 
+        namespace eval uri:tclsoap-Test {
+            SOAP::export [proc square {num} {return [expr ($num * $num) + 3]}]
+        }
+    }
 } {}
 
 test domain-3.2 {Define the SOAP access methods} {
     catch {package require SOAP}
     set server "http://localhost:$::Httpd(port)"
     set result {}
-    catch {SOAP::create square -proxy ${server}/soap/square -params {num integer}} r
+    catch {SOAP::create square -uri {} -action {} \
+            -proxy ${server}/soap/square -params {num integer}} r
     lappend result $r
     catch {SOAP::create nsquare -proxy ${server}/nsoap/square -params {num integer}} r
     lappend result $r

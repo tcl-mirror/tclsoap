@@ -45,15 +45,16 @@ if { [catch {package require dom 2.0}] } {
     }
 }
 
-package require XMLRPC::TypedVariable 1.0
 package require SOAP::xpath
+package require rpcvar
 
 namespace eval XMLRPC::Domain {
     variable version 1.0   ;# package version number
     variable debug 1       ;# debugging flag
-    variable rcs_id {$Id: XMLRPC-domain.tcl,v 1.5 2001/07/04 00:45:41 patthoyts Exp $}
+    variable rcs_id {$Id: XMLRPC-domain.tcl,v 1.6 2001/07/16 23:44:48 patthoyts Exp $}
 
     namespace export fault
+    catch {namespace import -force [uplevel {namespace current}]::rpcvar::*}
 }
 
 # -------------------------------------------------------------------------
@@ -196,15 +197,15 @@ proc XMLRPC::Domain::domain_handler {optsname sock args} {
     set doc [dom::DOMImplementation parse $query]
     if { $debug } { set ::doc $doc }
 
-    # This could probably be better done using XPath methods...
-    #
-    #set methodName [xpath $doc "/methodCall/methodName"]
-    #if { [catch {xpath $doc "/Envelope/Body/${methodName}/*"} argValues] } {
-    #    set argValues {}
-    #}
-    set argValues [SOAP::Parse::parse $query]
-    set methodName [lindex $argValues 0]
-    set argValues [lrange $argValues 1 end]
+    # Get the method parameters as done in the CGI package.
+    set methodNode [selectNode $doc "/methodCall/methodName"]
+    set methodName [getElementValue $methodNode]
+    set methodNamespace {}
+    set paramsNode [selectNode $doc "/methodCall/params"]
+    set argValues {}
+    if {$paramsNode != {}} {
+        set argValues [decomposeXMLRPC $paramsNode]
+    }
 
     if { ! $debug } {catch {dom::DOMImplementation destroy $doc}}
 
@@ -307,8 +308,8 @@ proc XMLRPC::Domain::reply_simple { doc uri methodName result } {
 # -------------------------------------------------------------------------
 
 proc XMLRPC::Domain::insert_value {node value} {
-    set type [XMLRPC::TypedVariable::get_type $value]
-    set value [XMLRPC::TypedVariable::get_value $value]
+    set type [rpctype $value]
+    set value [rpcvalue $value]
 
     if { $type == "array" } {
         set d_array [dom::document createElement $node "array"]

@@ -39,7 +39,7 @@ namespace eval SOAP {
 	# -----------------------------------------------------------------
 
 	variable rcsid {
-	    $Id: SOAP-CGI.tcl,v 1.1 2001/07/16 23:35:16 patthoyts Exp $
+	    $Id: SOAP-CGI.tcl,v 1.2 2001/08/01 23:34:54 patthoyts Exp $
 	}
 	variable methodName  {}
 	variable debugging   0
@@ -88,6 +88,17 @@ proc SOAP::CGI::log {protocol action result} {
 #   assumes CR-NL line endings.
 #
 proc SOAP::CGI::write {html {type text/html}} {
+    variable debugging
+    variable debuginfo
+
+    # Do some debug info:
+    if {$debugging != {}} {
+	append html "\n<!-- Debugging Information-->"
+	foreach item $debuginfo {
+	    append html "\n<!-- $item -->"
+	}
+    }
+
     puts "SOAPServer: TclSOAP/1.6"
     puts "Content-Type: $type"
     set len [string length $html]
@@ -199,7 +210,8 @@ proc SOAP::CGI::itrace args {
 # Description:
 #   dtrace logs debug information for appending to the end of the SOAP/XMLRPC
 #   response in a comment. This is not allowed by the standards so is switched
-#   on by the use of the SOAPDebug header.
+#   on by the use of the SOAPDebug header. You can enable this with:
+#     SOAP::configure -transport http -headers {SOAPDebug 1}
 #
 proc SOAP::CGI::dtrace args {
     variable debuginfo
@@ -303,7 +315,7 @@ proc SOAP::CGI::soap_call {doc {interp {}}} {
 	} else {
 	    set methodNamespace {}
 	}
-	dtrace "methodinfo: ${methodNamespace}:${methodName}"
+	dtrace "methodinfo: ${methodNamespace}::${methodName}"
 
 	# Extract the parameters.
 	set argNodes [selectNode $doc "/Envelope/Body/*/*"]
@@ -367,6 +379,13 @@ proc SOAP::CGI::soap_call {doc {interp {}}} {
 
 # -------------------------------------------------------------------------
 
+# Description:
+#   Prepare the interpreter for XML-RPC method invocation. We try to identify
+#   a Tcl file to source for the implementation of the method by using the 
+#   XML-RPC class name (the bit before the dot) and looking it up in the
+#   xmlrpcmap file. This file also tells us if we should use a safe 
+#   interpreter for this method.
+#
 proc SOAP::CGI::xmlrpc_invocation {doc} {
     global env
     variable xmlrpcdir
@@ -417,14 +436,22 @@ proc SOAP::CGI::xmlrpc_invocation {doc} {
 
 # -------------------------------------------------------------------------
 
+# Description:
+#   Load in the SOAP method implementation file on the basis of the
+#   SOAPAction header. We use this header plus a map file to decide
+#   what file to source, or if we should source all the files in the
+#   soapdir directory. The map also provides for evaluating this method in
+#   a safe slave interpreter for extra security if needed.
+#   See the cgi-bin/soapmap.dat file for more details.
+#
 proc SOAP::CGI::soap_invocation {doc} {
     global env
     variable soapdir
 
     # Obtain the SOAPAction header and strip the quotes.
     set SOAPAction {}
-    if {[info exists env("HTTP_SOAPACTION")]} {
-	set SOAPAction $env("HTTP_SOAPACTION")
+    if {[info exists env(HTTP_SOAPACTION)]} {
+	set SOAPAction $env(HTTP_SOAPACTION)
     }
     set SOAPAction [string trim $SOAPAction "\""]
     itrace "SOAPAction set to \"$SOAPAction\""
@@ -503,7 +530,7 @@ proc SOAP::CGI::main {{xml {}} {debug 0}} {
 	    set interactive 0      ;# false if this is a CGI request
 
 	    # Debugging can be set by the HTTP header "SOAPDebug: 1"
-	    if {[info exists env("HTTP_SOAPDEBUG")]} {
+	    if {[info exists env(HTTP_SOAPDEBUG)]} {
 		set debugging 1
 	    }
 	}
@@ -523,14 +550,6 @@ proc SOAP::CGI::main {{xml {}} {debug 0}} {
 	    error "invalid protocol: the XML data is neither SOAP not XML-RPC"
 	}
 
-	# Do some debug info:
-	if {$debugging} {
-	    append result "\n<!-- Debugging Information-->"
-	    foreach item $debuginfo {
-		append result "\n<!-- $item -->"
-	    }
-	}
-
 	# Send the answer to the caller
 	write $result text/xml
 
@@ -542,7 +561,7 @@ proc SOAP::CGI::main {{xml {}} {debug 0}} {
 	# If its a CGI problem, then be a CGI error.
 	switch -- $::errorCode {
 	    SOAP   {
-		write $msg
+		write $msg text/xml
 		catch {
 		    set doc [dom::DOMImplementation parse $msg]
 		    set r [decomposeSoap [selectNode $doc /Envelope/Body/*]]
@@ -550,7 +569,7 @@ proc SOAP::CGI::main {{xml {}} {debug 0}} {
 		log "SOAP" [list $methodName $msg] "error" 
 	    }
 	    XMLRPC {
-		write $msg
+		write $msg text/xml
 		catch {
 		    set doc [dom::DOMImplementation parse $msg]
 		    set r [getElementNamedValues [selectNode $doc \
@@ -567,7 +586,7 @@ proc SOAP::CGI::main {{xml {}} {debug 0}} {
 		append html "<br>\n<pre>$::errorInfo</pre>\n"
 		append html "<p><font size=\"-1\">$rcsid</font></p>"
 		append html "</body>\n</html>"
-		write $html
+		write $html text/html
 		
 		log "unknown" [string range $xml 0 60] "error"
 	    }

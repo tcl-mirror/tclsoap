@@ -24,16 +24,17 @@ if { [catch {package require dom 2.0}] } {
 }
 
 package require SOAP::xpath
-package require XMLRPC::TypedVariable 1.1
 package require SOAP::Utils
+package require rpcvar
 
 namespace eval SOAP::Domain {
     variable version 1.3  ;# package version number
     variable debug 0      ;# flag to toggle debug output
-    variable rcs_id {$Id: SOAP-domain.tcl,v 1.7 2001/07/06 00:42:07 patthoyts Exp $}
+    variable rcs_id {$Id: SOAP-domain.tcl,v 1.8 2001/07/16 23:44:48 patthoyts Exp $}
 
     namespace export fault reply_envelope reply_simple
     catch {namespace import -force [namespace parent]::Utils::*}
+    catch {namespace import -force [uplevel {namespace current}]::rpcvar::*}
 }
 
 # -------------------------------------------------------------------------
@@ -103,12 +104,12 @@ proc SOAP::Domain::register {args} {
     }
     
     # Now create a command in the slave interpreter's target namespace that
-    # links to out implementation in this interpreter in the SOAP::Domain
+    # links to our implementation in this interpreter in the SOAP::Domain
     # namespace.
     interp alias $opts(-interp) $opts(-namespace)::URLhandler \
             {} [namespace current]::domain_handler $optname
 
-    # Register with tclhttpd now.
+    # Register the URL handler with tclhttpd now.
     Url_PrefixInstall $opts(-prefix) \
             "interp eval [list $opts(-interp)] $opts(-namespace)::URLhandler"
 
@@ -193,14 +194,14 @@ proc SOAP::Domain::domain_handler {optsname sock args} {
     set xmlns {} ; set xmlns2 {}
     set xmlinterp [lindex [array get $optsname -interp] 1]
     append xmlns  [lindex [array get $optsname -namespace] 1] {::} $suffix
-    append xmlns2 [lindex [array get $optsname -namespace] 1] {::} \
-            [string range $suffix 1 end]
+    append xmlns2 [lindex [array get $optsname -namespace] 1] {::} $methodName
+    #            [string range $suffix 1 end]
 
     # Check that this method has an implementation. If not then we return an
     # error with no <detail> element (as per SOAP 1.1 specification) 
     # indicating an error in header processing.
     if { [catch {interp eval $xmlinterp namespace origin $xmlns} xmlns] } {
-        if {[catch {interp eval $xmlnsinterp namespace origin $xmlns2} xmlns]} {
+        if {[catch {interp eval $xmlinterp namespace origin $xmlns2} xmlns]} {
             Httpd_ReturnData $sock text/xml \
                     [fault SOAP-ENV:Client \
                       "Invalid SOAP request: method \"$methodName\" not found"
@@ -310,59 +311,15 @@ proc SOAP::Domain::reply_simple { doc uri methodName result } {
     dom::element setAttribute $cmd \
             "SOAP-ENV:encodingStyle" \
             "http://schemas.xmlsoap.org/soap/encoding/"
-    set retnode [dom::document createElement $cmd "return"]
 
     # insert the results into the DOM tree (unless it's a void result)
     if {$result != {}} {
-        insert_value $retnode $result
+        set retnode [dom::document createElement $cmd "return"]
+        SOAP::insert_value $retnode $result
     }
 
     return $doc
 }
-
-# -------------------------------------------------------------------------
-
-proc SOAP::Domain::insert_value {node value {force {}}} {
-
-    if {$force == {}} {
-        set type    [::XMLRPC::TypedVariable::get_type $value]
-        set subtype [::XMLRPC::TypedVariable::get_subtype $value]
-    } else {
-        # last call was an array($force) so force the type.
-        regexp {([^(]+)(\((.+)\))?} $force -> type -> subtype
-        set force {}
-    }
-    set value   [::XMLRPC::TypedVariable::get_value $value]
-
-    if {$type == "array"} {
-
-        dom::element setAttribute $node \
-                "xmlns:SOAP-ENC" "http://schemas.xmlsoap.org/soap/encoding/"
-        dom::element setAttribute $node "xsi:type" "SOAP-ENC:Array"
-        if {$subtype == {}} {
-            set subtype "ur-type"
-        } else {
-            # if array(string) then force elts to be string.
-            set force $subtype
-        }
-        dom::element setAttribute $node \
-                "SOAP-ENC:arrayType" "xsd:$subtype\[[llength $value]\]"
-
-        foreach elt $value {
-            set d_elt [dom::document createElement $node "item"]
-            insert_value $d_elt $elt $force
-        }
-    } elseif {$type == "struct"} {
-        foreach {eltname eltvalue} $value {
-            set d_elt [dom::document createElement $node $eltname]
-            insert_value $d_elt $eltvalue
-        }
-    } else {
-        dom::element setAttribute $node "xsi:type" "xsd:$type"
-        dom::document createTextNode $node $value
-    }
-}
-
 
 # -------------------------------------------------------------------------
 
