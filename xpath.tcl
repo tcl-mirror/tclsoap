@@ -1,6 +1,18 @@
 # xpath.tcl - Copyright (C) 2001 Pat Thoyts <pat@zsplat.freeserve.co.uk>
 #
+# Provide a _SIGNIFICANTLY_ simplified version of XPath querying for DOM
+# document objects. This might get expanded to eventually conform to the
+# W3Cs XPath specification but at present this is purely for use in querying
+# DOM documents for specific elements.
 #
+# Subject to interface changes
+#
+# -------------------------------------------------------------------------
+# This software is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the accompanying file `LICENSE'
+# for more details.
+# -------------------------------------------------------------------------
 
 package provide xpath 0.1
 
@@ -8,7 +20,7 @@ package require dom 1.6
 
 namespace eval xpath {
     variable version 0.1
-    variable rcsid { $Id$ }
+    variable rcsid { $Id: xpath.tcl,v 1.1 2001/02/26 09:16:25 pt111992 Exp pt111992 $ }
     namespace export xpath
 }
 
