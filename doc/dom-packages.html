@@ -1,0 +1,89 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+<link href="sourceforge.css" rel="stylesheet" type="text/css">
+<title>Examples</title>
+</head>
+
+<body alink="#AA6666" bgcolor="#6C7198">
+<table align="center" bgcolor="#D1D5D7" border="0" cellpadding="8" cellspacing="0" width="98%">
+<tr>
+   <td align="center" valign="top" width="15%">
+      <A href="http://sourceforge.net">
+         <IMG align="middle" alt="SourceForge Logo" border="0" height="31" 
+             src="http://sourceforge.net/sflogo.php?group_id=16386"
+             width="88"></A></td>
+   <td align="center" valign="top" width="85%">
+        <h1>Tcl DOM Packages</h1>
+   </td></tr>
+<tr>
+<td bgcolor="#EAECEF" valign="top" width="15%">
+    <table bgcolor="#EAECEF" border="0" cellpadding="2" cellspacing="0" width="100%">
+<tr><td align="center" bgcolor="#D1D5D7"><b>Project</b></td></tr>
+<tr><td align="right"><A href="http://sf.net/projects/tclsoap">Project Page</A></td></tr>
+<tr><td align="right"><A
+href="http://sf.net/projects/showfiles.php?group_id=25970">File Releases</A></td></tr>
+<tr><td align="right"><A href="http://tclsoap.sf.net/">WebPage</A></td></tr>
+<tr><td align="right"><A href="http://sf.net/docman/&group_id=25970">Documentation</A></td></tr>
+<tr><td align="right"><A href="http://sf.net/forum/&group_id=25970">Forums</A></td></tr>
+<tr><td align="right"><a href="http://cvs.sf.net/cgi-bin/viewcvs.cgi/tclsoap/tclsoap">Browse CVS</a></td></tr>
+<tr><td align="center" bgcolor="#D1D5D7"><b>Related Links</b></td></tr>
+<tr><td align="right"><A href="http://www.soaplite.com/">SOAP::Lite</A></td></tr>
+<tr><td align="right"><A href="http://soap.4s4c.com/">4s4c</A></td></tr>
+<tr><td align="right"><A href="http://www.soapware.org/">Userland SOAP</A></td></tr>
+<tr><td align="center" bgcolor="#D1D5D7"><b>Support</b></td></tr>
+<tr><td align="right"><A href="http://sf.net/tracker/?aid=385859&group_id=25970&func=browse">Bugs</A></td></tr>
+<tr><td align="right"><A href="http://sf.net/tracker/?aid=385860&group_id=25970&func=browse">Support Requests</A></td></tr>
+<tr><td align="right"><A href="http://sf.net/tracker/?aid=385861&group_id=25970&func=browse">Patches</A></td></tr>
+<tr><td align="right"><A href="http://sf.net/tracker/?aid=385862&group_id=25970&func=browse">Feature Requests</A></td></tr>
+    </table>
+</td>
+
+<td bgcolor="#EAECEF" valign="top" width="85%">
+<div class="body">
+
+<p>TclSOAP depends heavily upon the underlying DOM implementation.
+Currently the only DOM implementation supported is the TclDOM package
+from <a href="http://sourceforge.net/projects/tclxml">the tclxml
+project</a>. This code can be obtained by checking out the tcldom
+module from the tclxml project CVS server. For those who do not wish
+to, or cannot obtain the source I am providing pre-compiled TclDOM 2.0
+C modules for linux and win32. In each case the code is compatible
+with ActiveTcl 8.3.3.3 for the relevant platform. Please note that
+these binary releases are not official tclxml project releases
+although they have been built from unmodified tcldom source code from
+a recent HEAD revision. They are however the versions currently in use
+by me for TclSOAP development.</p>
+
+<ul>
+   <li><a href="TclDOM_C-2.0.tar.gz">TclDOM_C-2.0.tar.gz</a> -
+	the Linux version statically linked to expat.
+   <li><a href="TclDOM_C-2.0.zip">TclDOM_C-2.0.zip</a> - 
+        windows version compiled using MSVC 6.0.
+</ul>
+
+<p>The packages should be installed somewhere in your Tcl
+auto_path. The simplest method is to unpack the archive in the Tcl lib
+subdirectory. Under Windows, that is probably <tt>\Program
+Files\Tcl\lib</tt>. To ensure that you are using this version of the DOM
+package you should execute the following commands in your tclsh shell
+checking that the output matches this example.</p>
+<pre>
+% package require dom
+2.0
+% info loaded
+{/opt/tcl/lib/tcldom2.0/tcldom2.0.so Tcldom}              ;# Linux
+{{c:\\Program Files\Tcl\lib\tcldom2.0\tcldom.dll} Tcldom} ;# Windows
+</pre>
+
+</div>
+
+</td></tr>
+<tr class="footer">
+<td align="right" bgcolor="#D1D5D7" colspan="2"><i>
+$Id$
+</i></td></tr>
+
+</table>
+</body>
+</html>
