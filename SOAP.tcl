@@ -28,7 +28,7 @@ if { [catch {package require dom 2.0} domVer]} {
 namespace eval SOAP {
     variable version 1.4
     variable domVersion $domVer
-    variable rcs_version { $Id: SOAP.tcl,v 1.20 2001/06/21 00:28:40 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.21 2001/06/21 23:03:23 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig
 }
@@ -178,7 +178,7 @@ proc SOAP::dump {args} {
 proc SOAP::configure { procName args } {
     # The list of valid options
     set options { uri proxy params name transport action \
-                      wrapProc replyProc parseProc postProc }
+                  wrapProc replyProc parseProc postProc }
 
     if { $procName == "-transport" } {
         return [eval "transport_configure $args"]
@@ -645,8 +645,15 @@ proc SOAP::soap_request {procVarName args} {
     set params [set [subst $procVarName](params)]
     set name [set [subst $procVarName](name)]
     set uri [set [subst $procVarName](uri)]
-    
-    if { [llength $args] != [expr [llength $params] / 2]} {
+
+    # check for variable number of params and set the num required.
+    if {[lindex $params end] == "args"} {
+        set n_params [expr ( [llength $params] - 1 ) / 2]
+    } else {
+        set n_params [expr [llength $params] / 2]
+    }
+
+    if {[llength $args] < $n_params} {
         set msg "wrong # args: should be \"$procName"
         foreach { id type } $params {
             append msg " " $id
@@ -668,12 +675,43 @@ proc SOAP::soap_request {procVarName args} {
     set cmd [dom::document createElement $bod "ns:$name" ]
     dom::element setAttribute $cmd "xmlns:ns" $uri
     
-    set param 0
+    set param_no 0
     foreach {key type} $params {
-        set par [dom::document createElement $cmd $key]
-        dom::element setAttribute $par "xsi:type" "xsd:$type"
-        dom::document createTextNode $par [lindex $args $param]
-        incr param
+        set val [lindex $args $param_no]
+        set d_param [dom::document createElement $cmd $key]
+        
+        if {[string match {struct} $type]} {
+
+            # handle struct
+            foreach {name elt} $val {
+                set d_item [dom::document createElement $d_param $name]
+                dom::element setAttribute $d_item "xsi:type" \
+                        "xsd:[XMLRPC::TypedVariable::get_type $elt]"
+                dom::document createTextNode $d_item $elt
+            }
+
+        } elseif {[regexp {^array(\(.*\))?} $type match subtype]} {
+
+            # Handle array
+            set subtype [string trim $subtype "()"]
+            dom::element setAttribute $d_param "xsi:type" "xsd:Array"
+            if {$subtype != {}} {
+                dom::element setAttribute $d_param \
+                        "xsi:arrayType" "xsd:$subtype\[[llength $val]\]"
+            }
+            foreach elt $val {
+                set d_item [dom::document createElement $d_param "item"]
+                set d_type [XMLRPC::TypedVariable::get_type $elt]
+                if {$subtype != {}} {set d_type $subtype}
+                dom::element setAttribute $d_item "xsi:type" "xsd:$d_type"
+                dom::document createTextNode $d_item $elt
+            }
+
+        } else {
+            dom::element setAttribute $d_param "xsi:type" "xsd:$type"
+            dom::document createTextNode $d_param $val
+        }        
+        incr param_no
     }
 
     # We have to strip out the DOCTYPE element though. It would be better to
@@ -740,8 +778,9 @@ proc SOAP::xmlrpc_request {procVarName args} {
                         [[namespace parent]::XMLRPC::TypedVariable::get_value $sval]
             }
 
-        } elseif { [regexp {^array\((.*)\)} $type match subtype] } {
+        } elseif { [regexp {^array(\(.*\))?} $type match subtype] } {
             # XMLRPC Array type
+            set subtype [string trim $subtype "()"]
             set d_array [dom::document createElement $d_pname "array"]
             set d_data  [dom::document createElement $d_array "data"]
             foreach elt [lindex $args $param] {
