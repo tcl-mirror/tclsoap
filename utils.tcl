@@ -13,12 +13,12 @@ package provide SOAP::Utils 1.0
 
 namespace eval SOAP {
     namespace eval Utils {
-        variable rcsid {$Id$}
+        variable rcsid {$Id: utils.tcl,v 1.1 2001/07/16 23:37:39 patthoyts Exp $}
         namespace export getElements \
                 getElementValue getElementName \
                 getElementValues getElementNames \
                 getElementNamedValues \
-                decomposeSoap selectNode
+                decomposeSoap decomposeXMLRPC selectNode
     }
 }
 
@@ -109,6 +109,50 @@ proc SOAP::Utils::decomposeSoap {domElement} {
     }
 
     return $result
+}
+
+# -------------------------------------------------------------------------
+
+# I expect domElement to be the params element.
+proc SOAP::Utils::decomposeXMLRPC {domElement} {
+    set result {}
+    foreach param_elt [getElements $domElement] {
+        lappend result [getXMLRPCValue [getElements $param_elt]]
+    }
+    return $result
+}
+
+proc SOAP::Utils::getXMLRPCValue {value_elt} {
+    set value {}
+    if {$value_elt == {}} { return $value }
+
+    # if there is not type element then the specs say it's a string type.
+    set type_elt [getElements $value_elt]
+    if {$type_elt == {}} {
+        return [getElementValue $value_elt]
+    }
+
+    set type [getElementName $type_elt]
+    if {[string match "struct" $type]} {
+        foreach member_elt [getElements $type_elt] {
+            foreach elt [getElements $member_elt] {
+                set eltname [getElementName $elt]
+                if {[string match "name" $eltname]} {
+                    set m_name [getElementValue $elt]
+                } elseif {[string match "value" $eltname]} {
+                    set m_value [getXMLRPCValue $elt]
+                }
+            }
+            lappend value $m_name $m_value
+        }
+    } elseif {[string match "array" $type]} {
+        foreach elt [getElements [lindex [getElements $type_elt] 0]] {
+            lappend value [getXMLRPCValue $elt]
+        }
+    } else {
+        set value [getElementValue $type_elt]
+    }
+    return $value
 }
 
 # -------------------------------------------------------------------------

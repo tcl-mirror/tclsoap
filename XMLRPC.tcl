@@ -14,13 +14,14 @@
 package provide XMLRPC 1.0
 
 package require SOAP 1.4
-package require XMLRPC::TypedVariable
+package require rpcvar
 
 namespace eval XMLRPC {
     variable version 1.0
-    variable rcs_version { $Id: XMLRPC.tcl,v 1.2 2001/06/09 12:52:21 patthoyts Exp $ }
+    variable rcs_version { $Id: XMLRPC.tcl,v 1.3 2001/06/15 00:46:51 patthoyts Exp $ }
 
-    namespace export create cget dump configure proxyconfig
+    namespace export create cget dump configure proxyconfig export
+    catch {namespace import -force [uplevel {namespace current}]::rpcvar::*}
 }
 
 # -------------------------------------------------------------------------
@@ -51,6 +52,71 @@ proc XMLRPC::dump { args } {
 
 proc XMLRPC::proxyconfig { args } {
     return [uplevel 1 "SOAP::proxyconfig $args"] 
+}
+
+proc XMLRPC::export {args} {
+    foreach item $args {
+        uplevel "set \[namespace current\]::__xmlrpc_exports($item)\
+                \[namespace code $item\]"
+    }
+    return
+}
+
+# node is the <param> element
+proc XMLRPC::insert_value {node value} {
+
+    set type      [rpctype $value]
+    set value     [rpcvalue $value]
+    set typeinfo  [typedef -info $type]
+
+    set value_elt [dom::document createElement $node "value"]
+
+    if {[string match {*()} $type] || [string match array $type]} {
+        # array type: arrays are indicated by a () suffix of the word 'array'
+        set itemtype [string trimright $type ()]
+        if {$itemtype == "array"} {
+            set itemtype "any"
+        }
+        set array_elt [dom::document createElement $value_elt "array"]
+        set data_elt [dom::document createElement $array_elt "data"]
+        foreach elt $value {
+            if {[string match $itemtype "any"] || \
+                [string match $itemtype "ur-type"] || \
+                [string match $itemtype "anyType"]} {
+                XMLRPC::insert_value $data_elt $elt
+            } else {
+                XMLRPC::insert_value $data_elt [rpcvar $itemtype $elt]
+            }
+        }
+    } elseif {[llength $typeinfo] > 1} {
+        # a typedef'd struct
+        set struct_elt [dom::document createElement $value_elt "struct"]
+        array set ti $typeinfo
+        foreach {eltname eltvalue} $value {
+            set member_elt [dom::document createElement $struct_elt "member"]
+            set name_elt [dom::document createElement $member_elt "name"]
+            dom::document createTextNode $name_elt $eltname
+            if {![info exists ti($eltname)]} {
+                error "invalid member name: \"$eltname\" is not a member of\
+                        the $type type."
+            }
+            XMLRPC::insert_value $member_elt [rpcvar $ti($eltname) $eltvalue]
+        }
+
+    } elseif {[string match struct $type]} {
+        # an undefined struct
+        set struct_elt [dom::document createElement $value_elt "struct"]
+        foreach {eltname eltvalue} $value {
+            set member_elt [dom::document createElement $struct_elt "member"]
+            set name_elt [dom::document createElement $member_elt "name"]
+            dom::document createTextNode $name_elt $eltname
+            XMLRPC::insert_value $member_elt $eltvalue
+        }
+    } else {
+        # simple type.
+        set type_elt  [dom::document createElement $value_elt $type]
+        dom::document createTextNode $type_elt $value
+    }    
 }
 
 # -------------------------------------------------------------------------

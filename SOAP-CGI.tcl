@@ -23,17 +23,28 @@ namespace eval SOAP {
 	#   logfile   - a file to update with usage data. 
 	#
 	#   This framework is such that the same tcl procedure can be called 
-	#   for both types of request. The result will be approprately packaged.
+	#   for both types of request. The result will be packaged correctly
 	#   So these variables can point to the _same_ directory.
-	
-	variable soapdir   "soap"
-	variable xmlrpcdir $soapdir
-	variable logfile   "rpc.log"
+	#
+	# ** Note **
+	#   These directories will be relative to your httpd's cgi-bin
+	#   directory.
+
+	variable soapdir       "soap"
+	variable soapmapfile   "soapmap.dat"
+	variable xmlrpcdir     $soapdir
+	variable xmlrpcmapfile "xmlrpcmap.dat"
+	variable logfile       "rpc.log"
 	
 	# -----------------------------------------------------------------
 
-	variable rcsid {$Id$}
-	variable methodName {}
+	variable rcsid {
+	    $Id: SOAP-CGI.tcl,v 1.1 2001/07/16 23:35:16 patthoyts Exp $
+	}
+	variable methodName  {}
+	variable debugging   0
+	variable debuginfo   {}
+	variable interactive 0
 	
 	package require dom
 	package require SOAP
@@ -56,7 +67,8 @@ namespace eval SOAP {
 proc SOAP::CGI::log {protocol action result} {
     variable logfile
     catch {
-	if {[info exists logfile] && $logfile != {} && [file writable $logfile]} {
+	if {[info exists logfile] && $logfile != {} && \
+		[file writable $logfile]} {
 	    set stamp [clock format [clock seconds] \
 		    -format {%Y%m%dT%H%M%S} -gmt true]
 	    set f [open $logfile "a+"]
@@ -75,15 +87,126 @@ proc SOAP::CGI::log {protocol action result} {
 #   The string length is incremented by the number of newlines as HTTP content
 #   assumes CR-NL line endings.
 #
-proc write {html {type text/html}} {
+proc SOAP::CGI::write {html {type text/html}} {
+    puts "SOAPServer: TclSOAP/1.6"
     puts "Content-Type: $type"
     set len [string length $html]
-    puts "X-Content-Length: $len"
+    #puts "X-Content-Length: $len"
     incr len [regexp -all "\n" $html]
     puts "Content-Length: $len"
 
     puts "\n$html"
     catch {flush stdout}
+}
+
+# -------------------------------------------------------------------------
+
+# Description:
+#   Convert a SOAPAction HTTP header value into a script filename.
+#   This is used to identify the file to source for the implementation of
+#   a SOAP webservice by looking through a user defined map.
+#   Also used to load an equvalent map for XML-RPC based on the class name
+# Result:
+#   Returns the list for an array with filename, interp and classname elts.
+#
+proc SOAP::CGI::get_implementation_details {mapfile classname} {
+    if {[file exists $mapfile]} {
+	set f [open $mapfile r]
+	while {! [eof $f] } {
+	    gets $f line
+	    regsub "#.*" $line {} line                 ;# delete comments.
+	    regsub -all {[[:space:]]+} $line { } line  ;# fold whitespace
+	    set line [string trim $line]
+	    if {$line != {}} {
+		set line [split $line]
+		catch {unset elt}
+		set elt(classname) [lindex $line 0]
+		set elt(filename)  [string trim [lindex $line 1] "\""]
+		set elt(interp)    [lindex $line 2]
+		set map($elt(classname)) [array get elt]
+	    }
+	}
+	close $f
+    }
+    
+    if {[catch {set map($classname)} r]} {
+	error "\"$classname\" not implemented by this endpoint."
+    }
+
+    return $r
+}
+
+proc SOAP::CGI::soap_implementation {SOAPAction} {
+    package require SOAP::Domain
+    variable soapmapfile
+    variable soapdir
+
+    if {[catch {get_implementation_details $soapmapfile $SOAPAction} detail]} {
+	set xml [SOAP::Domain::fault "Client" \
+		"Invalid SOAPAction header: $detail" {}]
+	error $xml {} SOAP
+    }
+    
+    array set impl $detail
+    if {$impl(filename) != {}} {
+	set impl(filename) [file join $soapdir $impl(filename)]
+    }
+    return [array get impl]
+}
+
+proc SOAP::CGI::xmlrpc_implementation {classname} {
+    package require XMLRPC::Domain
+    variable xmlrpcmapfile
+    variable xmlrpcdir
+
+    if {[catch {get_implementation_details $xmlrpcmapfile $classname} r]} {
+	set xml [XMLRPC::Domain::fault 500 "Invalid classname: $r" {}]
+	error $xml {} XMLRPC
+    }
+
+    array set impl $r
+    if {$impl(filename) != {}} {
+	set impl(filename) [file join $xmlrpcdir $impl(filename)]
+    }
+    return [array get impl]
+}
+
+proc SOAP::CGI::createInterp {interp path} {
+    safe::setLogCmd [namespace current]::itrace
+    set slave [safe::interpCreate $interp]
+    safe::interpAddToAccessPath $slave $path
+    # override the safe restrictions so we can load our
+    # packages (actually the xml package files)
+    proc ::safe::CheckFileName {slave file} {
+	if {![file exists $file]} {error "file non-existent"}
+	if {![file readable $file]} {error "file not readable"}
+    }
+    return $slave
+}
+
+# -------------------------------------------------------------------------
+
+# Description:
+#   itrace prints it's arguments to stdout if we were called interactively.
+#
+proc SOAP::CGI::itrace args {
+    variable interactive
+    if {$interactive} {
+	puts $args
+    }
+}
+
+# Description:
+#   dtrace logs debug information for appending to the end of the SOAP/XMLRPC
+#   response in a comment. This is not allowed by the standards so is switched
+#   on by the use of the SOAPDebug header.
+#
+proc SOAP::CGI::dtrace args {
+    variable debuginfo
+    variable debugging
+    if {$debugging} {
+	lappend debuginfo $args
+    }
 }
 
 # -------------------------------------------------------------------------
@@ -96,28 +219,37 @@ proc write {html {type text/html}} {
 # Parameters:
 #   doc - a DOM tree constructed from the input request XML data.
 #
-proc SOAP::CGI::xmlrpc_call {doc} {
-    variable xmlrpcdir
+proc SOAP::CGI::xmlrpc_call {doc {interp {}}} {
     variable methodName
     package require XMLRPC::Domain
     if {[catch {
 	
 	set methodNode [selectNode $doc "/methodCall/methodName"]
 	set methodName [getElementValue $methodNode]
+	set methodNamespace {}
 
+	# Get the parameters.
 	set paramsNode [selectNode $doc "/methodCall/params"]
-	if {[catch {getElementValues $paramsNode} argValues]} {
-	    set argValues {}
+	set argValues {}
+	if {$paramsNode != {}} {
+	    set argValues [decomposeXMLRPC $paramsNode]
 	}
 	catch {dom::DOMImplementation destroy $doc}
 
-	# load in the required method
-	if {[catch {source [file join $xmlrpcdir $methodName]}]} {
-	    error "unknown method name: \"$methodName\" was not found"
+	# Check for a permitted methodname. This is defined by being in the
+	# XMLRPC::export list for the given namespace. We must do this to
+	# prevent clients arbitrarily calling tcl commands.
+	#
+	if {[catch {
+	    interp eval $interp \
+		    set ${methodNamespace}::__xmlrpc_exports($methodName)
+	} fqdn]} {
+	    error "Invalid request: \
+		    method \"${methodNamespace}::${methodName}\" not found"\
 	}
-	
+
 	# evaluate the method
-	set msg [interp eval {} [list $methodName] $argValues]
+	set msg [interp eval $interp $fqdn $argValues]
 
 	# generate a reply using the XMLRPC::Domain code
 	set reply [XMLRPC::Domain::reply_simple \
@@ -142,16 +274,21 @@ proc SOAP::CGI::xmlrpc_call {doc} {
 # Description:
 #   Handle incoming SOAP requests.
 #   We extract the name of the SOAP method and the arguments and search for
-#   the implementation in $::soapdir. This is then evaluated and the result
-#   is wrapped up and returned or a SOAP Fault is generated.
+#   the implementation in the specified namespace. This is then evaluated
+#   and the result is wrapped up and returned or a SOAP Fault is generated.
 # Parameters:
 #   doc - a DOM tree constructed from the input request XML data.
 #
-proc SOAP::CGI::soap_call {doc} {
-    variable soapdir
+proc SOAP::CGI::soap_call {doc {interp {}}} {
     variable methodName
     package require SOAP::Domain
     if {[catch {
+
+	# Do SOAPAction stuff.
+	# Need to restrict methods to the SOAP methods and not
+
+	# Check for Header elements
+	set head [selectNode $doc "/Envelope/Head/*"]
 
 	# Get the method name from the XML request.
 	set methodNode [selectNode $doc "/Envelope/Body/*"]
@@ -166,6 +303,7 @@ proc SOAP::CGI::soap_call {doc} {
 	} else {
 	    set methodNamespace {}
 	}
+	dtrace "methodinfo: ${methodNamespace}:${methodName}"
 
 	# Extract the parameters.
 	set argNodes [selectNode $doc "/Envelope/Body/*/*"]
@@ -175,25 +313,22 @@ proc SOAP::CGI::soap_call {doc} {
 	}
 	catch {dom::DOMImplementation destroy $doc}
 
-	# Load the SOAP implementation files at global level.
-	# Once this only loaded the file required, but to do this with 
-	# namespaces as well needs a map as we can't use the namespace name
-	# as a filename (generally)
-	foreach file [glob $soapdir/*] {
-	    namespace eval :: "source [list $file]"
-	}
-	
-	# find the implementation by looking in the XML namespace, then
-	# by looking at the global level.
-	set fqdn "${methodNamespace}::${methodName}"
-	if {[catch {interp eval {} namespace origin $fqdn} fqdn]} {
-	    if {[catch {interp eval {} namespace origin "::$methodName"} fqdn]} {
-		error "Invalid SOAP request: method \"${methodNamespace}::${methodName}\" not found"
-	    }
+	# Check for a permitted methodname. This is defined by being in the
+	# SOAP::export list for the given namespace. We must do this to prevent
+	# clients arbitrarily calling tcl commands like 'eval' or 'error'
+	#
+        if {[catch {
+	    interp eval $interp \
+		    set ${methodNamespace}::__soap_exports($methodName)
+	} fqdn]} {
+	    dtrace "method not found: $fqdn"
+	    error "Invalid SOAP request:\
+		    method \"${methodNamespace}::${methodName}\" not found"\
+		    {} "Client"
 	}
 
 	# evaluate the method
-	set msg [interp eval {} [list $fqdn] $argValues]
+	set msg [interp eval $interp $fqdn $argValues]
 
 	# generate a reply using the SOAP::Domain code
 	set reply [SOAP::Domain::reply_simple \
@@ -207,10 +342,20 @@ proc SOAP::CGI::soap_call {doc} {
 	# Handle errors the SOAP way.
 	#
 	set detail [list "errorCode" $::errorCode "stackTrace" $::errorInfo]
-	if {[lindex $detail 1] == "CLIENT"} {
-	    set code "SOAP-ENV:Client"
-	} else {
-	    set code "SOAP-ENV:Server"
+	set code [lindex $detail 1]
+	switch {$code} {
+	    "VersionMismatch" {
+		set code "SOAP-ENV:VersionMismatch"
+	    }
+	    "MustUnderstand" {
+		set code "SOAP-ENV:MustUnderstand"
+	    }
+	    "Client" {
+		set code "SOAP-ENV:Client"
+	    }
+	    "Server" {
+		set code "SOAP-ENV:Server"
+	    }
 	}
 	set xml [SOAP::Domain::fault $code "$msg" $detail]
 	error $xml {} SOAP
@@ -218,6 +363,113 @@ proc SOAP::CGI::soap_call {doc} {
 
     # publish the answer
     return $xml
+}
+
+# -------------------------------------------------------------------------
+
+proc SOAP::CGI::xmlrpc_invocation {doc} {
+    global env
+    variable xmlrpcdir
+
+    array set impl {filename {} interp {}}
+
+    # Identify the classname part of the methodname
+    set methodNode [selectNode $doc "/methodCall/methodName"]
+    set methodName [getElementValue $methodNode]
+    set className {}
+    if {[regexp {.*\.} $methodName className]} {
+	set className [string trim $className .]
+    }
+    set files {}
+    if {$className != {}} {
+	array set impl [xmlrpc_implementation $className]
+	set files $impl(filename)
+    }
+    if {$files == {}} {
+	set files [glob $xmlrpcdir/*]
+    }
+    # Do we want to use a safe interpreter?
+    if {$impl(interp) != {}} {
+	createInterp $impl(interp) $xmlrpcdir
+    }
+    dtrace "Interp: '$impl(interp)' - Files required: $files"
+
+    # Source the XML-RPC implementation files at global level.
+    foreach file $files {
+	if {[file isfile $file] && [file readable $file]} {
+	    itrace "debug: sourcing $file"
+	    if {[catch {
+		interp eval $impl(interp)\
+			namespace eval :: \
+			"source [list $file]"
+	    } msg]} {
+		itrace "warning: failed to source \"$file\""
+		dtrace "failed to source \"$file\": $msg"
+	    }
+	}
+    }
+    set result [xmlrpc_call $doc $impl(interp)]
+    if {$impl(interp) != {}} {
+	safe::interpDelete $impl(interp)
+    }
+    return $result
+}
+
+# -------------------------------------------------------------------------
+
+proc SOAP::CGI::soap_invocation {doc} {
+    global env
+    variable soapdir
+
+    # Obtain the SOAPAction header and strip the quotes.
+    set SOAPAction {}
+    if {[info exists env("HTTP_SOAPACTION")]} {
+	set SOAPAction $env("HTTP_SOAPACTION")
+    }
+    set SOAPAction [string trim $SOAPAction "\""]
+    itrace "SOAPAction set to \"$SOAPAction\""
+    dtrace "SOAPAction set to \"$SOAPAction\""
+    
+    array set impl {filename {} interp {}}
+    
+    # Use the SOAPAction header to identify the files to source or
+    # if it's null, source the lot.
+    if {$SOAPAction == {} } {
+	set files [glob [file join $soapdir *]] 
+    } else {
+	array set impl [soap_implementation $SOAPAction]
+	set files $impl(filename)
+	if {$files == {}} {
+	    set files [glob [file join $soapdir *]]
+	}
+	itrace "interp: $impl(interp): files: $files"
+	
+	# Do we want to use a safe interpreter?
+	if {$impl(interp) != {}} {
+	    createInterp $impl(interp) $soapdir
+	}
+    }
+    dtrace "Interp: '$impl(interp)' - Files required: $files"
+    
+    foreach file $files {
+	if {[file isfile $file] && [file readable $file]} {
+	    itrace "debug: sourcing \"$file\""
+	    if {[catch {
+		interp eval $impl(interp) \
+			namespace eval :: \
+			"source [list $file]"
+	    } msg]} {
+		itrace "warning: $msg"
+		dtrace "Failed to source \"$file\": $msg"
+	    }
+	}
+    }
+    
+    set result [soap_call $doc $impl(interp)]
+    if {$impl(interp) != {}} {
+	safe::interpDelete $impl(interp)
+    }
+    return $result
 }
 
 # -------------------------------------------------------------------------
@@ -231,31 +483,52 @@ proc SOAP::CGI::soap_call {doc} {
 #    xml - for testing purposes we can source this file and provide XML
 #          as this parameter. Normally this will not be used.
 #
-proc SOAP::CGI::main {{xml {}}} {
+proc SOAP::CGI::main {{xml {}} {debug 0}} {
     catch {package require tcllib} ;# re-eval the pkgIndex
     package require ncgi
+    global env
+    variable soapdir
+    variable xmlrpcdir
     variable methodName
+    variable debugging $debug
+    variable debuginfo {}
+    variable interactive
 
     if { [catch {
 	
-	# -------------------------------------------------------------------
-	
 	# Get the POSTed XML data and parse into a DOM tree.
+	set interactive 1
 	if {$xml == {}} {
 	    set xml [ncgi::query]
+	    set interactive 0      ;# false if this is a CGI request
+
+	    # Debugging can be set by the HTTP header "SOAPDebug: 1"
+	    if {[info exists env("HTTP_SOAPDEBUG")]} {
+		set debugging 1
+	    }
 	}
+
 	set doc [dom::DOMImplementation parse $xml]
 	
-	# Identify the type of request - SOAP or XML-RPC
+	# Identify the type of request - SOAP or XML-RPC, load the
+	# implementation and call.
 	if {[selectNode $doc "/Envelope"] != {}} {
-	    set result [soap_call $doc]
+	    set result [soap_invocation $doc]
 	    log "SOAP" $methodName "ok"
 	} elseif {[selectNode $doc "/methodCall"] != {}} {
-	    set result [xmlrpc_call $doc]
+	    set result [xmlrpc_invocation $doc]
 	    log "XMLRPC" $methodName "ok"
 	} else {
 	    dom::DOMImplementation destroy $doc
 	    error "invalid protocol: the XML data is neither SOAP not XML-RPC"
+	}
+
+	# Do some debug info:
+	if {$debugging} {
+	    append result "\n<!-- Debugging Information-->"
+	    foreach item $debuginfo {
+		append result "\n<!-- $item -->"
+	    }
 	}
 
 	# Send the answer to the caller

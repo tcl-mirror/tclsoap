@@ -17,8 +17,8 @@ package provide SOAP 1.6
 
 package require http 2.0
 package require SOAP::Parse
-package require XMLRPC::TypedVariable
 package require SOAP::Utils
+package require rpcvar
 
 if { [catch {package require dom 2.0} domVer]} {
     if { [catch {package require dom 1.6} domVer]} {
@@ -30,10 +30,11 @@ if { [catch {package require dom 2.0} domVer]} {
 namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
-    variable rcs_version { $Id: SOAP.tcl,v 1.21 2001/06/21 23:03:23 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.23 2001/07/16 23:44:48 patthoyts Exp $ }
 
-    namespace export create cget dump configure proxyconfig
+    namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
+    catch {namespace import -force [uplevel {namespace current}]::rpcvar::*}
 }
 
 unset domVer
@@ -98,7 +99,8 @@ proc SOAP::cget { args } {
     set configVarName [methodVarName $methodName]
 
     if {[catch {set [subst $configVarName]([string trimleft $optionName "-"])} result]} {
-        error "unknown option \"$option\""
+        # kenstir@synchonicity.com: Fixed typo.
+        error "unknown option \"$optionName\""
     }
     return $result
 }
@@ -261,6 +263,16 @@ proc SOAP::create { args } {
 
     # call configure from the callers level so it can get the namespace.
     return [uplevel 1 "[namespace current]::configure $procName $args"]
+}
+
+# -------------------------------------------------------------------------
+
+proc SOAP::export {args} {
+    foreach item $args {
+        uplevel "set \[namespace current\]::__soap_exports($item)\
+                \[namespace code $item\]"
+    }
+    return
 }
 
 # -------------------------------------------------------------------------
@@ -631,6 +643,7 @@ proc SOAP::soap_request {procVarName args} {
         set n_params [expr [llength $params] / 2]
     }
 
+    # check we have the correct number of parameters supplied.
     if {[llength $args] < $n_params} {
         set msg "wrong # args: should be \"$procName"
         foreach { id type } $params {
@@ -639,6 +652,7 @@ proc SOAP::soap_request {procVarName args} {
         append msg "\""
         error $msg
     }
+
     set doc [dom::DOMImplementation create]
     set envx [dom::document createElement $doc "SOAP-ENV:Envelope"]
     dom::element setAttribute $envx \
@@ -657,38 +671,7 @@ proc SOAP::soap_request {procVarName args} {
     foreach {key type} $params {
         set val [lindex $args $param_no]
         set d_param [dom::document createElement $cmd $key]
-        
-        if {[string match {struct} $type]} {
-
-            # handle struct
-            foreach {name elt} $val {
-                set d_item [dom::document createElement $d_param $name]
-                dom::element setAttribute $d_item "xsi:type" \
-                        "xsd:[XMLRPC::TypedVariable::get_type $elt]"
-                dom::document createTextNode $d_item $elt
-            }
-
-        } elseif {[regexp {^array(\(.*\))?} $type match subtype]} {
-
-            # Handle array
-            set subtype [string trim $subtype "()"]
-            dom::element setAttribute $d_param "xsi:type" "xsd:Array"
-            if {$subtype != {}} {
-                dom::element setAttribute $d_param \
-                        "xsi:arrayType" "xsd:$subtype\[[llength $val]\]"
-            }
-            foreach elt $val {
-                set d_item [dom::document createElement $d_param "item"]
-                set d_type [XMLRPC::TypedVariable::get_type $elt]
-                if {$subtype != {}} {set d_type $subtype}
-                dom::element setAttribute $d_item "xsi:type" "xsd:$d_type"
-                dom::document createTextNode $d_item $elt
-            }
-
-        } else {
-            dom::element setAttribute $d_param "xsi:type" "xsd:$type"
-            dom::document createTextNode $d_param $val
-        }        
+        insert_value $d_param [rpcvar $type $val]
         incr param_no
     }
 
@@ -736,43 +719,12 @@ proc SOAP::xmlrpc_request {procVarName args} {
         set d_params [dom::document createElement $d_root "params"]
     }
     
-    set param 0
+    set param_no 0
     foreach {key type} $params {
+        set val [lindex $args $param_no]
         set d_param [dom::document createElement $d_params "param"]
-        set d_pname [dom::document createElement $d_param "value"]
-        
-        if { [string match {struct} $type] } {
-
-            # XMLRPC struct type
-            set d_struct [dom::document createElement $d_pname "struct"]
-            foreach {sid sval} [lindex $args $param] {
-                set d_mmbr [dom::document createElement $d_struct "member"]
-                set d_mnam [dom::document createElement $d_mmbr "name"]
-                dom::document createTextNode $d_mnam $sid
-                set d_mval [dom::document createElement $d_mmbr "value"]
-                set d_mtyp [dom::document createElement $d_mval \
-                        [[namespace parent]::XMLRPC::TypedVariable::get_type $sval]]
-                dom::document createTextNode $d_mtyp \
-                        [[namespace parent]::XMLRPC::TypedVariable::get_value $sval]
-            }
-
-        } elseif { [regexp {^array(\(.*\))?} $type match subtype] } {
-            # XMLRPC Array type
-            set subtype [string trim $subtype "()"]
-            set d_array [dom::document createElement $d_pname "array"]
-            set d_data  [dom::document createElement $d_array "data"]
-            foreach elt [lindex $args $param] {
-                set d_value [dom::document createElement $d_data "value"]
-                set d_type [dom::document createElement $d_value $subtype]
-                dom::document createTextNode $d_type \
-                        [[namespace parent]::XMLRPC::TypedVariable::get_value $elt]
-            }
-        } else {
-            set d_ptype [dom::document createElement $d_pname $type]
-            dom::document createTextNode $d_ptype \
-                    [[namespace parent]::XMLRPC::TypedVariable::get_value [lindex $args $param]]
-        }
-        incr param
+        XMLRPC::insert_value $d_param [rpcvar $type $val]
+        incr param_no
     }
 
     # We have to strip out the DOCTYPE element though. It would be better to
@@ -800,7 +752,14 @@ proc SOAP::xmlrpc_request {procVarName args} {
 #
 proc SOAP::parse_soap_response { procVarName xml } {
     # Sometimes Fault packets come back with HTTP code 200
-    set doc [dom::DOMImplementation parse $xml]
+    #
+    # kenstir@synchronicity.com: Catch xml parse errors and present a
+    #   friendlier message.  The parse method throws awful messages like
+    #   "{invalid attribute list} around line 16".
+    if {[catch {set doc [dom::DOMImplementation parse $xml]}]} {
+        error "Server response is not well-formed XML.\nresponse was $xml" \
+                $::errorInfo Server
+    }
 
     set faultNode [selectNode $doc "/Envelope/Body/Fault"]
     if {$faultNode != {}} {
@@ -838,7 +797,10 @@ proc SOAP::parse_soap_response { procVarName xml } {
 #
 proc SOAP::parse_xmlrpc_response { procVarName xml } {
     set result {}
-    set doc [dom::DOMImplementation parse $xml]
+    if {[catch {set doc [dom::DOMImplementation parse $xml]}]} {
+        error "Server response is not well-formed XML.\nresponse was $xml" \
+                $::errorInfo Server
+    }
 
     set faultNode [selectNode $doc "/methodResponse/fault"]
     if {$faultNode != {}} {
@@ -912,6 +874,79 @@ proc SOAP::xmlrpc_value_from_node {valueNode} {
     return $value
 }
 
+# -------------------------------------------------------------------------
+# -------------------------------------------------------------------------
+
+# FIX ME : change to call SOAP::insert_value as this code can be shared 
+#          between the client and the server methods. CGI already delegates
+#          to this code.
+proc SOAP::insert_value {node value} {
+
+    set type     [rpctype $value]
+    set subtype  [rpcsubtype $value]
+    set value    [rpcvalue $value]
+    set typeinfo [typedef -info $type]
+    set typexmlns [typedef -namespace $type]
+    if {$typexmlns == {}} {
+        set typexmlns xsd
+    }
+
+    #puts "$typexmlns $type $subtype [string match {*()} $type]"
+    if {[string match {*()} $type] || [string match array $type]} {
+        # array type: arrays are indicated by a () suffix or the word 'array'
+        set itemtype [string trimright $type ()]
+        if {$itemtype == "array"} {
+            set itemtype ur-type
+        }
+        dom::element setAttribute $node \
+                "xmlns:SOAP-ENC" "http://schemas.xmlsoap.org/soap/encoding/"
+        dom::element setAttribute $node "xsi:type" "SOAP-ENC:Array"
+        dom::element setAttribute $node \
+                "SOAP-ENC:arrayType" "$typexmlns:$itemtype\[[llength $value]\]"
+
+        foreach elt $value {
+            set d_elt [dom::document createElement $node "item"]
+            if {[string match "ur-type" $itemtype]} {
+                insert_value $d_elt $elt
+            } else {
+                insert_value $d_elt [rpcvar $itemtype $elt]
+            }
+        }
+    } elseif {[llength $typeinfo] > 1} {
+        # a typedef'd struct.
+        dom::element setAttribute $node "xsi:type" "$typexmlns:$type"
+        array set ti $typeinfo
+        foreach {eltname eltvalue} $value {
+            set d_elt [dom::document createElement $node $eltname]
+            if {![info exists ti($eltname)]} {
+                error "invalid member name: \"$eltname\" is not a member of\
+                        the $type type."
+            }
+            insert_value $d_elt [rpcvar $ti($eltname) $eltvalue]
+        }
+    } elseif {$type == "struct"} {
+        # an unspecified struct
+        foreach {eltname eltvalue} $value {
+            set d_elt [dom::document createElement $node $eltname]
+            insert_value $d_elt $eltvalue
+        }
+    } else {
+        # simple type
+        dom::element setAttribute $node "xsi:type" "$typexmlns:$type"
+        dom::document createTextNode $node $value
+    }
+}
+
+# test the insert_value code.
+proc t {val} {
+    set doc [dom::DOMImplementation create]
+    set rsp [dom::document createElement $doc "testResponse"]
+    set elt [dom::document createElement $rsp "return"]
+    SOAP::insert_value $elt $val
+    set r [dom::DOMImplementation serialize $doc]
+    dom::DOMImplementation destroy $doc
+    return $r
+}
 # -------------------------------------------------------------------------
 
 # Local variables:
