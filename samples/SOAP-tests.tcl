@@ -12,7 +12,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: SOAP-tests.tcl,v 1.5 2001/02/19 23:45:55 pat Exp pt111992 $
+# @(#)$Id: SOAP-tests.tcl,v 1.6 2001/03/02 13:26:42 pat Exp pat $
 
 package require SOAP 1.0
 
@@ -79,6 +79,22 @@ SOAP::create c2f_broke \
 
 # -------------------------------------------------------------------------
 #
+# Lucin
+#
+SOAP::create getCard \
+        -uri "GetACard" \
+        -name "GetACard" \
+        -proxy "http://sal006.salnetwork.com:82/bin/games.cgi" \
+        -params {}
+
+SOAP::create getHand \
+        -uri "GetAHand" \
+        -name "GetAHand" \
+        -proxy "http://sal006.salnetwork.com:82/bin/games.cgi" \
+        -params {}
+
+# -------------------------------------------------------------------------
+#
 # Other demos
 #
 SOAP::create NextGUID \
@@ -99,6 +115,7 @@ SOAP::create census \
         -action "http://tempuri.org/GetPoliticalUnitFactsByName" \
         -name GetPoliticalUnitFactsByName
 
+# -------------------------------------------------------------------------
 
 # Fortune server has 3 methods.
 namespace eval Fortune {
@@ -111,6 +128,8 @@ namespace eval Fortune {
     namespace export getAnyFortune getDictionaryNameList \
             getFortuneByDictionary
 }
+
+# -------------------------------------------------------------------------
 
 namespace eval XFS {
     variable uri "urn:xmethodsXFS"
