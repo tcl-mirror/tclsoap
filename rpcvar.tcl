@@ -20,7 +20,7 @@ package provide rpcvar 1.1
 namespace eval rpcvar {
     variable version 1.1
     variable magic "rpcvar$version"
-    variable rcs_id {$Id: rpcvar.tcl,v 1.4 2001/08/23 20:35:56 patthoyts Exp $}
+    variable rcs_id {$Id: rpcvar.tcl,v 1.5 2001/08/24 22:02:32 patthoyts Exp $}
     variable typedefs
     variable typens
     variable enums
@@ -71,7 +71,7 @@ proc rpcvar::rpcvar {args} {
             }
             -h* {
                 # headers
-                lappend head [lindex $args 1]
+                set head [concat $head [lindex $args 1]]
                 set args [lreplace $args 0 0]
             }
             --  {
