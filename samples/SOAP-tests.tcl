@@ -5,23 +5,25 @@
 # The SOAP::Lite project has some nice examples of object access that
 # we should pursue
 # 
-# @(#)$Id: SOAP-tests.tcl,v 1.2 2001/02/19 00:44:46 pat Exp pt111992 $
+# @(#)$Id: SOAP-tests.tcl,v 1.3 2001/02/19 11:50:06 pt111992 Exp pat $
 
 package require SOAP 1.0
 
 # Setup SOAP HTTP transport for out authenticating proxy
-if { [SOAP::get SOAP::Transport::http headers] == {} } {
-    package require Trf
-    toplevel .t
-    wm title .t "Enter username and passwd"
-    entry .t.e1 -textvariable SOAP::userid
-    entry .t.e2 -textvariable SOAP::passwd -show "*"
-    pack .t.e1 .t.e2 -side top -anchor n -fill x -expand 1
-    tkwait window .t
-    SOAP::configure -transport http -proxy ripon:80 \
-            -headers [list "Proxy-Authorization" \
-            "Basic [lindex [base64 -mode enc ${SOAP::userid}:${SOAP::passwd}] 0]" ]
-    unset SOAP::passwd SOAP::userid
+proc reniconfig {} {
+    if { [SOAP::get SOAP::Transport::http headers] == {} } {
+        package require Trf
+        toplevel .t
+        wm title .t "Enter username and passwd"
+        entry .t.e1 -textvariable SOAP::userid
+        entry .t.e2 -textvariable SOAP::passwd -show "*"
+        pack .t.e1 .t.e2 -side top -anchor n -fill x -expand 1
+        tkwait window .t
+        SOAP::configure -transport http -proxy ripon:80 \
+                -headers [list "Proxy-Authorization" \
+                "Basic [lindex [base64 -mode enc ${SOAP::userid}:${SOAP::passwd}] 0]" ]
+        unset SOAP::passwd SOAP::userid
+    }
 }
 
 # -------------------------------------------------------------------------
