@@ -28,7 +28,9 @@ if { [catch {package require dom 2.0}] } {
 
 namespace eval SOAP {
     variable version 1.2
-    variable rcs_version { $Id: SOAP.tcl,v 1.9 2001/03/17 01:31:54 pat Exp pat $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.10 2001/04/10 00:22:33 pat Exp pat $ }
+
+    namespace export create cget dump configure
 }
 
 # -------------------------------------------------------------------------
@@ -69,6 +71,14 @@ proc SOAP::cget { args } {
     }
     return  $r
 
+}
+
+# -------------------------------------------------------------------------
+
+# Dump the HTTP raw data from the last request performed.
+
+proc SOAP::dump {methodName} {
+    return [::http::data [cget $methodName http]]
 }
 
 # -------------------------------------------------------------------------
