@@ -43,7 +43,7 @@ namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.42 2001/12/21 16:57:52 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.43 2002/02/02 00:29:16 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -771,8 +771,16 @@ proc SOAP::reply { doc uri methodName result } {
 
     # insert the results into the DOM tree (unless it's a void result)
     if {$result != {}} {
-        set retnode [dom::document createElement $cmd "return"]
-        SOAP::insert_value $retnode $result
+        # Some methods may return a parameter list of name - value pairs.
+        if {[rpctype $result] == "PARAMLIST"} {
+            foreach {resultName resultValue} [rpcvalue $result] {
+                set retnode [dom::document createElement $cmd $resultName]
+                SOAP::insert_value $retnode $resultValue
+            }
+        } else {
+            set retnode [dom::document createElement $cmd "return"]
+            SOAP::insert_value $retnode $result
+        }
     }
 
     return $doc

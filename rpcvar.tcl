@@ -15,12 +15,12 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package provide rpcvar 1.1
+package provide rpcvar 1.2
 
 namespace eval rpcvar {
-    variable version 1.1
+    variable version 1.2
     variable magic "rpcvar$version"
-    variable rcs_id {$Id: rpcvar.tcl,v 1.7 2001/10/10 02:56:24 patthoyts Exp $}
+    variable rcs_id {$Id: rpcvar.tcl,v 1.8 2001/12/21 00:43:51 patthoyts Exp $}
     variable typedefs
     variable typens
     variable enums
@@ -43,6 +43,7 @@ namespace eval rpcvar {
 #   Create a typed variable with optionally an XML namespace for SOAP types.
 # Syntax:
 #   rpcvar ?-namespace soap-uri? ?-attributes list? type value
+#   rpcvar -paramlist name rpcvalue ?name rpcvalue ...?
 # Parameters:
 #   namespace  - the SOAP XML namespace for this type
 #   attributes - a list of attribute name/value pairs for this element 
@@ -57,51 +58,55 @@ proc rpcvar::rpcvar {args} {
 
     set xmlns {}
     set head {}
+    set paramlist false
     array set attr {}
     while {[string match -* [lindex $args 0]]} {
         switch -glob -- [lindex $args 0] {
-            -n* {
-                # namespace
-                set xmlns [lindex $args 1]
-                set args [lreplace $args 0 0]
-            }
-            -a* {
-                # attributes
-                array set attr [lindex $args 1]
-                set args [lreplace $args 0 0]
-            }
-            -h* {
-                # headers
-                set head [concat $head [lindex $args 1]]
-                set args [lreplace $args 0 0]
-            }
-            --  {
-                set args [lreplace $args 0 0]
-                break 
-            }
+            -n* { set xmlns [Pop args 1] }
+            -a* { array set attr [Pop args 1] }
+            -h* { set head [concat $head [Pop args 1]] }
+            -p* { set paramlist true }
+            --  { Pop args ;  break }
             default { return -code error "unknown option \"[lindex $args 0]\""}
         }
-        set args [lreplace $args 0 0]
+        Pop args
     }
 
-    if {[llength $args] != 2} {
-        return -code error "wrong # args: \
+    if {$paramlist} {
+        set type PARAMLIST
+        set value $args
+    } else {
+
+        if {[llength $args] != 2} {
+            return -code error "wrong # args: \
                 should be \"rpcvar ?-namespace uri? type value\""
-    }
+        }
 
-    set type [lindex $args 0]
-    set value [lindex $args 1]
+        set type [lindex $args 0]
+        set value [lindex $args 1]
 
-    # For struct types (or typedefs that are structs) accept an array name or a list.
-    if {$type != "string" && [uplevel array exists [list $value]]} {
-        set value [uplevel array get [list $value]]
-    }
-
-    if {! [rpcvalidate $type $value]} {
-        error "type mismatch: \"$value\" is not appropriate to the \"$type\"\
+        # For struct types (or typedefs that are structs) accept an array name or a list.
+        if {$type != "string" && [uplevel array exists [list $value]]} {
+            set value [uplevel array get [list $value]]
+        }
+        
+        if {! [rpcvalidate $type $value]} {
+            error "type mismatch: \"$value\" is not appropriate to the \"$type\"\
                 type."
+        }
     }
     return [list $magic $xmlns [array get attr] $head $type $value]
+}
+
+# -------------------------------------------------------------------------
+# Description:
+#  Pop the nth element off a list. Used in options processing.
+#
+proc rpcvar::Pop {varname {nth 0}} {
+    upvar $varname args
+    set r [lindex $args $nth]
+    set args [lreplace $args $nth $nth]
+    return $r
 }
 
 # -------------------------------------------------------------------------
