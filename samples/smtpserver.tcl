@@ -7,6 +7,8 @@
 # This listens on the designated port and pops up a messagebox with the SOAP
 # request result.
 #
+# $Id$
+#
 # -------------------------------------------------------------------------
 # This software is distributed in the hope that it will be useful, but
 # WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
@@ -103,7 +105,11 @@ if {$argc > 1} {
     set port [lindex $argv 1]
 }
 
-#smtpd::start $iface $port
+if {$::tcl_interactive} {
+    puts "You probably want to type \"smtpd::start 0.0.0.0 25\" or something"
+} else {
+    smtpd::start $iface $port
+}
 
 #
 # Local variables:
