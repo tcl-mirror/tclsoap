@@ -5,36 +5,20 @@
 #
 # Used by SOAP until I work out how to read the packets using DOM.
 #
-# @(#)$Id$
+# @(#)$Id: SOAP-parse.tcl,v 1.1 2001/02/15 23:21:37 pat Exp pat $
 
 package provide SOAP::Parse 1.0
+
+package require xml 1.9
+
+# -------------------------------------------------------------------------
 
 namespace eval SOAP::Parse {
     variable elt_path {}
     variable elt_data
-    catch { unset elt_data } msg
 }
 
-proc SOAP::Parse::elt_start { name attributes } {
-    variable elt_path
-    lappend elt_path $name
-}
-
-proc SOAP::Parse::elt_end { name } {
-    variable elt_path
-    set elt_path [lreplace $elt_path end end ]
-}
-    
-proc SOAP::Parse::elt_data data {
-    variable elt_path
-    variable elt_data
-    if { ! [regexp {^[ \t\n]*$} $data] } {
-	set path [join $elt_path {/}]
-	catch { set d $elt_data($path) } msg
-	lappend d $data
-	set elt_data($path) $d
-    }
-}
+# -------------------------------------------------------------------------
 
 proc SOAP::Parse::parse { data } {
     variable elt_data
@@ -55,3 +39,37 @@ proc SOAP::Parse::parse { data } {
 
     return $r
 }
+
+# -------------------------------------------------------------------------
+
+proc SOAP::Parse::elt_start { name attributes } {
+    variable elt_path
+    lappend elt_path $name
+}
+
+# -------------------------------------------------------------------------
+
+proc SOAP::Parse::elt_end { name } {
+    variable elt_path
+    set elt_path [lreplace $elt_path end end ]
+}
+
+# -------------------------------------------------------------------------
+
+proc SOAP::Parse::elt_data data {
+    variable elt_path
+    variable elt_data
+    if { ! [regexp {^[ \t\n]*$} $data] } {
+	set path [join $elt_path {/}]
+	catch { set d $elt_data($path) } msg
+	lappend d $data
+	set elt_data($path) $d
+    }
+}
+
+# -------------------------------------------------------------------------
+
+#
+# Local variables:
+#   indent-tabs-mode: nil
+# End:
