@@ -1,10 +1,17 @@
+* TclSOAP 1.6.3
+---------------
+
+**  Beep Transport (patch #464013)
+   Implemented patch #464013 to provide SOAP over BEEP using the
+   beepcore-tcl package.
+
 * TclSOAP 1.6.2
 ---------------
 
 ** Transport Modules
    Re-arranged the transport code to simplify addition of new
    transports. Implemented HTTP, SMTP and FTP as client transport
-   methods. Some SOAP-with-attachmeents support with SMTP.
+   methods. Some SOAP-with-attachments support with SMTP.
 
 ** Applied patch #488714
    Reverses a change to the HTTP headers configuration that isnt

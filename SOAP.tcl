@@ -21,6 +21,7 @@ package require uri;                    # tcllib 1.0
 catch {package require uri::urn};       # tcllib 1.2
 package require SOAP::Utils;            # TclSOAP
 package require rpcvar;                 # TclSOAP 
+package require SOAP::http;             # TclSOAP
 
 # Find a suitable DOM package to use. First we try for tDOM. If this is
 # present we need a wrapper (not complete yet). If either fails then we 
@@ -44,7 +45,7 @@ namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.39 2001/12/20 00:09:29 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.40 2001/12/21 01:47:25 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
