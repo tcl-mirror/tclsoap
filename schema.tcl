@@ -23,7 +23,7 @@ package require SOAP::Utils;            # TclSOAP
 
 namespace eval ::SOAP::Schema {
     variable version 0.1
-    variable rcsid {$Id: schema.tcl,v 1.1.2.1 2003/02/04 22:59:30 patthoyts Exp $}
+    variable rcsid {$Id: schema.tcl,v 1.1.2.2 2003/06/12 22:51:08 patthoyts Exp $}
 
     catch {namespace import -force [namespace parent]::Utils::*}
 }
@@ -39,7 +39,7 @@ proc ::SOAP::Schema::parse {schemaNode} {
             complexType { lappend defs [parse_complexType $typeNode] }
             simpleType { lappend defs [parse_simpleType $typeNode] }
             import  {
-                log:log warning "not done"
+                log::log warning "not done"
                 #namespace=urn schemaLocation=url
             }
             default {

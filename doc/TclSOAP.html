@@ -32,6 +32,19 @@
 
   <tr><td class="sidebar">
     <table>
+
+<tr><td>
+<form action="https://www.paypal.com/cgi-bin/webscr" method="post">
+<input type="hidden" name="cmd" value="_xclick">
+<input type="hidden" name="business" value="pat@zsplat.freeserve.co.uk">
+<input type="hidden" name="item_name" value="TclSOAP">
+<input type="hidden" name="no_note" value="1">
+<input type="hidden" name="currency_code" value="GBP">
+<input type="hidden" name="tax" value="0">
+<center><input type="image" src="x-click-but04.gif" border="0" name="submit" alt="Make payments with PayPal - it's fast, free and secure!"></center>
+</form>
+</td></tr>
+
 <tr><td class="sidehead">Sections</td></tr>
 <tr><td class="sideelt"><a href="#introduction">Introduction</a></td></tr>
 <tr><td class="sideelt"><a href="#methods">Commands</a></td></tr>
@@ -63,7 +76,29 @@
 <tr><td class="sideelt"><A href="http://sourceforge.net/tracker/?aid=385860&group_id=25970&func=browse">Support Requests</A></td></tr>
 <tr><td class="sideelt"><A href="http://sourceforge.net/tracker/?aid=385861&group_id=25970&func=browse">Patches</A></td></tr>
 <tr><td class="sideelt"><a href="http://sourceforge.net/tracker/?aid=385862&group_id=25970&func=browse">Feature Requests</A></td></tr>
-    </table></td>
+
+    </table>
+
+    <table align="center" valign="bottom" border="0" borderwidth="0">
+     <tr><td>&nbsp;</td></tr>
+     <tr><td>&nbsp;</td></tr>
+     <tr>
+      <td style="text-align:center;">
+        <a href="http://wiki.tcl.tk/">
+         <img src="http://mini.net/wiki.gif" alt="Tclers wiki" />
+        </a>
+       </td>
+      </tr>
+     <tr>
+      <td style="text-align:center;">
+        <a href="http://www.catb.org/hacker-emblem/">
+         <img src="glider.png" alt="Hacker emblem" />
+        </a>
+       </td>
+      </tr>
+    </table>
+
+    </td>
 
 <td class="body" colspan="2">
 <div class="body">
@@ -480,8 +515,19 @@ SOAP::configure hi -params {}
   update information on the <a href="http://sourceforge.net/projects/tclsoap">
   TclSOAP project page</a>. This is also the place to report bugs,
   submit patches and discuss any issues.</p>
-  <br>
-  <br>
+
+  <p>If you would like to make a donation to support development of
+  this software, you may do so via PayPal. This is not required and in
+  no way affects the free licensing of this software.
+<form action="https://www.paypal.com/cgi-bin/webscr" method="post">
+<input type="hidden" name="cmd" value="_xclick">
+<input type="hidden" name="business" value="pat@zsplat.freeserve.co.uk">
+<input type="hidden" name="item_name" value="TclSOAP">
+<input type="hidden" name="no_note" value="1">
+<input type="hidden" name="currency_code" value="GBP">
+<input type="hidden" name="tax" value="0">
+<input type="image" src="x-click-but04.gif" border="0" name="submit" alt="Make payments with PayPal - it's fast, free and secure!">
+</form></p>
 
   <!-- =================================================================  -->
 
@@ -489,7 +535,7 @@ SOAP::configure hi -params {}
 </td></tr>
 <tr class="footer">
 <td class="footer" colspan="3">
-$Id: TclSOAP.html,v 1.21 2002/01/09 22:51:28 patthoyts Exp $
+$Id: TclSOAP.html,v 1.21.2.1 2003/06/12 22:51:08 patthoyts Exp $
 </td></tr>
 
     </table>

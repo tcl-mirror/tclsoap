@@ -20,8 +20,8 @@
 
 # TclSOAP sample implementations.
 urn:soapinterop         soapinterop.tcl
-urn:tclsoap-Test	tclsoap-Test.tcl
-urn:tclsoap-SafeTest	tclsoap-Test.tcl	SafeTest
+urn:tclsoap:Test	tclsoap-Test.tcl
+urn:tclsoap:SafeTest	tclsoap-Test.tcl	SafeTest
 urn:tclsoap:webservices	webservice.tcl
 
 # Some soapinterop clients would prefer one of these actions

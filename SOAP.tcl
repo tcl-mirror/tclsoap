@@ -14,6 +14,7 @@
 package require http 2.0;               # tcl 8.n
 package require log;                    # tcllib 1.0
 package require uri;                    # tcllib 1.0
+package require mime;                   # tcllib 1.0
 catch {package require uri::urn};       # tcllib 1.2
 package require SOAP::Utils;            # TclSOAP
 package require rpcvar;                 # TclSOAP 
@@ -37,9 +38,9 @@ if {[catch {package require SOAP::dom 1.0} ::SOAP::domVersion]} {
 # -------------------------------------------------------------------------
 
 namespace eval ::SOAP {
-    variable version 1.6.7
+    variable version 1.6.8
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.44.2.7 2003/06/12 22:51:07 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.44.2.8 2003/09/08 22:04:24 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -818,15 +819,22 @@ proc ::SOAP::soap_request {procVarName args} {
     set soapenc $procvar(encoding)
 
     # Check for options (ie: -header) give up on the fist non-matching arg.
-    array set opts {-headers {} -attributes {}}
+    array set opts {-headers {} -attributes {} -attachments {}}
     while {[string match -* [lindex $args 0]]} {
         switch -glob -- [lindex $args 0] {
             -header* {
-                set opts(-headers) [concat $opts(-headers) [lindex $args 1]]
+                set opts(-headers) \
+                    [concat $opts(-headers) [lindex $args 1]]
                 set args [lreplace $args 0 0]
             }
             -attr* {
-                set opts(-attributes) [concat $opts(-attributes) [lindex $args 1]]
+                set opts(-attributes) \
+                    [concat $opts(-attributes) [lindex $args 1]]
+                set args [lreplace $args 0 0]
+            }
+            -attach* {
+                set opts(-attachments) \
+                    [concat $opts(-attachments) [lindex $args 1]]
                 set args [lreplace $args 0 0]
             }
             -- {
@@ -919,6 +927,25 @@ proc ::SOAP::soap_request {procVarName args} {
     regsub "<!DOCTYPE\[^>\]*>\r?\n?" $prereq {} req  ;# hack
 
     set req [encoding convertto utf-8 $req]          ;# make it UTF-8
+
+    # Support SOAP-with-attachments
+    if {$opts(-attachments) != {}} {
+        set start [clock seconds]-[clock clicks]-[pid]-[info hostname]
+        set mimexml [mime::initialize -canonical text/xml \
+                         -header [list Content-ID $start] \
+                         -param [list charset UTF-8] \
+                         -encoding 8bit -string $req]
+        set mime [mime::initialize -canonical multipart/related \
+                      -param [list type text/xml] -param [list start $start] \
+                      -parts [concat $mimexml $opts(-attachments)]]
+        set req [mime::buildmessage $mime]
+        mime::finalize $mimexml
+        mime::finalize $mime
+
+        # Fix the line endings. We will be network encoding these later.
+        set req [string map [list "\r\n" "\n"] $req]
+    }
+
     return $req                                      ;# return the XML data
 }
 

@@ -39,7 +39,7 @@ namespace eval ::SOAP {
 	# -----------------------------------------------------------------
 
 	variable rcsid {
-	    $Id: SOAP-CGI.tcl,v 1.12.2.1 2002/10/01 22:36:26 patthoyts Exp $
+	    $Id: SOAP-CGI.tcl,v 1.12.2.2 2003/02/07 01:31:17 patthoyts Exp $
 	}
 	variable methodName  {}
 	variable debugging   0
@@ -105,7 +105,7 @@ proc ::SOAP::CGI::write {html {type text/html} {status {}}} {
 	puts "Status: $status"
     }
 
-    puts "SOAPServer: TclSOAP/1.6"
+    puts "SOAPServer: TclSOAP/$::SOAP::version"
     puts "Content-Type: $type"
     set len [string length $html]
     puts "X-Content-Length: $len"
@@ -357,7 +357,7 @@ proc ::SOAP::CGI::soap_header {doc {mandate 0}} {
 # Parameters:
 #   doc - a DOM tree constructed from the input request XML data.
 #
-proc ::SOAP::CGI::soap_call {doc {interp {}}} {
+proc ::SOAP::CGI::soap_call {doc {interp {}} {mime {}}} {
     variable methodName
     set headers {}
     if {[catch {
@@ -411,6 +411,11 @@ proc ::SOAP::CGI::soap_call {doc {interp {}}} {
 		    method \"${methodNamespace}::${methodName}\" not found" \
 		{} "Client"
 	}
+
+        # SOAP messages with attachments.
+        if {$mime != {}} {
+            lappend argValues $mime
+        }
 
 	# evaluate the method
 	set msg [interp eval $interp $fqdn $argValues]
@@ -524,7 +529,7 @@ proc ::SOAP::CGI::xmlrpc_invocation {doc} {
 #   a safe slave interpreter for extra security if needed.
 #   See the cgi-bin/soapmap.dat file for more details.
 #
-proc ::SOAP::CGI::soap_invocation {doc} {
+proc ::SOAP::CGI::soap_invocation {doc {mime {}}} {
     global env
     variable soapdir
 
@@ -572,7 +577,7 @@ proc ::SOAP::CGI::soap_invocation {doc} {
 	}
     }
     
-    set result [soap_call $doc $impl(interp)]
+    set result [soap_call $doc $impl(interp) $mime]
     if {$impl(interp) != {}} {
 	safe::interpDelete $impl(interp)
     }
@@ -591,7 +596,6 @@ proc ::SOAP::CGI::soap_invocation {doc} {
 #          as this parameter. Normally this will not be used.
 #
 proc ::SOAP::CGI::main {{xml {}} {debug 0}} {
-    catch {package require tcllib} ;# re-eval the pkgIndex
     package require ncgi
     global env
     variable soapdir
@@ -614,12 +618,39 @@ proc ::SOAP::CGI::main {{xml {}} {debug 0}} {
 	    }
 	}
 
-	set doc [dom::DOMImplementation parse [do_encoding $xml]]
+        dtrace [array get env]
+        set doc {}
+        set mime {}
+        set type text/xml
+        catch {set type [string tolower $env(CONTENT_TYPE)]}
+        # may be multipart/related;option=value....
+        switch -glob -- $type {
+            text/xml* {
+                set doc [dom::DOMImplementation parse [do_encoding $xml]]
+            }
+            multipart/related* {
+                set mime [mime::initialize -string \
+                              "Content-type: $env(CONTENT_TYPE)\
+                               \n\n[do_encoding $xml]"]
+                set ::mime $mime
+                set parts [mime::getproperty $mime parts]
+                set sp [lindex $parts 0]
+                if {[llength $parts] > 0 \
+                        && [mime::getproperty $sp content] == "text/xml"} {
+                    set doc [dom::DOMImplementation parse [mime::getbody $sp]]
+                }
+            }
+        }
+        if {$doc == {}} {
+            return -code error "invalid data:\
+                       the request must be text/xml or multipart/related\n\
+                       [array get env]"
+        }
 	
 	# Identify the type of request - SOAP or XML-RPC, load the
 	# implementation and call.
 	if {[selectNode $doc "/Envelope"] != {}} {
-	    set result [soap_invocation $doc]
+	    set result [soap_invocation $doc $mime]
 	    log "SOAP" $methodName "ok"
 	} elseif {[selectNode $doc "/methodCall"] != {}} {
 	    set result [xmlrpc_invocation $doc]
@@ -628,6 +659,10 @@ proc ::SOAP::CGI::main {{xml {}} {debug 0}} {
 	    dom::DOMImplementation destroy $doc
 	    error "invalid protocol: the XML data is neither SOAP not XML-RPC"
 	}
+
+        if {$mime != {}} {
+            catch {mime::finalize $mime -subordinates all}
+        }
 
 	# Send the answer to the caller
 	write $result text/xml

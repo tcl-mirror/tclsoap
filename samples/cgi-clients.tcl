@@ -14,7 +14,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: cgi-clients.tcl,v 1.1 2001/08/03 21:47:40 patthoyts Exp $
+# @(#)$Id: cgi-clients.tcl,v 1.2 2001/12/08 01:19:02 patthoyts Exp $
 
 package require SOAP
 package require XMLRPC
@@ -25,8 +25,8 @@ package require SOAP::http
 # Some of my simple cgi test services.
 
 proc define_sample_clients {proxy} {
-    set uri    "urn:tclsoap-Test"
-    set action "urn:tclsoap-Test"
+    set uri    "urn:tclsoap:Test"
+    set action "urn:tclsoap:Test"
     
     SOAP::create rpctime -uri $uri -name time -action $action -proxy $proxy \
             -params {}

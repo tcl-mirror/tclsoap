@@ -22,7 +22,7 @@ package require log;                    # tcllib 1.0
 namespace eval ::SOAP::Domain {
     variable version 1.4  ;# package version number
     variable debug 0      ;# flag to toggle debug output
-    variable rcs_id {$Id: SOAP-domain.tcl,v 1.13 2002/02/27 21:29:14 patthoyts Exp $}
+    variable rcs_id {$Id: SOAP-domain.tcl,v 1.13.2.1 2003/02/07 01:31:17 patthoyts Exp $}
 
     namespace export register
 
@@ -129,7 +129,6 @@ proc ::SOAP::Domain::domain_handler {optsname sock args} {
     upvar \#0 Httpd$sock data
     upvar \#0 $optsname options
     
-    
     # if suffix is {} then it fails to make it through the various evals.
     set suffix [lindex $args 0]
     
@@ -159,16 +158,34 @@ proc ::SOAP::Domain::domain_handler {optsname sock args} {
         return 1
     }        
 
-    # Parse the XML into a DOM tree.
-    set doc [dom::DOMImplementation parse $query]
+    set mime {}
+    set doc  {}
+    switch -glob -- $type {
+        multipart/related* {
+            package require mime
+            set mime [mime::initialize -string "Content-type: $type\n\n$query"]
+            set parts [mime::getproperty $mime parts]
+            set sp [lindex $parts 0]
+            if {[llength $parts] > 0 \
+                    && [mime::getproperty $sp content] == "text/xml"} {
+                set doc [dom::DOMImplementation parse [mime::getbody $sp]]
+            }            
+        }
+        text/xml* {
+            # Parse the XML into a DOM tree.
+            set doc [dom::DOMImplementation parse $query]
+        }
+    }
+
     if { $debug } { set ::doc $doc }
 
     # Call the procedure and convert errors into SOAP Faults and the return
     # data into a SOAP return packet.
-    set failed [catch {SOAP::CGI::soap_call $doc $options(-interp)} msg]
+    set failed [catch {SOAP::CGI::soap_call $doc $options(-interp) $mime} msg]
     Httpd_ReturnData $sock text/xml $msg [expr {$failed ? 500 : 200}]
 
     catch {dom::DOMImplementation destroy $doc}
+    if {$mime != {}} { mime::finalize $mime -subordinates all }
     return $failed
 }
 

@@ -1,6 +1,12 @@
 * TclSOAP 1.6.8
 ---------------
 
+** SOAP Messages with Attachments
+   The SOAP-Domain and SOAP-CGI code can now accept multipart/related
+   mime data as per this spec. To send an attachment along with a SOAP
+   request, SOAP commands will take a -attach token option, where token
+   is a mime token (from the tcllib mime package).
+
 ** Added xmlHook option
    This hook is called after the xml is generated and before it is
    passed to the transport procedure.

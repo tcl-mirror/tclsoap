@@ -13,7 +13,7 @@ package require http 2;                 # tcl
 
 namespace eval ::SOAP::Transport::http {
     variable version 1.0
-    variable rcsid {$Id: http.tcl,v 1.5.2.3 2003/09/08 15:23:13 patthoyts Exp $}
+    variable rcsid {$Id: http.tcl,v 1.5.2.4 2003/09/08 22:04:24 patthoyts Exp $}
     variable options
 
     SOAP::register http [namespace current]
@@ -190,10 +190,25 @@ proc ::SOAP::Transport::http::xfer { procVarName url request } {
     if {$procvar(command) != {}} {
         set command "-command {[namespace current]::asynchronous $procVarName}"
     }
+
+    # For SOAP-Messages-with-Attachments we must remove any MIME headers
+    # other than Content-Type.
+    set type {}
+    if {[string match "MIME-Version*" $request]} {
+        set mark [string first "\n\n" $request]
+        set mimeheaders [string range $request 0 $mark]
+        set mimeheaders [regsub -all {\n\s+} $mimeheaders {}]
+        regexp -lineanchor {^Content-Type: (.*)$} $mimeheaders -> type
+        set type [string trim \
+                      [string map {\r\n {} \n {}} \
+                           [regsub -all -line {^\s+} $type {}]]]
+        set request [string trim [string range $request [incr mark] end] \n]
+    }
+    if {$type == {}} { set type text/xml }
     
     set token [eval ::http::geturl_followRedirects [list $url] \
                    -headers [list $local_headers] \
-                   -type text/xml \
+                   -type [list $type] \
                    -timeout $timeout \
                    -query [list $request] \
                    $local_progress $command]
