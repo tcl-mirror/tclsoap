@@ -42,9 +42,19 @@ proc write {html} {
 if {[catch {
 
     package require SOAP::CGI
-    set SOAP::CGI::soapdir    "../method-scripts"
-    set SOAP::CGI::xmlrpcdir  "../method-scripts"
-    set SOAP::CGI::logfile    "../logs/rpc.log"
+
+    # Set this to point to you SOAP service implementations.
+    set root [file join $::env(HOME) lib tcl tclsoap cgi-bin]
+
+    set SOAP::CGI::soapdir       [file join $root soap]
+    set SOAP::CGI::soapmapfile   [file join $root soapmap.dat]
+    set SOAP::CGI::xmlrpcdir     [file join $root soap]
+    set SOAP::CGI::xmlrpcmapfile [file join $root xmlrpcmap.dat]
+
+    # Set this for some logging.
+    #set SOAP::CGI::logfile       "../logs/rpc.log"
+    catch {unset SOAP::CGI::logfile}
+
     SOAP::CGI::main
 
 } msg]} {
