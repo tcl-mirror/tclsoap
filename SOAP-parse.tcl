@@ -5,7 +5,7 @@
 #
 # Used by SOAP until I work out how to read the packets using DOM.
 #
-# @(#)$Id: SOAP-parse.tcl,v 1.3 2001/03/17 01:23:34 pat Exp pat $
+# @(#)$Id: SOAP-parse.tcl,v 1.4 2001/03/26 23:35:41 pat Exp pat $
 
 package provide SOAP::Parse 1.0
 
@@ -26,7 +26,6 @@ namespace eval SOAP::Parse {
             -elementstartcommand  SOAP::Parse::elt_start \
             -elementendcommand    SOAP::Parse::elt_end \
             -characterdatacommand SOAP::Parse::elt_data ]
-    puts "parser is $parser"
 }
 
 # -------------------------------------------------------------------------
