@@ -1,5 +1,7 @@
 * TclSOAP 1.6.4+
 ----------------
+** Update beep.tcl for RFC 3288
+   SF Patch #584390 by M Rose updates the beep transport for the RFC.
 
 ** https transport.
    Merged in patch #535302 from David Bleicher which provides SOAP

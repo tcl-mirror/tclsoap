@@ -30,7 +30,7 @@ package require mime;                   # tcllib
 
 namespace eval SOAP::Transport::beep {
     variable version 1.0
-    variable rcsid {$Id: beep.tcl,v 1.5 2002/01/05 23:09:53 patthoyts Exp $}
+    variable rcsid {$Id: beep.tcl,v 1.6 2002/02/02 00:31:17 patthoyts Exp $}
     variable options
     variable sessions
 
@@ -130,11 +130,12 @@ proc SOAP::Transport::beep::method:create {procVarName args} {
                            [set [namespace current]::options(-logident)]]]
     }
 
-    ###
+    #
     # when the RFC issues, update the default port number...
-    ###
+    # -- this has now occurred: RFC 3288
+    #
     if { $URL(port) == {} } {
-	set URL(port) 10288
+	set URL(port) 605
     }
     if { $URL(path) == {} } {
 	set URL(path) /
@@ -227,7 +228,7 @@ proc SOAP::Transport::beep::method:create {procVarName args} {
     }
 
     # create the channel
-    set profile http://clipcode.org/beep/soap
+    set profile http://iana.org/beep/soap
 
     set doc [dom::DOMImplementation create]
     set bootmsg [dom::document createElement $doc bootmsg]
