@@ -1,3 +1,15 @@
+* TclSOAP 1.6.4+
+----------------
+
+** https transport.
+   Merged in patch #535302 from David Bleicher which provides SOAP
+   over secure http in a simple to use manner.
+
+** XPath handling
+   Reverted to our internal XPathish location handling to deal with
+   the updated TclDOM. We could do the xpath queries properly but they
+   are then fairly complicated looking.
+
 * TclSOAP 1.6.4
 ---------------
 
