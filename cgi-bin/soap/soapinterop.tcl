@@ -43,7 +43,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id$
+# @(#)$Id: soapinterop.tcl,v 1.1 2001/08/03 21:35:41 patthoyts Exp $
 
 package require SOAP
 package require rpcvar
@@ -88,7 +88,36 @@ namespace eval http://soapinterop.org/ {
     }
 
     proc echoVoid {} {
-	return
+	# handle headers. Any headers destined for us should be removed
+	# from the dom tree because later the CGI framework is going to 
+	# check and any header with mustUnderstand == 1 && actor == me
+	# will throw an exception.
+
+	set header {}
+	set headerNode [uplevel 2 set headerNode]
+
+	if {$headerNode != {}} {
+	    if {[set node [lindex [dom::element getElementsByTagName \
+				       $headerNode "echoMeStringRequest"] 0]] != {}} {
+		set actor [SOAP::getElementAttribute $node actor]
+		puts "echoVoid actor: $actor"
+		if {$actor == {} || \
+			[string match $actor "http://schemas.xmlsoap.org/soap/actor/next"] != 0} {
+		    if {[string match "http://soapinterop.org/echoheader/" [SOAP::namespaceURI $node]]} {
+			
+			lappend header "s:echoMeStringResponse" \
+			    [rpcvar -attribute {xmlns:s "http://soapinterop.org/echoheader/"} \
+				 string [SOAP::decomposeSoap $node]]
+			# having successfully processed the node, delete it
+			dom::node removeChild $headerNode $node
+		    }
+		}
+	    } elseif {[set node [SOAP::selectNode $headerNode "echoMeStructRequest"]] != {}} {
+		error "Not done."
+	    }
+	}
+
+	return [rpcvar -header $header int {}]
     }
 
     proc echoStruct {inputStruct} {
