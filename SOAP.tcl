@@ -1,13 +1,18 @@
 # SOAP.tcl - Copyright (C) 2001 Pat Thoyts <pat@zsplat.freeserve.co.uk>
 #
 # Provide Tcl access to SOAP 1.1 methods.
+# See http://www.zsplat.freeserve.co.uk/soap1.0/doc/TclSOAP.html
+# for usage details.
 #
+# -------------------------------------------------------------------------
+# This software is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the accompanying file `LICENSE'
+# for more details.
+# -------------------------------------------------------------------------
 
 # Todo:
-# - Need to do fault processing for SOAP 1.1
 # - Needs testing using SOAP::Lite's services esp. the object access demo.
-# - Clean up the http connections. Keep the last one for state and error 
-#   info but delete during the next call.
 
 package provide SOAP 1.1
 
@@ -15,10 +20,11 @@ package provide SOAP 1.1
 
 package require http 2.3
 package require dom 1.6
+package require xpath 0.1
 
 namespace eval SOAP {
     variable version 1.0
-    variable rcs_version { $Id: SOAP.tcl,v 1.3 2001/02/19 23:49:39 pat Exp pt111992 $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.4 2001/02/25 17:15:57 pt111992 Exp pt111992 $ }
 }
 
 # -------------------------------------------------------------------------
@@ -54,7 +60,7 @@ proc SOAP::configure { methodName args } {
 
     set valid [catch { eval set url \$Commands::${methodName}::proxy } msg]
     if { $valid != 0 } {
-        return -code error "invalid command: \"$methodName\" not defined"
+        error "invalid command: \"$methodName\" not defined"
     }
 
     if { [llength $args] == 0 } {
@@ -76,7 +82,7 @@ proc SOAP::configure { methodName args } {
             -alias     { set Commands::${methodName}::alias $value }
             -action    { set Commands::${methodName}::action $value }
             default {
-                return -code error "unknown option \"$opt\""
+                error "unknown option \"$opt\""
             }
         }
     }
@@ -98,7 +104,7 @@ proc SOAP::configure { methodName args } {
                 append msg " " $name
             }
             append msg "\""
-            return -code error $msg
+            error $msg
         }
         set doc [dom::DOMImplementation create]
         set envx [dom::document createElement $doc "SOAP-ENV:Envelope"]
@@ -134,8 +140,7 @@ proc SOAP::configure { methodName args } {
 
 proc SOAP::create { args } {
     if { [llength $args] < 1 } {
-        return -code error \
-                "wrong # args: should be \"create methodName ?options?\""
+        error "wrong # args: should be \"create methodName ?options?\""
     } else {
         set methodName [lindex $args 0]
         set args [lreplace $args 0 0]
@@ -164,7 +169,7 @@ proc SOAP::create { args } {
 proc SOAP::invoke { methodName args } {
     set valid [catch { set url [get2 Commands::$methodName proxy] } msg]
     if { $valid != 0 } {
-        return -code error "invalid command: \"$methodName\" not defined"
+        error "invalid command: \"$methodName\" not defined"
     }
     
     # Get the DOM object containing our request
@@ -181,22 +186,19 @@ proc SOAP::invoke { methodName args } {
     set reply [ $transport $methodName $url $req ]
 
     # Parse the SOAP reply. ---- DO FAULT PROCESSING HERE ----
-    #set dom [dom::DOMImplementation parse $reply]
-    package require SOAP::Parse
-    set not_dom [SOAP::Parse::parse $reply]
-    
+    package require xpath
+    set dom [dom::DOMImplementation parse $reply]
+    set fault [catch { xpath::xpath $dom "Envelope/Body/Fault" }]
+    if { $fault == 0 } {
+        error [concat \
+                [xpath::xpath {Envelope/Body/Fault/faultcode}] \
+                [xpath::xpath {Envelope/Body/Fault/faultstring}] ]
+    } else {
+        package require SOAP::Parse
+        set not_dom [SOAP::Parse::parse $reply]
+    }
+
     return $not_dom
-}
-
-# -------------------------------------------------------------------------
-
-# Check SOAP packet and return error if it is a SOAP fault.
-
-proc SOAP::check_fault { doc } {
-    set env [dom::document cget $doc -documentElement]
-    set bod [dom::document getElementsByTagName $env {SOAP-ENV:Body}]
-    set flt [dom::document getElementsByTagName $bod {SOAP-ENV:Fault}]
-    return -code error $flt
 }
 
 # -------------------------------------------------------------------------
@@ -240,9 +242,18 @@ proc SOAP::transport_http { methodName url request } {
     # store the http structure for possible access later.
     set Commands::${methodName}::http $reply
 
+    if { [::http::ncode $reply ] == 500 } {
+        package require xpath
+        set dr [dom::DOMImplementation parse [::http::data $reply]]
+        set tr [concat \
+                [::xpath::xpath $dr {Envelope/Body/Fault/faultcode}] \
+                [::xpath::xpath $dr {Envelope/Body/Fault/faultstring}] ]
+        dom::DOMImplementation destroy $dr
+        error $tr
+    }
+
     if { [::http::status $reply] != "ok" || [::http::ncode $reply ] != 200 } {
-        return -code error \
-                "SOAP transport error: \"[::http::code $reply]\""
+         error "SOAP transport error: \"[::http::code $reply]\""
     }
 
     set r [::http::data $reply]
@@ -282,8 +293,7 @@ proc SOAP::transport_configure { transport args } {
                                 "variable headers { $value }"
                     }
                     default {
-                        return -code error \
-                                [concat "invalid option \"$opt\":" \
+                        error [concat "invalid option \"$opt\":" \
                                 "must be \"-proxy host:port\" "\
                                 "or \"-headers list\""]
                     }
@@ -294,7 +304,7 @@ proc SOAP::transport_configure { transport args } {
             return "no configuration required"
         }
         default {
-            return -code error "SOAP transport \"$transport\" is undefined."
+            error "SOAP transport \"$transport\" is undefined."
         }
     }
 }
