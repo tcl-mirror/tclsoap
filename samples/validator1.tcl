@@ -65,7 +65,7 @@ proc validator_soap_clients {{proxy http://localhost/cgi-bin/rpc}} {
     SOAP::create manyTypesTest \
 	    -proxy $proxy \
             -params {num int bool boolean state int doub double \
-	             dat string bin string}
+	             dat timeInstant bin string}
     SOAP::create moderateSizeArrayCheck \
 	    -proxy $proxy -params {myArray array}
     SOAP::create nestedStructTest \
@@ -189,11 +189,23 @@ proc validate.echoStructTest {} {
 	    substruct4 [stoogeStruct] ]
     set r [echoStructTest $q]
     if {[llength $q] != [llength $r]} {
-	error "echoStructTest failed: lists differ"
+	error "echoStructTest failed: list lengths differ"
     }
-    for {set n 0} {$n < [llength $q]} {incr n} {
-	if {[lindex $q $n] != [lindex $r $n]} { 
-	    error "echoStructTest failed: lists differ"
+    
+    array set aq $q
+    array set ar $r
+
+    foreach substruct [array names aq] {
+        if {[llength $ar($substruct)] != [llength $aq($substruct)]} {
+            error "echoStructTest failed: $substruct lengths differ"
+        }
+        array set asq $aq($substruct)
+        array set asr $ar($substruct)
+        foreach stooge [array names asq] {
+            if {$asq($stooge) != $asr($stooge)} {
+                error "echoStructTest failed: $substruct.$stooge\
+                    $asq($stooge) != $asr($stooge)"
+            }
 	}
     }
     return "echoStructTest"
@@ -201,18 +213,24 @@ proc validate.echoStructTest {} {
 
 proc validate.manyTypesTest {} {
     set i [randVal]
-    set b true
+    set b 1 ;#true
     set st [expr int(rand() * 48) + 1]
     set dbl [expr rand() * 200]
-    set date [clock format [clock seconds] -format {%Y%m%dT%H:%M:%S}]
+    set secs [clock seconds]
+    set date [clock format $secs -format {%Y-%m-%dT%H:%M:%S}]
     set bin [base64::encode [string repeat "HelloWorld!" 24]]
     set r [manyTypesTest $i $b $st $dbl $date $bin]
     
     if {[lindex $r 0] != $i} {error "manyTypesTest failed int"}
-    #if {[lindex $r 1] && ! $b} {error "failed bool"}
+    if {[lindex $r 1] && ! $b} {error "failed bool: [lindex $r 1] != $b"}
     if {[lindex $r 2] != $st} {error "manyTypesTest failed state"}
     if {! [expr [lindex $r 3] == $dbl]} {error "manyTypesTest failed double"}
-    if {[lindex $r 4] != $date} {error "manyTypesTest failed date"}
+    set rsecs [clock scan [string range \
+                               [string map {- {}} [lindex $r 4]] \
+                               0 16]]
+    if {$rsecs != $secs} {
+        error "manyTypesTest failed date: [lindex $r 4] != $date"
+    }
     if {[lindex $r 5] != $bin} {error "manyTypesTest failed bin"}
     return "manyTypesTest"
 }

@@ -36,7 +36,7 @@ if {[catch {
 namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
-    variable rcs_version { $Id: SOAP.tcl,v 1.32 2001/10/04 22:30:19 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.33 2001/10/07 22:28:08 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -1079,11 +1079,13 @@ proc SOAP::insert_value {node value} {
         insert_headers $node $headers
     }
     
-    # If the rpcvar namespace is a URI then assign it a name.
+    # If the rpcvar namespace is a URI then assign it a tag and ensure we
+    # have our colon only when required.
     if {$typexmlns != {} && [regexp : $typexmlns]} {
         dom::element setAttribute $node "xmlns:t" $typexmlns
         set typexmlns t
     }
+    if {$typexmlns != {}} { append typexmlns : }
 
     # If there are any attributes assigned, apply them.
     if {$attrs != {}} {
@@ -1122,7 +1124,9 @@ proc SOAP::insert_value {node value} {
         }
     } elseif {[llength $typeinfo] > 1} {
         # a typedef'd struct.
-        dom::element setAttribute $node "xsi:type" "$typexmlns:$type"
+        if {$typexmlns != {}} {
+            dom::element setAttribute $node "xsi:type" "${typexmlns}${type}"
+        }
         array set ti $typeinfo
         # Bounds checking - <simon@e-ppraisal.com>
         if {[llength $typeinfo] != [llength $value]} {
@@ -1144,7 +1148,9 @@ proc SOAP::insert_value {node value} {
         }
     } else {
         # simple type or typedef'd enumeration
-        dom::element setAttribute $node "xsi:type" "$typexmlns:$type"
+        if {$typexmlns != {}} {
+            dom::element setAttribute $node "xsi:type" "${typexmlns}${type}"
+        }
         dom::document createTextNode $node $value
     }
 }
