@@ -39,7 +39,7 @@ namespace eval SOAP {
 	# -----------------------------------------------------------------
 
 	variable rcsid {
-	    $Id: SOAP-CGI.tcl,v 1.9 2001/08/24 22:07:59 patthoyts Exp $
+	    $Id: SOAP-CGI.tcl,v 1.10 2001/08/28 22:53:21 patthoyts Exp $
 	}
 	variable methodName  {}
 	variable debugging   0
@@ -50,6 +50,7 @@ namespace eval SOAP {
 	package require SOAP
 	package require XMLRPC
 	package require SOAP::Utils
+        package require SOAP::http
 	catch {namespace import -force [namespace parent]::Utils::*}
 
 	namespace export log main

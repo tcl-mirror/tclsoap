@@ -18,9 +18,10 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: webservice.tcl,v 1.1 2001/08/01 23:45:44 patthoyts Exp $
+# @(#)$Id: webservice.tcl,v 1.2 2001/08/03 21:46:33 patthoyts Exp $
 
 package require SOAP
+package require SOAP::http
 
 namespace eval webservices {
 

@@ -1,6 +1,7 @@
 # Create the commands for my XMLRPC-domain package
 
 package require XMLRPC
+package require SOAP::http
 set methods {}
 
 lappend methods [ XMLRPC::create tclsoapTest1.rcsid \

@@ -7,6 +7,7 @@
 
 package require SOAP
 package require XMLRPC
+package require SOAP::http
 package require base64
 
 package require rpcvar

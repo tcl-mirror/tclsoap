@@ -11,9 +11,10 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: soap-methods-client.tcl,v 1.2 2001/07/16 23:39:51 patthoyts Exp $
+# @(#)$Id: soap-methods-client.tcl,v 1.3 2001/08/01 23:47:06 patthoyts Exp $
 
 package require SOAP
+package require SOAP::http
 
 # Description:
 #   Setup the client methods for our sample services. Optionally specify the
