@@ -17,7 +17,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: SOAP-tests.tcl,v 1.10 2001/04/22 20:51:26 pat Exp $
+# @(#)$Id: SOAP-tests.tcl,v 1.12 2001/07/16 23:39:51 patthoyts Exp $
 
 package require SOAP
 
@@ -259,54 +259,6 @@ namespace eval uddi {
 
 # -------------------------------------------------------------------------
 
-# The 4s4c interoperability tests at http://soap.4s4c.com/
-
-namespace eval 4s4c {
-    variable uri    "http://soapinterop.org/"
-    variable action "urn:soapinterp"
-#    variable proxy  "http://soap.4s4c.com/ilab/soap.asp"
-    variable proxy  "http://localhost/cgi-bin/rpc"
-
-    proc create {{proxy http://soap.4s4c.com/ilab/soap.asp}} {
-        variable uri
-        variable action
-        
-        SOAP::create echoString  -proxy $proxy -uri $uri -action $action \
-                -params {inputString string}
-        SOAP::create echoInteger -proxy $proxy -uri $uri -action $action \
-                -params {inputInteger int}
-        SOAP::create echoFloat -proxy $proxy -uri $uri -action $action \
-                -params {inputFloat float}
-        
-        SOAP::create echoStringArray -proxy $proxy -uri $uri -action $action \
-                -params {inputStringArray array(string)}
-        SOAP::create echoIntegerArray -proxy $proxy -uri $uri -action $action \
-                -params {inputIntegerArray array(int)}
-        SOAP::create echoFloatArray -proxy $proxy -uri $uri -action $action \
-                -params {inputFloatArray array(float)}
-        SOAP::create echoBase64 -proxy $proxy -uri $uri -action $action \
-                -params {inputBase64 base64}
-        SOAP::create echoDate -proxy $proxy -uri $uri -action $action \
-                -params {inputDate dateTime}
-        SOAP::create echoVoid -proxy $proxy -uri $uri -action $action \
-                -params {}
-        
-        # {string varString; int varInt; float varFloat; }
-        SOAP::create echoStruct -proxy $proxy -uri $uri -action $action \
-                -params {inputStruct struct}
-        SOAP::create echoStructArray -proxy $proxy -uri $uri -action $action \
-                -params {inputStructArray struct}
-    }
-
-    proc test_local {} {
-        create http://localhost/cgi-bin/rpc
-    }
-    proc test_4s4c {} {
-        create
-    }
-
-    test_4s4c
-}
 
 # Local variables:
 #   indent-tabs-mode: nil

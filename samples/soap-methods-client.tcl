@@ -11,7 +11,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id$
+# @(#)$Id: soap-methods-client.tcl,v 1.2 2001/07/16 23:39:51 patthoyts Exp $
 
 package require SOAP
 
@@ -20,7 +20,7 @@ package require SOAP
 #   serving host.
 #
 proc define_domain_methods {{proxy http://localhost:8015/soap}} {
-    set uri urn:zsplat-Test
+    set uri urn:tclsoap-Test
     set methods {}
 
     set name rcsid

@@ -11,7 +11,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id$
+# @(#)$Id: soap-methods-server.tcl,v 1.2 2001/07/16 23:39:51 patthoyts Exp $
 
 # Load the SOAP URL domain handler into the web server and register it under
 # the /soap URL. All methods need to be defined in the SOAP::Domain
@@ -19,37 +19,39 @@
 # via the URL http://localhost:8015/soap/base64
 #
 package require SOAP::Domain
-package require XMLRPC::TypedVariable
-SOAP::Domain::register -prefix /soap -namespace zsplat::Test
+package require rpcvar
+namespace import -force rpcvar::*
 
-namespace eval zsplat::Test {}
+SOAP::Domain::register -prefix /soap -namespace tclsoap::Test
+
+namespace eval tclsoap::Test {}
 
 # -------------------------------------------------------------------------
 # base64 - convert the input string parameter to a base64 encoded string
 #
-proc zsplat::Test::/base64 {text} {
+proc tclsoap::Test::/base64 {text} {
     package require base64
-    return [XMLRPC::TypedVariable::create base64 [base64::encode $text]]
+    return [rpcvar base64 [base64::encode $text]]
 }
 
 # -------------------------------------------------------------------------
 # time - return the servers idea of the time
 #
-proc zsplat::Test::/time {} {
+proc tclsoap::Test::/time {} {
     return [clock format [clock seconds]]
 }
 
 # -------------------------------------------------------------------------
 # rcsid - return the RCS version string for this package
 #
-proc zsplat::Test::/rcsid {} {
+proc tclsoap::Test::/rcsid {} {
     return ${::SOAP::Domain::rcs_id}
 }
 
 # -------------------------------------------------------------------------
 # square - test validation of numerical methods.
 #
-proc zsplat::Test::/square {num} {
+proc tclsoap::Test::/square {num} {
     if { [catch {expr $num + 0}] } {
         error "parameter num must be a number"
     }
@@ -59,28 +61,28 @@ proc zsplat::Test::/square {num} {
 # -------------------------------------------------------------------------
 # sum - test two parameter method
 #
-proc zsplat::Test::/sum {lhs rhs} {
+proc tclsoap::Test::/sum {lhs rhs} {
     return [expr $lhs + $rhs]
 }
 
 # -------------------------------------------------------------------------
 # sort - sort a list
 #
-proc zsplat::Test::/sort {myArray} {
-    return [XMLRPC::TypedVariable::create "array" [lsort $myArray]]
+proc tclsoap::Test::/sort {myArray} {
+    return [rpcvar "array" [lsort $myArray]]
 }
 
 # -------------------------------------------------------------------------
 # platform - return a structure.
 #
-proc zsplat::Test::/platform {} {
-    return [XMLRPC::TypedVariable::create "struct" [array get ::tcl_platform]]
+proc tclsoap::Test::/platform {} {
+    return [rpcvar struct ::tcl_platform]
 }
 
 # -------------------------------------------------------------------------
 # xml - return some XML data. Just to show it's not a problem.
 #
-proc zsplat::Test::/xml {} {
+proc tclsoap::Test::/xml {} {
     set xml {<?xml version="1.0" ?>
 <memos>
    <memo>
@@ -99,14 +101,14 @@ proc zsplat::Test::/xml {} {
 # -------------------------------------------------------------------------
 # Test out a COM calling extension.
 #
-proc zsplat::Test::/WiRECameras/get_Count {} {
+proc tclsoap::Test::/WiRECameras/get_Count {} {
     package require Renicam
     return [renicam count]
 }
 
 # -------------------------------------------------------------------------
 
-proc zsplat::Test::/WiRECameras/Add {} {
+proc tclsoap::Test::/WiRECameras/Add {} {
     package require Renicam
     return [renicam add]
 }
