@@ -36,7 +36,7 @@ if {[catch {
 namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
-    variable rcs_version { $Id: SOAP.tcl,v 1.28 2001/08/13 21:03:29 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.29 2001/08/24 22:07:14 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -44,23 +44,6 @@ namespace eval SOAP {
 }
 
 unset domVer
-
-# -------------------------------------------------------------------------
-
-# Provide easy access to the namespace variables for each method.
-
-proc SOAP::get { nameSpace varName } {
-    set ok [ catch { eval set r \$${nameSpace}::${varName} } ]
-    if { $ok != 0 } {
-        set r {}
-    }
-    return $r
-}
-
-proc SOAP::get2 { nameSpace varName } {
-    eval set r \$${nameSpace}::${varName}
-    return $r
-}
 
 # -------------------------------------------------------------------------
 
@@ -270,6 +253,7 @@ proc SOAP::create { args } {
     array set $varName {postProc  {}} ;# post process the parsed result
     array set $varName {command   {}} ;# asynchronous reply handler
     array set $varName {errorCommand {}} ;# asynchronous error handler
+    array set $varName {headers   {}} ;# SOAP Header information of last call
 
     # call configure from the callers level so it can get the namespace.
     return [uplevel 1 "[namespace current]::configure $procName $args"]
@@ -530,6 +514,13 @@ namespace eval SOAP::Transport::print {
         puts "$soap"
     }
 }
+
+namespace eval SOAP::Transport::reflect {
+    proc reflect {procVarName url soap} {
+        return $soap
+    }
+}
+
 # -------------------------------------------------------------------------
 
 # Description:
@@ -828,13 +819,14 @@ proc SOAP::soap_request {procVarName args} {
     }
 
     # We have to strip out the DOCTYPE element though. It would be better to
-    # remove the DOM element, but that didn't work.
+    # remove the DOM node for this, but that didn't work.
     set prereq [dom::DOMImplementation serialize $doc]
     set req {}
-    dom::DOMImplementation destroy $doc          ;# clean up
-    regsub "<!DOCTYPE\[^>\]*>\n" $prereq {} req  ;# hack
+    dom::DOMImplementation destroy $doc              ;# clean up
+    regsub "<!DOCTYPE\[^>\]*>\r?\n?" $prereq {} req  ;# hack
 
-    return $req                                  ;# return the XML data
+    set req [encoding convertto utf-8 $req]          ;# make it UTF-8
+    return $req                                      ;# return the XML data
 }
 
 # -------------------------------------------------------------------------
@@ -917,12 +909,28 @@ proc SOAP::parse_soap_response { procVarName xml } {
     if {$faultNode != {}} {
         array set fault [decomposeSoap $faultNode]
         dom::DOMImplementation destroy $doc
+        if {![info exists fault(detail)]} { set fault(detail) {}}
         error [list $fault(faultcode) $fault(faultstring)] $fault(detail)
+    }
+
+    # If there is a header element then make it available via SOAP::getHeader
+    set headerNode [selectNode $doc "/Envelope/Header"]
+    if {$headerNode != {} \
+            && [string match \
+                    "http://schemas.xmlsoap.org/soap/envelope/" \
+                    [namespaceURI $headerNode]]} {
+        set [subst $procVarName](headers) [decomposeSoap $headerNode]
+    } else {
+        set [subst $procVarName](headers) {}
     }
     
     set result {}
 
-    set responseName "[set [subst $procVarName](name)]Response"
+    if {[info exists $procVarName]} {
+        set responseName "[set [subst $procVarName](name)]Response"
+    } else {
+        set responseName "*"
+    }
     set responseNode [selectNode $doc "/Envelope/Body/$responseName"]
     if {$responseNode == {}} {
         set responseNode [lindex [selectNode $doc "/Envelope/Body/*"] 0]
@@ -1035,14 +1043,36 @@ proc SOAP::xmlrpc_value_from_node {valueNode} {
 
 # -------------------------------------------------------------------------
 
+proc SOAP::insert_headers {node headers} {
+    set doc [SOAP::Utils::getDocumentElement $node]
+    if {[set h [selectNode $doc /Envelope/Header]] == {}} {
+        set e [dom::document cget $doc -documentElement]
+        set h [dom::document createElement $e "SOAP-ENV:Header"]
+    }
+    foreach {name value} $headers {
+        if {$name != {}} {
+            set elt [dom::document createElement $h $name]
+            insert_value $elt $value
+        }
+    }
+}
+
+# -------------------------------------------------------------------------
+
 proc SOAP::insert_value {node value} {
 
     set type     [rpctype $value]
     set subtype  [rpcsubtype $value]
     set attrs    [rpcattributes $value]
+    set headers  [rpcheaders $value]
     set value    [rpcvalue $value]
     set typeinfo [typedef -info $type]
     set typexmlns [typedef -namespace $type]
+
+    # Handle any header elements
+    if {$headers != {}} {
+        insert_headers $node $headers
+    }
     
     # If the rpcvar namespace is a URI then assign it a name.
     if {$typexmlns != {} && [regexp : $typexmlns]} {
