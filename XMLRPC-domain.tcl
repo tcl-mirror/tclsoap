@@ -51,7 +51,7 @@ package require SOAP::xpath
 namespace eval XMLRPC::Domain {
     variable version 1.0   ;# package version number
     variable debug 1       ;# debugging flag
-    variable rcs_id {$Id: XMLRPC-domain.tcl,v 1.1 2001/06/06 00:46:09 patthoyts Exp $}
+    variable rcs_id {$Id: XMLRPC-domain.tcl,v 1.2 2001/06/09 12:52:21 patthoyts Exp $}
 
     namespace export fault
 }
@@ -315,11 +315,9 @@ proc XMLRPC::Domain::reply_simple { doc uri methodName type result } {
             dom::document createTextNode $d_type $elt
         }
     } elseif { $type == "struct" } {
-        # Need to uplevel this into the procedures namespace somehow.
-        # Call uplevel ... ?
-        upvar $value upval
+        # Arrays have been expanded for us with array get ...
         set d_struct [dom::document createElement $d_value "struct"]
-        foreach {eltname eltvalue} [array get $upval] {
+        foreach {eltname eltvalue} $value {
             set d_mmbr [dom::document createElement $d_struct "member"]
             set d_name [dom::document createElement $d_mmbr "name"]
             dom::document createTextNode $d_name $eltname
@@ -343,4 +341,3 @@ proc XMLRPC::Domain::reply_simple { doc uri methodName type result } {
 #   mode: tcl
 #   indent-tabs-mode: nil
 # End:
-

@@ -69,7 +69,8 @@ proc zsplat::RPC::/sort {args} {
 # struct - generate a XML-RPC struct type
 #
 proc zsplat::RPC::/platform {} {
-    set result [XMLRPC::TypedVariable::create struct ::tcl_platform]
+    set result [XMLRPC::TypedVariable::create struct \
+		    [array get ::tcl_platform]]
     return $result
 }
 # -------------------------------------------------------------------------
