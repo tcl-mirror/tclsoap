@@ -3,7 +3,7 @@
 # Run the SOAP Interoperability Test Suite Round 2: Base tests.
 # Generates a html page of the results.
 #
-# $Id: silab.tcl,v 1.6 2002/02/27 00:35:42 patthoyts Exp $
+# $Id: silab.tcl,v 1.7 2002/09/21 00:10:29 patthoyts Exp $
 
 package require soapinterop::base
 package require soapinterop::B
@@ -369,4 +369,13 @@ proc perform {toolkit procname {methodname {}} {prefix dump}} {
         puts $logfile "<td><a href=\"[file tail $request]\">request</a></td>\
 	               <td><a href=\"[file tail $reply]\">reply</a></td></tr>"
     }
+}
+
+# Should we go ahead and run this...
+if {!$::tcl_interactive} {
+    set logdir   [file join [pwd] interop-results]
+    silab:round1
+    silab:round2
+    silab:round2B
+    silab:round2C
 }

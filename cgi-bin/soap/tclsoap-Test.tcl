@@ -9,14 +9,14 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id$
+# @(#)$Id: tclsoap-Test.tcl,v 1.1.2.2 2003/01/11 01:26:25 patthoyts Exp $
 
 package require SOAP
 package require XMLRPC
 package require rpcvar
 namespace import -force rpcvar::*
 
-namespace eval urn:tclsoap-Test {
+namespace eval urn:tclsoap:Test {
 
     SOAP::export time square sum platform printenv printenv_names mistake
 
@@ -95,7 +95,7 @@ namespace eval urn:tclsoap-Test {
 #
 foreach name {time square sum platform printenv printenv_names mistake} {
     set newname tclsoap.$name
-    interp alias {} $newname {} urn:tclsoap-Test::$name
+    interp alias {} $newname {} urn:tclsoap:Test::$name
     XMLRPC::export $newname
 }
 

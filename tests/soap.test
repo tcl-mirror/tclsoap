@@ -2,7 +2,7 @@
 #
 # Provide a set of tests to excercise the SOAP package.
 #
-# @(#)$Id: soap.test,v 1.7 2001/08/28 23:11:02 patthoyts Exp $
+# @(#)$Id: soap.test,v 1.8.2.1 2003/01/24 01:00:39 patthoyts Exp $
 
 # Initialize the required packages
 
@@ -135,7 +135,7 @@ test soap-2.7 {XML generation with header attributes} {
 test soap-2.8 {XML generation with user specified attributes} {
     catch {::soapTest -attribute {generic 1.0} textParam 1.3} result
     set result $::SOAP::testXML
-    if {[regexp {<[^>]*mySoapTest[^>]+ generic=.1\.0.[^>]*>} $result]} {
+    if {[regexp {<[^>]*mySoapTest[^>]* generic=.1\.0.[^>]*>} $result]} {
         set result ok
     }
     set result
@@ -144,8 +144,8 @@ test soap-2.8 {XML generation with user specified attributes} {
 test soap-2.9 {XML generation with multiple user specified attributes (a)} {
     catch {::soapTest -attribute {generic 1.0 id ID1} textParam 1.3} result
     set result $::SOAP::testXML
-    if {[regexp {<[^>]*mySoapTest[^>]+ generic=.1\.0.[^>]*>} $result]} {
-        if {[regexp {<[^>]*mySoapTest[^>]+ id=.ID1.[^>]*>} $result]} {
+    if {[regexp {<[^>]*mySoapTest[^>]* generic=.1\.0.[^>]*>} $result]} {
+        if {[regexp {<[^>]*mySoapTest[^>]* id=.ID1.[^>]*>} $result]} {
             set result ok
         }
     }
@@ -155,8 +155,8 @@ test soap-2.9 {XML generation with multiple user specified attributes (a)} {
 test soap-2.10 {XML generation with multiple user specified attributes (b)} {
     catch {::soapTest -attribute {generic 1.0} -attribute {id ID1} textParam 1.3} result
     set result $::SOAP::testXML
-    if {[regexp {<[^>]*mySoapTest[^>]+ generic=.1\.0.[^>]*>} $result]} {
-        if {[regexp {<[^>]*mySoapTest[^>]+ id=.ID1.[^>]*>} $result]} {
+    if {[regexp {<[^>]*mySoapTest[^>]* generic=.1\.0.[^>]*>} $result]} {
+        if {[regexp {<[^>]*mySoapTest[^>]* id=.ID1.[^>]*>} $result]} {
             set result ok
         }
     }

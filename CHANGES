@@ -1,6 +1,12 @@
 * TclSOAP 1.6.6
 ---------------
 
+** Fixed XMLRPC calling
+   Missing upvar in the xmlrpc caller.
+
+** Remove tdom require.
+   Until the tdom shim is written this shouldn't be loaded.
+
 ** Applied OSX build patch to Makefile.in
    Use the DESTDIR environment variable in install-libraries.
 

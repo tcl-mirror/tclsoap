@@ -13,14 +13,14 @@ package provide SOAP::Utils 1.0
 
 namespace eval SOAP {
     namespace eval Utils {
-        variable rcsid {$Id: utils.tcl,v 1.6 2001/10/07 22:28:08 patthoyts Exp $}
-        namespace export getElements \
+        variable rcsid {$Id: utils.tcl,v 1.7.2.2 2002/11/20 01:13:42 patthoyts Exp $}
+        namespace export getElements getElementsByName \
                 getElementValue getElementName \
                 getElementValues getElementNames \
                 getElementNamedValues \
                 getElementAttributes getElementAttribute \
                 decomposeSoap decomposeXMLRPC selectNode \
-                namespaceURI nodeName
+                namespaceURI nodeName baseElementName
     }
 }
 
@@ -388,16 +388,28 @@ proc SOAP::Utils::getElementAttribute {node attrname} {
 #  method so we'll use this test for now.
 #
 proc SOAP::Utils::namespaceURI {node} {
-    if {[dom::DOMImplementation hasFeature query 1.0]} {
-        return [dom::node cget $node -namespaceURI]
-    } else {
+    #if {[dom::DOMImplementation hasFeature query 1.0]} {
+    #    return [dom::node cget $node -namespaceURI]
+    #} else {
         set nodeName [dom::node cget $node -nodeName]
         set ndx [string last : $nodeName]
         set nodeNS [string range $nodeName 0 $ndx]
         set nodeNS [string trimright $nodeNS :]
         
         return [find_namespaceURI $node $nodeNS]
-    }
+    #}
+}
+
+# Description:
+#  As for namespaceURI except that we are interested in the targetNamespace
+#  URI. This is commonly used in XML schemas to specify the default namespace
+#  for the defined items.
+#
+proc SOAP::Utils::targetNamespaceURI {node value} {
+    set ndx [string last : $value]
+    set ns [string trimright [string range $value 0 $ndx] :]
+    #set base [string trimleft [string range $value $ndx end] :]
+    return [find_namespaceURI $node $ns 1]
 }
 
 # -------------------------------------------------------------------------
@@ -415,6 +427,10 @@ proc SOAP::Utils::nodeName {node} {
     return [string trimleft $nodeName :]
 }
 
+proc SOAP::Utils::baseElementName {nodeName} {
+    set nodeName [string range $nodeName [string last : $nodeName] end]
+    return [string trimleft $nodeName :]
+}
 # -------------------------------------------------------------------------
 
 # Description:
@@ -426,24 +442,55 @@ proc SOAP::Utils::nodeName {node} {
 # Result:
 #   Returns the namespace uri or an empty string.
 #
-proc SOAP::Utils::find_namespaceURI {node nsname} {
+proc SOAP::Utils::find_namespaceURI {node nsname {find_targetNamespace 0}} {
     if {$node == {}} { return {} }
     set atts [dom::node cget $node -attributes]
 
-    # check for the default namespace
-    if {$nsname == {} && [info exists [subst $atts](xmlns)]} {
-	return [set [subst $atts](xmlns)]
-    }
+    # check for the default namespace or targetNamespace
+    if {$nsname == {}} {
+        if {$find_targetNamespace} {
+            if {[info exists [subst $atts](targetNamespace)]} {
+                return [set [subst $atts](targetNamespace)]
+            }
+        } else {
+            if {[info exists [subst $atts](xmlns)]} {
+                return [set [subst $atts](xmlns)]
+            }
+        }
+    } else {
     
-    # check the defined namespace names.
-    foreach {attname attvalue} [array get $atts] {
-	if {[string match "xmlns:$nsname" $attname]} {
-	    return $attvalue
-	}
+        # check the defined namespace names.
+        foreach {attname attvalue} [array get $atts] {
+            if {[string match "xmlns:$nsname" $attname]} {
+                return $attvalue
+            }
+        }
+
     }
     
     # recurse through the parents.
-    return [find_namespaceURI [dom::node parent $node] $nsname]
+    return [find_namespaceURI [dom::node parent $node] $nsname $find_targetNamespace]
+}
+
+# -------------------------------------------------------------------------
+
+# Description:
+#   Return a list of all the immediate children of domNode that are element
+#   nodes.
+# Parameters:
+#   domNode  - a reference to a node in a dom tree
+#
+proc SOAP::Utils::getElementsByName {domNode name} {
+    set elements {}
+    if {$domNode != {}} {
+        foreach node [dom::node children $domNode] {
+            if {[dom::node cget $node -nodeType] == "element"
+                && [string match $name [dom::node cget $node -nodeName]]} {
+                lappend elements $node
+            }
+        }
+    }
+    return $elements
 }
 
 # -------------------------------------------------------------------------       
