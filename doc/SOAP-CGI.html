@@ -39,8 +39,8 @@
   implementing the service need to know nothing of XML nor the RPC
   protocol in use. Errors are returned via the normal Tcl error
   mechanism. The only special feature needed is variable type
-  hinting. It is not possible to distingush between a string with
-  whitespace and a list in Tcl, so the <tt>XMLRPC::TypedVariable</tt> package
+  hinting. It is not possible to distinguish between a string with
+  whitespace and a list in Tcl, so the <tt>rpcvar</tt> package
   is used to provide the additional type information when required.</p>
 
   <a name="installation"><h2>Installation</h2></a>
@@ -49,13 +49,14 @@
   servers cgi-bin directory and writing some service
   implementations. A generic script is provided as
   <tt>cgi-bin/rpc</tt> with some example services in
-  <tt>cgi-bin/soap</tt>. The package has three variables to configure
+  <tt>cgi-bin/soap/</tt>. The package has four variables to configure
   so that it can find the service implementations:
 
   <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
            bgcolor="#c0c0c0"><tr><td align="left">
     <tt>package require SOAP::CGI<br>
     set SOAP::CGI::soapdir   <font color="red">"../method-scripts"</font><br>
+    set SOAP::CGI::soapmap   <font color="red">"soapmap.dat"</font><br>
     set SOAP::CGI::xmlrpcdir <font color="red">"../method-scripts"</font><br>
     set SOAP::CGI::logfile   <font color="red">"../logs/rpc.log"</font><br>
     SOAP::CGI::main<br></tt>
@@ -64,7 +65,10 @@
   The SOAP and XML-RPC implementations can be the same, as above, or
   placed into separate directories. The log file is optional (unset
   the variable to disable logs) and will need to be writable by the
-  httpd user - this usually means it needs to be world writable.</p>
+  httpd user - this usually means it needs to be world writable. The
+  <tt>soapmap</tt> file is used to identify the implementation script
+  file from the SOAPAction header. There is more information in the
+  sample <tt>soapmap.dat</tt> file. </p>
 
   <p>The script needs to be able to execute using tcl 8.3 or
   better and needs to be able to find the TclSOAP package. Bear in
@@ -94,19 +98,39 @@
 
   Given the configuration shown above, this implementation will be
   used for both SOAP and XML-RPC requests to the <tt>square</tt>
-  service.</p>
+  service. It is necessary to identify the commands that are
+  webservices to prevent clients from running arbitrary Tcl
+  commands. This is done by the use of the <tt>SOAP::export</tt> or
+  the corresponding <tt>XMLRPC::export</tt> commands. This means that
+  the actual implementation for the square webservice would be:
+  <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
+           bgcolor="#c0c0c0"><tr><td align="left">
+  <pre>package require SOAP
+package require XMLRPC
+
+SOAP::export square
+XMLRPC export square
+
+proc square {num} {
+    return [expr $num * $num]
+}</pre>
+  </td></tr></table>
+</p>
 
   <p>For more complex types such as structs, the reply will need to be
-  an XMLRPC::TypedVariable so that the RPC handler can package the
+  an <tt>rpcvar</tt> so that the RPC handler can package the
   result correctly. So the implementation of the <tt>platform</tt>
   service which returns a struct containing the
   <tt>::tcl_platform</tt> variable information is as follows
 
   <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
            bgcolor="#c0c0c0"><tr><td align="left">
-  <pre>package require XMLRPC::TypedVariable
+  <pre>package require rpcvar
+package require SOAP
+SOAP::export platform
+
 proc platform {} {
-    return [XMLRPC::TypedVariable struct [array get ::tcl_platform]]
+    return [rpcvar::rpcvar struct ::tcl_platform]
 }</pre>
   </td></tr></table></p>
 
@@ -118,12 +142,28 @@ proc platform {} {
   string. The only types that can be guessed are integer, double and boolean
   (if expressed with <tt>true</tt> or <tt>false</tt>).</p>
 
+  <h2>Providing Type Information</h2>
+
+  <p>rpcvar <em>to be done</em></p>
+
+  <h2>Further Information</h2>
+
   <p>Look in the <tt>cgi-bin/soap</tt> subdirectory in the TclSOAP
   distribution for some examples of service implementations. There is
   an implementation of the <a href="http://validator.soapware.org/">UserLand
    SOAP interoperability suite</a> that is
   used to ensure the package conforms to this standard. These
   illustrate the use of arrays and structs fairly comprehensively.</p>
+
+  <p>The client code for the validator suite is in
+  <tt>samples/validator.tcl</tt>. To test a server implementation, source this
+  script and run <tt>validate_soap <i>url</i></tt>. This will run the
+  test suite against the server implementation at the provided
+  URL.</p>
+
+  <p>A similar client implementation of the XMethods Interoperability
+  Lab test suite is in <tt>soapinterop.tcl</tt>. To use, source this
+  file and execute <tt>soapinterop::validate <em>url</em></tt>.</p>
 
   <!-- ----------------------------------------------------------------- -->
 
@@ -139,7 +179,7 @@ proc platform {} {
 Last modified: Sat Jul 14 23:20:15 2001
 <!-- hhmts end -->
 
-  <br><tt>$Id$</tt>
+  <br><tt>$Id: SOAP-CGI.html,v 1.1 2001/07/16 23:35:16 patthoyts Exp $</tt>
   </font>
 
   </body>
