@@ -3,7 +3,7 @@
 # Run the SOAP Interoperability Test Suite Round 2: Base tests.
 # Generates a html page of the results.
 #
-# $Id: silab.tcl,v 1.4 2001/10/15 11:56:44 patthoyts Exp $
+# $Id: silab.tcl,v 1.5 2001/11/01 23:55:36 patthoyts Exp $
 
 package require soapinterop::base
 package require soapinterop::B
@@ -50,6 +50,7 @@ set round2base {
 }
 
 set round2B {
+    {{TclSOAP 1.6}      http://tclsoap.sourceforge.net/cgi-bin/rpc          http://soapinterop.org/ http://soapinterop.org/}
     {{SOAP::Lite}      http://services.soaplite.com/interop.cgi             http://soapinterop.org/ http://soapinterop.org/}
     {{SOAP4R}          http://www.jin.gr.jp/~nahi/Ruby/SOAP4R/SOAPBuildersInterop/ http://soapinterop.org/ http://soapinterop.org/}
     {{SIM}             http://soapinterop.simdb.com/round2B                 http://soapinterop.org/ http://soapinterop.org/}
@@ -63,6 +64,7 @@ set round2B {
 }
 
 set round2C {
+    {{TclSOAP 1.6}      http://tclsoap.sourceforge.net/cgi-bin/rpc          http://soapinterop.org/ http://soapinterop.org/}
     {{SOAP::Lite}       http://services.soaplite.com/interopC.cgi              http://soapinterop.org/ http://soapinterop.org/}
     {{White Mesa SOAP}  http://www.whitemesa.net/interop/std/echohdr           http://soapinterop.org/ http://soapinterop.org/ {-encoding SOAP1.2}}
     {{EasySoap++}       http://easysoap.sourceforge.net/cgi-bin/interopserver  http://soapinterop.org/ http://soapinterop.org/}
