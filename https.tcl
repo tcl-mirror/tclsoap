@@ -19,7 +19,7 @@ package require tls;			# Required for SSL support
 
 namespace eval ::SOAP::Transport::https {
     variable version 1.0
-    variable rcsid {$Id: https.tcl,v 1.1.2.2 2003/02/07 01:31:18 patthoyts Exp $}
+    variable rcsid {$Id: https.tcl,v 1.1.2.3 2003/06/12 22:51:08 patthoyts Exp $}
     variable options
 
     ::SOAP::register https [namespace current]
@@ -27,11 +27,17 @@ namespace eval ::SOAP::Transport::https {
     # Initialize the transport options.
     if {![info exists options]} {
         array set options {
-            headers  {}
-            proxy    {}
-            progress {}
-            timeout  0
+            headers   {}
+            proxy     {}
+            progress  {}
+            useragent {}
+            timeout   0
         }
+
+        set options(useragent) \
+            "Mozilla/4.0 ([string totitle $::tcl_platform(platform)];\
+             $::tcl_platform(os)) https/[package provide http]\
+             TclSOAP/[set [namespace parent [namespace parent]]::version]"
     }
 
     # Declare the additional SOAP method options provided by this transport.
@@ -95,7 +101,7 @@ proc ::SOAP::Transport::https::configure {args} {
 
     foreach {opt value} $args {
         switch -- $opt {
-            -proxy - -timeout -  -progress {
+            -proxy - -timeout -  -progress - -useragent {
                 set options([string trimleft $opt -]) $value
             }
             -headers {
@@ -103,7 +109,9 @@ proc ::SOAP::Transport::https::configure {args} {
             }
             default {
                 return -code error "invalid option \"$opt\":\
-                      must be \"-proxy host:port\" or \"-headers list\""
+                      must be \"-proxy host:port\",\
+                      \"-timeout time\", \"-useragent string\",\
+                      \"-progress proc\" or \"-headers list\""
             }
         }
     }
@@ -154,12 +162,9 @@ proc ::SOAP::Transport::https::xfer { procVarName url request } {
     variable options
     upvar $procVarName procvar
     
-    # Get the SOAP package version
-    # FRINK: nocheck
-    set version [set [namespace parent [namespace parent]]::version]
-    
     # setup the HTTP POST request
-    ::http::config -useragent "TclSOAP/$version ($::tcl_platform(os))"
+    set old_config [::http::config]
+    ::http::config -useragent $options(useragent)
     
     # If a proxy was configured, use it.
     if { [info exists options(proxy)] && $options(proxy) != {} } {
@@ -227,6 +232,8 @@ proc ::SOAP::Transport::https::xfer { procVarName url request } {
     # store the http structure reference for possible access later.
     set procvar(http) $token
     
+    eval [list ::http::config] $old_config
+
     if { $command != {}} {
         return {} 
     }

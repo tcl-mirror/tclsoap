@@ -1,3 +1,10 @@
+* TclSOAP 1.6.8
+---------------
+
+** Set useragent option for http and https
+   Permit changing the useragent header for HTTP
+   protocols. SOAP::configure -transport http -useragent $newstring
+
 * TclSOAP 1.6.7
 ---------------
 
