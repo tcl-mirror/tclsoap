@@ -1,17 +1,23 @@
 TclSOAP 1.6
 -------------
 
-CGI server code added. This has been tested under Apache httpd.
+SOAP interoperability testing:
+  We now pass the Userland SOAP and XML-RPC validation suite at
+  http://validate.soapware.org/ and http://validate.xmlrpc.com/. We also
+  provide an implementation of the SOAP Interoperability Lab Round 1 test
+  suite and pass these tests too.
 
-SOAP interoperability test suite implementation. We now pass the Userland
-SOAP and XML-RPC validation suite at http://validate.soapware.org/
+CGI server code added. This has been tested under Apache httpd.
+TclHTTPD support is now implemented via the CGI package. 
 
 Dumped XMLRPC::TypedVariable in favour of rpcvar::* because it's a lot more
 simple to type. Fixed the methods so we can reasonably import the names into
-other namespaces.
+other namespaces. Implemented 'typedef' for defining complex SOAP types.
 
 Numerous enhancements to the SOAP parameter type recognition especially for
 structs and for structs of structs.
+
+Numerous patches and bug fixes applied.
 
 TclSOAP 1.5.1
 -------------
