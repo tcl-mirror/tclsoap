@@ -17,7 +17,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: SOAP-tests.tcl,v 1.9 2001/04/17 23:22:53 pat Exp pat $
+# @(#)$Id: SOAP-tests.tcl,v 1.10 2001/04/22 20:51:26 pat Exp $
 
 package require SOAP
 
@@ -157,6 +157,21 @@ SOAP::create translate \
 # translate {Good morning} en_[de|fr|it|es|pt]
 # translate {Guten tag} de_fr
 
+SOAP::create news \
+        -name ProcessSRL \
+        -proxy http://www.soapclient.com/xml/SQLDataSoap.wsdl \
+        -params {SRLFile string RequestName string} \
+        -uri http://www.soapclient.com/xml/SQLDataSoap.xsd \
+        -action "/SQLDataSRL"
+
+# Never replies with any data.
+SOAP::create mp3 \
+        -name SearchMP3 \
+        -action urn:SoapFindMP3Intf-ISoapFindMP3#SearchMP3 \
+        -uri urn:SoapFindMP3Intf-ISoapFindMP3 \
+        -proxy http://www.agnisoft.com/cgi-bin/soapmp3search.exe/soap/ISoapFindMP3 \
+        -params {SearchString string NumResults int}
+
 # -------------------------------------------------------------------------
 
 # Fortune server has 3 methods.
@@ -206,6 +221,58 @@ namespace eval Chat {
 }
 
 # -------------------------------------------------------------------------
+
+namespace eval uddi {
+    variable uri "urn:uddi-org:api"
+    variable proxy "http://www-3.ibm.com/services/uddi/testregistry/inquiryapi"
+
+    SOAP::create find_business -uri $uri -proxy $proxy -action {""} \
+            -params {name string}
+    
+    # takes one or more service key elements. (Why not an array of them?)
+    SOAP::create get_serviceDetail -uri $uri -proxy $proxy -action {""} \
+            -params {serviceKey string}
+
+    # one or more key elements again.
+    SOAP::create get_bindingDetail -uri $uri -proxy $proxy -action {""} \
+            -params {bindingKey string}
+
+    namespace export find_business
+}
+
+# -------------------------------------------------------------------------
+
+# The 4s4c interoperability tests at http://soap.4s4c.com/
+
+namespace eval 4s4c {
+    variable uri    "http://soapinterop.org/"
+    variable action "urn:soapinterp"
+#    variable proxy  "http://soap.4s4c.com/ilab/soap.asp"
+    variable proxy  "http://localhost/cgi-bin/rpc"
+
+    SOAP::create echoString  -proxy $proxy -uri $uri -action $action -params {inputString string}
+    SOAP::create echoInteger -proxy $proxy -uri $uri -action $action -params {inputInteger int}
+    SOAP::create echoFloat -proxy $proxy -uri $uri -action $action -params {inputFloat float}
+
+    SOAP::create echoStringArray -proxy $proxy -uri $uri -action $action \
+            -params {inputStringArray array(string)}
+    SOAP::create echoIntegerArray -proxy $proxy -uri $uri -action $action \
+            -params {inputIntegerArray array(int)}
+    SOAP::create echoFloatArray -proxy $proxy -uri $uri -action $action \
+            -params {inputFloatArray array(float)}
+    SOAP::create echoBase64 -proxy $proxy -uri $uri -action $action \
+            -params {inputBase64 base64}
+    SOAP::create echoDate -proxy $proxy -uri $uri -action $action \
+            -params {inputDate dateTime}
+    SOAP::create echoVoid -proxy $proxy -uri $uri -action $action -params {}
+
+    # {string varString; int varInt; float varFloat; }
+    SOAP::create echoStruct -proxy $proxy -uri $uri -action $action \
+            -params {inputStruct struct}
+    SOAP::create echoStructArray -proxy $proxy -uri $uri -action $action \
+            -params {inputStructArray struct}
+
+}
 
 # Local variables:
 #   indent-tabs-mode: nil
