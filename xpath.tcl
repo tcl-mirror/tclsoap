@@ -20,13 +20,44 @@ package require dom 1.6
 
 namespace eval xpath {
     variable version 0.1
-    variable rcsid { $Id: xpath.tcl,v 1.1 2001/02/26 09:16:25 pt111992 Exp pt111992 $ }
+    variable rcsid { $Id: xpath.tcl,v 1.2 2001/02/26 12:41:04 pt111992 Exp pt111992 $ }
     namespace export xpath
 }
 
+# -------------------------------------------------------------------------
+
 # Given Envelope/Body/Fault and a DOM node, see if we can find a matching
 # element else return {}
-proc xpath::xpath { root path } {
+
+# TODO: Paths including attribute selection etc.
+
+proc xpath::xpath { args } {
+    if { [llength $args] < 2 || [llength $args] > 3 } {
+        error "wrong # args: should be \"xpath ?option? rootNode path\""
+    }
+
+    array set opts {
+        -node        0
+        -name        0
+        -attributes  0
+    }
+
+    if { [llength $args] == 3 } {
+        set opt [lindex $args 0]
+        switch -glob -- $opt {
+            -nod*   { set opts(-node) 1 }
+            -nam*   { set opts(-name) 1 }
+            -att*   { set opts(-attributes) 1 }
+            default {
+                error "bad option \"$opt\": must be [array names opts]"
+            }
+        }
+        set args [lrange $args 1 end]
+    }
+
+    set root [lindex $args 0]
+    set path [lindex $args 1]
+
     foreach nodeName [split $path {/}] {
         if { $nodeName == {} } {
             continue
@@ -38,22 +69,55 @@ proc xpath::xpath { root path } {
     }
 
     # return the elements value (if any)
-    set tnode [dom::node cget $root -firstChild]
-    set value [trim [dom::node cget $tnode -nodeValue]]
+    if { $opts(-node) } {
+        return $root
+    }
+
+    set value {}
+    if { $opts(-attributes) } {
+        foreach node $root {
+            append value [array get [dom::node cget $node -attributes]]
+        }
+        return $value
+    }
+
+    if { $opts(-name) } {
+        foreach node $root {
+            lappend value [dom::node cget $node -nodeName]
+        }
+        return $value
+    }
+
+    foreach node $root {
+        set children [dom::node children $node]
+        set v ""
+        foreach child $children {
+            append v [trim [dom::node cget $child -nodeValue]]
+        }
+        lappend value $v
+    }
     return $value
 }
+
+# -------------------------------------------------------------------------
 
 # check for an element called name that is a child of root. Returns
 # the node, or null
 proc xpath::find_node { root name } {
-    set kids [child_elements $root]
+    set r {}
+    set kids ""
+    foreach element $root { 
+        append kids [child_elements $element]
+    }
     foreach {node namespace elt_name} $kids {
-        if { $elt_name == $name } {
-            return $node
+        if { [string match $name $elt_name] } {
+            lappend r $node
         }
     }
-    return {}
+    return $r
 }
+
+# -------------------------------------------------------------------------
 
 # remove extraneous whitespace from each end of string
 proc xpath::trim { str } {
@@ -62,6 +126,8 @@ proc xpath::trim { str } {
     regsub {\s+$} $r   {} r
     return $r
 }
+
+# -------------------------------------------------------------------------
 
 # Return list of {node namespace elementname} for each child element of root
 proc xpath::child_elements { root } {
@@ -82,6 +148,8 @@ proc xpath::child_elements { root } {
     }
     return $kids
 }
+
+# -------------------------------------------------------------------------
 
 # Local variables:
 #   indent-tabs-mode: nil
