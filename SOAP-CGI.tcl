@@ -39,7 +39,7 @@ namespace eval SOAP {
 	# -----------------------------------------------------------------
 
 	variable rcsid {
-	    $Id: SOAP-CGI.tcl,v 1.2 2001/08/01 23:34:54 patthoyts Exp $
+	    $Id: SOAP-CGI.tcl,v 1.3 2001/08/03 21:48:50 patthoyts Exp $
 	}
 	variable methodName  {}
 	variable debugging   0
@@ -87,22 +87,26 @@ proc SOAP::CGI::log {protocol action result} {
 #   The string length is incremented by the number of newlines as HTTP content
 #   assumes CR-NL line endings.
 #
-proc SOAP::CGI::write {html {type text/html}} {
-    variable debugging
+proc SOAP::CGI::write {html {type text/html} {status {}}} {
     variable debuginfo
 
     # Do some debug info:
-    if {$debugging != {}} {
+    if {$debuginfo != {}} {
 	append html "\n<!-- Debugging Information-->"
 	foreach item $debuginfo {
 	    append html "\n<!-- $item -->"
 	}
     }
 
+    # For errors, status should be "500 Reason Text"
+    if {$status != {}} {
+	puts "Status: $status"
+    }
+
     puts "SOAPServer: TclSOAP/1.6"
     puts "Content-Type: $type"
     set len [string length $html]
-    #puts "X-Content-Length: $len"
+    puts "X-Content-Length: $len"
     incr len [regexp -all "\n" $html]
     puts "Content-Length: $len"
 
@@ -284,6 +288,52 @@ proc SOAP::CGI::xmlrpc_call {doc {interp {}}} {
 # -------------------------------------------------------------------------
 
 # Description:
+#   Handle the Head section of a SOAP request. If there is a problem we 
+#   shall throw an error.
+#
+proc SOAP::CGI::soap_header {doc} {
+    dtrace "Handling SOAP Header"
+    foreach elt [selectNode $doc "/Envelope/Header/*"] {
+	set eltName [dom::node cget $elt -nodeName]
+	set attr [dom::node cget $elt -attributes]
+	set attrnames [array names $attr]
+
+	# Check Actor - is this header for us?
+	set actor ""
+	set ndx [lsearch -regexp $attrnames {(^|:)actor}]
+	if {$ndx != -1} {
+	    set attrname [lindex $attrnames $ndx]
+	    set actor [set [subst $attr]($attrname)]
+	}
+	dtrace "SOAP actor $eltName = $actor"
+
+	# If it's not for me, don't handle the header.
+	if {$actor == "" || [string match $actor \
+		"http://schemas.xmlsoap.org/soap/actor/next"]} {
+	
+	    # Check for Mandatory Headers.
+	    set mustUnderstand 0
+	    set ndx [lsearch -regexp $attrnames {(^|:)mustUnderstand$}]
+	    if {$ndx != -1} {
+		set attrname [lindex $attrnames $ndx]
+		set mustUnderstand [set [subst $attr]($attrname)]
+	    }
+	    
+	    dtrace "SOAP mustUnderstand $eltName $mustUnderstand"
+	    
+	    # Until we know what to do with such headers, we will have to
+	    # Fault.
+	    if {$mustUnderstand == 1} {
+		error "Mandatory header $eltName not understood." \
+			{} MustUnderstand
+	    }
+	}
+    }
+}
+
+# -------------------------------------------------------------------------
+
+# Description:
 #   Handle incoming SOAP requests.
 #   We extract the name of the SOAP method and the arguments and search for
 #   the implementation in the specified namespace. This is then evaluated
@@ -296,11 +346,22 @@ proc SOAP::CGI::soap_call {doc {interp {}}} {
     package require SOAP::Domain
     if {[catch {
 
-	# Do SOAPAction stuff.
-	# Need to restrict methods to the SOAP methods and not
+	# Check SOAP version by examining the namespace of the Envelope elt.
+	set envnode [selectNode $doc "/Envelope"]
+	if {$envnode != {}} {
+	    set envns [dom::node cget $envnode -namespaceURI]
+	    if {$envns != "" && \
+		    ! [string match $envns \
+		    "http://schemas.xmlsoap.org/soap/envelope/"]} {
+		error "The SOAP Envelope namespace does not match the\
+			SOAP version 1.1 namespace." {} VersionMismatch
+	    }
+	}
 
 	# Check for Header elements
-	set head [selectNode $doc "/Envelope/Head/*"]
+	if {[selectNode $doc "/Envelope/Header"] != {}} {
+	    soap_header $doc
+	}
 
 	# Get the method name from the XML request.
 	set methodNode [selectNode $doc "/Envelope/Body/*"]
@@ -459,7 +520,7 @@ proc SOAP::CGI::soap_invocation {doc} {
     
     array set impl {filename {} interp {}}
     
-    # Use the SOAPAction header to identify the files to source or
+    # Use the SOAPAction HTTP header to identify the files to source or
     # if it's null, source the lot.
     if {$SOAPAction == {} } {
 	set files [glob [file join $soapdir *]] 
@@ -561,7 +622,7 @@ proc SOAP::CGI::main {{xml {}} {debug 0}} {
 	# If its a CGI problem, then be a CGI error.
 	switch -- $::errorCode {
 	    SOAP   {
-		write $msg text/xml
+		write $msg text/xml "500 SOAP Error"
 		catch {
 		    set doc [dom::DOMImplementation parse $msg]
 		    set r [decomposeSoap [selectNode $doc /Envelope/Body/*]]
@@ -569,7 +630,7 @@ proc SOAP::CGI::main {{xml {}} {debug 0}} {
 		log "SOAP" [list $methodName $msg] "error" 
 	    }
 	    XMLRPC {
-		write $msg text/xml
+		write $msg text/xml "500 XML-RPC Error"
 		catch {
 		    set doc [dom::DOMImplementation parse $msg]
 		    set r [getElementNamedValues [selectNode $doc \
@@ -586,7 +647,7 @@ proc SOAP::CGI::main {{xml {}} {debug 0}} {
 		append html "<br>\n<pre>$::errorInfo</pre>\n"
 		append html "<p><font size=\"-1\">$rcsid</font></p>"
 		append html "</body>\n</html>"
-		write $html text/html
+		write $html text/html "500 Internal Server Error"
 		
 		log "unknown" [string range $xml 0 60] "error"
 	    }
