@@ -18,8 +18,8 @@ package require SOAP::Schema;           # TclSOAP 1.6.7
 
 namespace eval ::SOAP::WSDL {
     variable version 1.0
-    variable rcsid {$Id: WSDL.tcl,v 1.1.2.7 2003/02/07 01:31:17 patthoyts Exp $}
-    variable logLevel debug #warning
+    variable rcsid {$Id: WSDL.tcl,v 1.1.2.8 2003/07/26 12:26:38 patthoyts Exp $}
+    variable logLevel warning
     
     #namespace export 
     catch {namespace import -force [namespace parent]::Utils::*}
@@ -44,6 +44,7 @@ namespace eval ::SOAP::WSDL {
 proc ::SOAP::WSDL::parse {doc} {
     variable URI
     variable output
+    set output ""
 
     foreach node [getElements $doc] {
         if {[string match $URI(wsdl):definitions [qualifyNodeName $node]]} {
@@ -259,6 +260,7 @@ proc ::SOAP::WSDL::baseName {qualName} {
 proc ::SOAP::WSDL::output {what} {
     variable output
     append output $what "\n"
+    log::log debug "$what\n"
 }
 
 # -------------------------------------------------------------------------

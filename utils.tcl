@@ -12,7 +12,7 @@
 namespace eval ::SOAP {
     namespace eval Utils {
         variable version 1.0.1
-        variable rcsid {$Id: utils.tcl,v 1.7.2.5 2003/06/12 22:51:08 patthoyts Exp $}
+        variable rcsid {$Id: utils.tcl,v 1.7.2.6 2004/04/28 23:38:16 patthoyts Exp $}
         namespace export getElements getElementsByName \
                 getElementValue getElementName \
                 getElementValues getElementNames \
@@ -460,7 +460,7 @@ proc ::SOAP::Utils::baseElementName {nodeName} {
 proc ::SOAP::Utils::find_namespaceURI {node nsname {find_targetNamespace 0}} {
     if {$node == {}} { return {} }
     set atts [dom::node cget $node -attributes]
-    upvar #0 atts Atts
+    upvar #0 $atts Atts
 
     # check for the default namespace or targetNamespace
     if {$nsname == {}} {
@@ -485,7 +485,11 @@ proc ::SOAP::Utils::find_namespaceURI {node nsname {find_targetNamespace 0}} {
     }
     
     # recurse through the parents.
-    return [find_namespaceURI [dom::node parent $node] $nsname $find_targetNamespace]
+    if {[catch {set parent [dom::node parent $node]} msg]} {
+        log::log debug "caught error in 'dom::node parent $node'"
+        return {}
+    }
+    return [find_namespaceURI $parent $nsname $find_targetNamespace]
 }
 
 # -------------------------------------------------------------------------

@@ -6,6 +6,7 @@
 # \
 exec tclsh "$0" ${1+"$@"}
 
+package require tcldom
 package require SOAP 1.6.6
 package require SOAP::WSDL
 
