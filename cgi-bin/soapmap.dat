@@ -24,6 +24,10 @@ urn:tclsoap-Test	tclsoap-Test.tcl
 urn:tclsoap-SafeTest	tclsoap-Test.tcl	SafeTest
 urn:tclsoap:webservices	webservice.tcl
 
+# Some soapinterop clients would prefer one of these actions
+http://soapinterop.org/	soapinterop.tcl
+/soapinterop		soapinterop.tcl
+
 # This entry returns an empty value for /cgi-bin/rpc. This is quite
 # frequently used as the SOAPAction instead of "" or nothing and is the
 # CGI script path. Mapping to an empty value causes the CGI framework to
