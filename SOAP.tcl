@@ -43,7 +43,7 @@ namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.41 2001/12/21 02:05:54 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.42 2001/12/21 16:57:52 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -609,6 +609,7 @@ proc SOAP::invoke2 {procVarName reply} {
 #   soap         - the XML payload for this SOAP method call
 #
 namespace eval SOAP::Transport::print {
+    variable method:options {}
     proc configure {args} {
         return
     }
@@ -619,6 +620,7 @@ namespace eval SOAP::Transport::print {
 }
 
 namespace eval SOAP::Transport::reflect {
+    variable method:options {}
     proc configure {args} {
         return
     }
