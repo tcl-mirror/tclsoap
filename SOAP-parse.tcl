@@ -1,35 +1,41 @@
 # soap-parse.tcl - Copyright (C) 2001 Pat Thoyts <pat@zsplat.freeserve.co.uk>
 #
-# Parse a SOAP reply packet. Returns a list of XPath style element paths
+# Parse a SOAP reply packet. Returns a list of XPath(ish) style element paths
 # and the value (if there was a value).
 #
 # Used by SOAP until I work out how to read the packets using DOM.
 #
-# @(#)$Id: SOAP-parse.tcl,v 1.2 2001/02/19 00:44:46 pat Exp pat $
+# @(#)$Id: SOAP-parse.tcl,v 1.3 2001/03/17 01:23:34 pat Exp pat $
 
 package provide SOAP::Parse 1.0
 
-package require xml
+if { [catch {package require xml 2.0} msg] } {
+    if { [catch {package require xml 1.3} msg] } {
+	error "required package missing: xml later than version 1.3 needed"
+    }
+}
 
 # -------------------------------------------------------------------------
 
 namespace eval SOAP::Parse {
     variable elt_path {}
     variable elt_data
+    variable parser
+
+    set parser [xml::parser soap \
+            -elementstartcommand  SOAP::Parse::elt_start \
+            -elementendcommand    SOAP::Parse::elt_end \
+            -characterdatacommand SOAP::Parse::elt_data ]
+    puts "parser is $parser"
 }
 
 # -------------------------------------------------------------------------
 
 proc SOAP::Parse::parse { data } {
     variable elt_data
+    variable parser
 
     catch { unset elt_data }
-    catch { xml::parser soapyx \
-	    -elementstartcommand  SOAP::Parse::elt_start \
-	    -elementendcommand    SOAP::Parse::elt_end \
-	    -characterdatacommand SOAP::Parse::elt_data } msg
-    set parser ::xml::soapyx
-    
     $parser parse $data
     
     set r {}
