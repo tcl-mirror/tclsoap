@@ -39,7 +39,7 @@ namespace eval SOAP {
 	# -----------------------------------------------------------------
 
 	variable rcsid {
-	    $Id: SOAP-CGI.tcl,v 1.8 2001/08/23 20:31:30 patthoyts Exp $
+	    $Id: SOAP-CGI.tcl,v 1.9 2001/08/24 22:07:59 patthoyts Exp $
 	}
 	variable methodName  {}
 	variable debugging   0
@@ -311,21 +311,16 @@ proc SOAP::CGI::xmlrpc_call {doc {interp {}}} {
 # Description:
 #   Handle the Head section of a SOAP request. If there is a problem we 
 #   shall throw an error.
+# Parameters:
+#   doc
+#   mandate - boolean: if true then throw an error for any mustUnderstand
 #
-proc SOAP::CGI::soap_header {doc} {
+proc SOAP::CGI::soap_header {doc {mandate 0}} {
     dtrace "Handling SOAP Header"
+    set result {}
     foreach elt [selectNode $doc "/Envelope/Header/*"] {
 	set eltName [dom::node cget $elt -nodeName]
-	set attr [dom::node cget $elt -attributes]
-	set attrnames [array names $attr]
-
-	# Check Actor - is this header for us?
-	set actor ""
-	set ndx [lsearch -regexp $attrnames {(^|:)actor}]
-	if {$ndx != -1} {
-	    set attrname [lindex $attrnames $ndx]
-	    set actor [set [subst $attr]($attrname)]
-	}
+	set actor [getElementAttribute $elt actor]
 	dtrace "SOAP actor $eltName = $actor"
 
 	# If it's not for me, don't handle the header.
@@ -333,23 +328,22 @@ proc SOAP::CGI::soap_header {doc} {
 		"http://schemas.xmlsoap.org/soap/actor/next"]} {
 	
 	    # Check for Mandatory Headers.
-	    set mustUnderstand 0
-	    set ndx [lsearch -regexp $attrnames {(^|:)mustUnderstand$}]
-	    if {$ndx != -1} {
-		set attrname [lindex $attrnames $ndx]
-		set mustUnderstand [set [subst $attr]($attrname)]
-	    }
-	    
+	    set mustUnderstand [getElementAttribute $elt mustUnderstand]	    
 	    dtrace "SOAP mustUnderstand $eltName $mustUnderstand"
+
+	    # add to the list of suitable headers.
+	    lappend result [getElementName $elt] [getElementValue $elt]
+
 	    
-	    # Until we know what to do with such headers, we will have to
-	    # Fault.
-	    if {$mustUnderstand == 1} {
-		error "Mandatory header $eltName not understood." \
-			{} MustUnderstand
+	    ## Until we know what to do with such headers, we will have to
+	    ## Fault.
+	    if {$mustUnderstand == 1 && $mandate == 1} {
+	    	error "Mandatory header $eltName not understood." \
+	    		{} MustUnderstand
 	    }
 	}
     }
+    return $result
 }
 
 # -------------------------------------------------------------------------
@@ -364,6 +358,7 @@ proc SOAP::CGI::soap_header {doc} {
 #
 proc SOAP::CGI::soap_call {doc {interp {}}} {
     variable methodName
+    set headers {}
     if {[catch {
 
 	# Check SOAP version by examining the namespace of the Envelope elt.
@@ -380,8 +375,9 @@ proc SOAP::CGI::soap_call {doc {interp {}}} {
 	}
 
 	# Check for Header elements
-	if {[selectNode $doc "/Envelope/Header"] != {}} {
-	    soap_header $doc
+	if {[set headerNode [selectNode $doc "/Envelope/Header"]] != {}} {
+	    set headers [soap_header $doc 0]
+	    dtrace "headers: $headers"
 	}
 
 	# Get the method name from the XML request.
@@ -398,7 +394,6 @@ proc SOAP::CGI::soap_call {doc {interp {}}} {
 	foreach node $argNodes {
 	    lappend argValues [decomposeSoap $node]
 	}
-	catch {dom::DOMImplementation destroy $doc}
 
 	# Check for a permitted methodname. This is defined by being in the
 	# SOAP::export list for the given namespace. We must do this to prevent
@@ -410,12 +405,18 @@ proc SOAP::CGI::soap_call {doc {interp {}}} {
 	} fqdn]} {
 	    dtrace "method not found: $fqdn"
 	    error "Invalid SOAP request:\
-		    method \"${methodNamespace}::${methodName}\" not found"\
-		    {} "Client"
+		    method \"${methodNamespace}::${methodName}\" not found" \
+		{} "Client"
 	}
 
 	# evaluate the method
 	set msg [interp eval $interp $fqdn $argValues]
+
+	# check for mustUnderstand headers that were not understood.
+	# This will raise an error for any such header elements.
+	if {$headerNode != {}} {
+	    soap_header $doc 1
+	}
 
 	# generate a reply packet
 	set reply [SOAP::reply \
@@ -424,6 +425,7 @@ proc SOAP::CGI::soap_call {doc {interp {}}} {
 	set xml [dom::DOMImplementation serialize $reply]
 	regsub "<!DOCTYPE\[^>\]+>\n" $xml {} xml
 	catch {dom::DOMImplementation destroy $reply}
+	catch {dom::DOMImplementation destroy $doc}
 	
     } msg]} {
 	# Handle errors the SOAP way.
