@@ -13,7 +13,7 @@ package provide SOAP::Utils 1.0
 
 namespace eval SOAP {
     namespace eval Utils {
-        variable rcsid {$Id: utils.tcl,v 1.5 2001/10/04 22:25:58 patthoyts Exp $}
+        variable rcsid {$Id: utils.tcl,v 1.6 2001/10/07 22:28:08 patthoyts Exp $}
         namespace export getElements \
                 getElementValue getElementName \
                 getElementValues getElementNames \
@@ -38,15 +38,11 @@ namespace eval SOAP {
 #   if no match.
 #
 proc SOAP::Utils::selectNode {node path} {
-    if {[dom::DOMImplementation hasFeature query 1.0]} {
-        return [dom::DOMImplementation selectNode $node $path]
-    } else {
-	package require SOAP::xpath
-        if {[catch {SOAP::xpath::xpath -node $node $path} r]} {
-            set r {}
-        }
-        return $r
+    package require SOAP::xpath
+    if {[catch {SOAP::xpath::xpath -node $node $path} r]} {
+        set r {}
     }
+    return $r
 }
 
 # -------------------------------------------------------------------------
