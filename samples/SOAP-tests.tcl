@@ -12,7 +12,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: SOAP-tests.tcl,v 1.6 2001/03/02 13:26:42 pat Exp pat $
+# @(#)$Id: SOAP-tests.tcl,v 1.7 2001/03/17 01:21:49 pat Exp pat $
 
 package require SOAP 1.0
 
@@ -115,6 +115,19 @@ SOAP::create census \
         -action "http://tempuri.org/GetPoliticalUnitFactsByName" \
         -name GetPoliticalUnitFactsByName
 
+
+# Babelfish translator http://www.xmltoday.com/examples/soap/translate.psp
+
+SOAP::create translate \
+        -action urn:vgx-translate \
+        -name getTranslation \
+        -proxy http://www.velocigen.com:82/vx_engine/soap-trigger.pperl \
+        -uri urn:vgx-translate \
+        -params {"text" "string" "language" "string"}
+
+# translate {Good morning} en_[de|fr|it|es|pt]
+# translate {Guten tag} de_fr
+
 # -------------------------------------------------------------------------
 
 # Fortune server has 3 methods.
@@ -148,26 +161,63 @@ namespace eval XFS {
     namespace export readFile removeFile writeFile listFiles
 }
 
+namespace eval Chat {
+    variable uri "http://tempuri.org/"
+    variable proxy "http://aspx.securewebs.com/prasadv/prasadchat.asmx"
+    SOAP::create RegisterMember -uri $uri -proxy $proxy \
+            -action "${uri}RegisterMember" \
+            -params { "NickName" "string" }
+    SOAP::create XchangeMsgs -uri $uri -proxy $proxy \
+            -action "${uri}XchangeMsgs" \
+            -params { "NickName" "string" "Msg" "string" }
+    SOAP::create GetMsgs -uri $uri -proxy $proxy \
+            -action "${uri}GetMsgs" \
+            -params { "NickName" "string" }
+    namespace export RegisterMember XchangeMsgs GetMsgs
+}
+
 # -------------------------------------------------------------------------
 
 # Setup SOAP HTTP transport for our authenticating proxy
 # This is used for me to test at work.
 
-proc reniconfig {} {
-    if { [SOAP::get SOAP::Transport::http headers] == {} } {
-        package require Trf
-        toplevel .t
-        wm title .t "Enter username and passwd"
-        entry .t.e1 -textvariable SOAP::userid
-        entry .t.e2 -textvariable SOAP::passwd -show "*"
-        pack .t.e1 .t.e2 -side top -anchor n -fill x -expand 1
-        tkwait window .t
-        SOAP::configure -transport http -proxy ripon:80 \
-                -headers [list "Proxy-Authorization" \
-                "Basic [lindex [base64 -mode enc ${SOAP::userid}:${SOAP::passwd}] 0]" ]
-        unset SOAP::passwd SOAP::userid
+proc SOAP::proxyconfig {} {
+    package require Trf
+    toplevel .t
+    wm title .t "Proxy Configuration"
+    set m [message .t.m1 -relief groove -justify left -width 6c -aspect 200 \
+            -text "Enter details of your proxy server (if any) and your username and password if it is needed by the proxy."]
+    set f1 [frame .t.f1]
+    set f2 [frame .t.f2]
+    button $f2.b -text "OK" -command {destroy .t}
+    pack $f2.b -side right
+    label $f1.l1 -text "Proxy (host:port)"
+    label $f1.l2 -text "Username"
+    label $f1.l3 -text "Password"
+    entry $f1.e1 -textvariable SOAP::conf_proxy
+    entry $f1.e2 -textvariable SOAP::conf_userid
+    entry $f1.e3 -textvariable SOAP::conf_passwd -show {*}
+    grid $f1.l1 -column 0 -row 0 -sticky e
+    grid $f1.l2 -column 0 -row 1 -sticky e
+    grid $f1.l3 -column 0 -row 2 -sticky e
+    grid $f1.e1 -column 1 -row 0 -sticky news
+    grid $f1.e2 -column 1 -row 1 -sticky news
+    grid $f1.e3 -column 1 -row 2 -sticky news
+    grid columnconfigure $f1 1 -weight 1
+    pack $f2 -side bottom -fill x
+    pack $m  -side top -fill x -expand 1
+    pack $f1 -side top -anchor n -fill both -expand 1
+    tkwait window .t
+    SOAP::configure -transport http -proxy $SOAP::conf_proxy
+    if { [info exists SOAP::conf_userid] } {
+        SOAP::configure -transport http \
+            -headers [list "Proxy-Authorization" \
+            "Basic [lindex [base64 -mode enc ${SOAP::conf_userid}:${SOAP::conf_passwd}] 0]" ]
     }
+    unset SOAP::conf_passwd
 }
+
+SOAP::proxyconfig
 
 # Local variables:
 #   indent-tabs-mode: nil
