@@ -17,7 +17,7 @@ package require SOAP::Utils;            # TclSOAP
 
 namespace eval SOAP::WSDL {
     variable version 1.0
-    variable rcsid {$Id: WSDL.tcl,v 1.1.2.2 2002/11/15 01:13:31 patthoyts Exp $}
+    variable rcsid {$Id: WSDL.tcl,v 1.1.2.3 2002/11/20 01:13:42 patthoyts Exp $}
     variable logLevel debug #warning
     
     #namespace export 
@@ -42,12 +42,15 @@ namespace eval SOAP::WSDL {
 
 proc SOAP::WSDL::parse {doc} {
     variable URI
+    variable output
 
     foreach node [getElements $doc] {
         if {[string match $URI(wsdl):definitions [qualifyNodeName $node]]} {
             parse_definitions $node
         }
     }
+
+    return [namespace which -variable output]
 }
 
 proc SOAP::WSDL::parse_definitions {Node} {
@@ -64,7 +67,7 @@ proc SOAP::WSDL::parse_definitions {Node} {
 
     array set types {}
     foreach typeNode [getElementsByName $Node types] {
-        parse_types $Node $typesNode types
+        parse_types $Node $typeNode types
     }
 
     array set messages {}
@@ -141,7 +144,7 @@ proc SOAP::WSDL::parse_binding {defNode bindingNode} {
                 }
             }
             operation {
-                set opname [qualifyName $node [getElementAttribute $node name]]
+                set opname [qualify $node [getElementAttribute $node name]]
                 set opbase [baseName $opname]
                 set soapAction {}
                 set encoding $URI(soapenc)
@@ -166,7 +169,7 @@ proc SOAP::WSDL::parse_binding {defNode bindingNode} {
                             }
                         }
                         output {
-                            # we do not care
+                            # we do not care for client code.
                         }
                     }
                 }
@@ -186,7 +189,7 @@ proc SOAP::WSDL::parse_message {definitionsNode messageNode arrayName} {
     set params {}
     foreach part [getElementsByName $messageNode part] {
         set paramName [getElementAttribute $part name]
-        set paramType [qualifyName $part [getElementAttribute $part type]]
+        set paramType [qualify $part [getElementAttribute $part type]]
         lappend params $paramName $paramType
     }
     set messages($name) $params
@@ -197,16 +200,16 @@ proc SOAP::WSDL::parse_message {definitionsNode messageNode arrayName} {
 proc SOAP::WSDL::parse_portType {definitionsNode portTypeNode arrayName} {
     upvar $arrayName portTypes
     foreach opNode [getElementsByName $portTypeNode operation] {
-        set opName [qualifyName $opNode [getElementAttribute $opNode name]]
+        set opName [qualify $opNode [getElementAttribute $opNode name]]
 
         set node [lindex [getElementsByName $opNode input] 0]
-        set name [qualifyName $node [getElementAttribute $node name]]
-        set message [qualifyName $node [getElementAttribute $node message]]
+        set name [qualify $node [getElementAttribute $node name]]
+        set message [qualify $node [getElementAttribute $node message]]
         set portTypes($opName,input) [list $name $message]
 
         set node [lindex [getElementsByName $opNode output] 0]
-        set name [qualifyName $node [getElementAttribute $node name]]
-        set message [qualifyName $node [getElementAttribute $node message]]
+        set name [qualify $node [getElementAttribute $node name]]
+        set message [qualify $node [getElementAttribute $node message]]
         set portTypes($opName,output) [list $name $message]
         
 #        log::log debug "operation: $opName {$portTypes($opName,input) $portTypes($opName,output)}"
@@ -233,7 +236,7 @@ proc SOAP::WSDL::qualifyTarget {node what} {
     return [qualify $node $what 1]
 }
 
-proc SOAP::WSDL::qualify {node what {target 0}} {
+proc SOAP::WSDL::qualify {node name {target 0}} {
     set ndx [string last : $name]
     set nodeNS [string trimright [string range $name 0 $ndx] :]
     set nodeBase [string trimleft [string range $name $ndx end] :]
