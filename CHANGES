@@ -1,6 +1,15 @@
 * TclSOAP 1.6.2
 ---------------
 
+** Transport Modules
+   Re-arranged the transport code to simplify addition of new
+   transports. Implemented HTTP, SMTP and FTP as client transport
+   methods.
+
+** Applied patch #488714
+   Reverses a change to the HTTP headers configuration that isnt
+   working as desired
+
 ** Implemented SOAP Version support - TODO: Test
    SOAP::configure now has a -version option taking the uri of the
    SOAP envelope namespace.
