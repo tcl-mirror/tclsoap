@@ -20,7 +20,7 @@ package provide rpcvar 1.2
 namespace eval rpcvar {
     variable version 1.2
     variable magic "rpcvar$version"
-    variable rcs_id {$Id: rpcvar.tcl,v 1.8 2001/12/21 00:43:51 patthoyts Exp $}
+    variable rcs_id {$Id: rpcvar.tcl,v 1.9 2002/02/26 22:58:47 patthoyts Exp $}
     variable typedefs
     variable typens
     variable enums
@@ -374,10 +374,10 @@ proc rpcvar::rpcvalidate {type value} {
 #  => zm {varInt 2 varFloat 2.2 varString "hello"}
 #
 #  typedef {
-#      arrInt     int[]
-#      stooges    Stooges[]
-#      arrString  string[]
-#      arrColours Colour[]
+#      arrInt     int()
+#      stooges    Stooges()
+#      arrString  string()
+#      arrColours Colour()
 #  } arrStruct
 #  => SOAP::create m -params {myStruct arrStruct}
 #  => m {arrInt {1 2 3 4 5} \

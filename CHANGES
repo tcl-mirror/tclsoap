@@ -1,5 +1,10 @@
-* TclSOAP 1.6.4+
+* TclSOAP 1.6.5
 ----------------
+
+** Implemented typedef for arrays
+   See usage in interop/soapinteropB.tcl. [typdef string() Arrayofstring]
+   Multi dimensional arrays and offset array ranges are still not
+   done.
 
 ** Fixed missing '-schemas' option
    The '-schemas' option is supposed to add additional attributes to
