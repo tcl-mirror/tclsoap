@@ -15,7 +15,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: soapinterop.tcl,v 1.4 2001/11/01 23:55:36 patthoyts Exp $
+# @(#)$Id: soapinterop.tcl,v 1.5 2001/12/09 22:02:39 patthoyts Exp $
 
 package provide soapinterop::base 1.0
 
@@ -258,6 +258,7 @@ proc soapinterop::validate.echoStringArray {} {
 }
 
 proc soapinterop::validateSOAPStruct {first second} {
+    set r 0
     array set f $first
     array set s $second
     foreach key [array names f] {
@@ -266,13 +267,20 @@ proc soapinterop::validateSOAPStruct {first second} {
 	    double  { set r [float=? $f($key) $s($key)] }
 	    float   { set r [float=? $f($key) $s($key)] }
 	    int     { set r [expr $f($key) == $s($key)] }
-	    default { set r [string match $f($key) $s($key)] }
+	    default { 
+                if {[string match "varStruct" $key]} {
+                    set r [validateSOAPStruct $f($key) $s($key)]
+                } else {
+                    set r [string match $f($key) $s($key)] 
+                }
+            }
 	}
 	if {! $r} {
 	    error "failed: mismatching \"$key\" element\
 		    $f($key) != $s($key)"
 	}
     }
+    return $r
 }
 
 proc soapinterop::validate.echoStruct {} {
