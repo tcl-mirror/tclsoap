@@ -40,7 +40,7 @@ if {[catch {package require SOAP::dom 1.0} ::SOAP::domVersion]} {
 namespace eval ::SOAP {
     variable version 1.6.8
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.44.2.9 2004/03/04 00:40:39 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.44.2.10 2004/03/09 01:13:07 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -479,11 +479,17 @@ proc getTransportFromArgs {procVarName args} {
 #   be accessible via a SOAP call.
 # Parameters:
 #   args - a list of tcl commands to be made available as SOAP endpoints.
+#          If no args are provided then it returns a list of SOAP methods
+#          exported in the current namespace. [Michael Schlenker]
 #
 proc ::SOAP::export {args} {
-    foreach item $args {
-        uplevel "set \[namespace current\]::__soap_exports($item)\
-                \[namespace code $item\]"
+    if {[llength $args] < 1} {
+        return [uplevel {array names [namespace current]::__soap_exports}]
+    } else {
+        foreach item $args {
+            uplevel "set \[namespace current\]::__soap_exports($item)\
+                    \[namespace code $item\]"
+        }
     }
     return
 }
@@ -857,12 +863,15 @@ proc ::SOAP::soap_request {procVarName args} {
     # check for variable number of params and set the num required.
     if {[lindex $params end] == "args"} {
         set n_params [expr {( [llength $params] - 1 ) / 2}]
+        set fixed 0
     } else {
         set n_params [expr {[llength $params] / 2}]
+        set fixed 1
     }
 
     # check we have the correct number of parameters supplied.
-    if {[llength $args] < $n_params} {
+    if {[llength $args] < $n_params 
+        || ($fixed && [llength $args] != $n_params)} {
         set msg "wrong # args: should be \"$procName"
         foreach { id type } $params {
             append msg " " $id
