@@ -99,6 +99,7 @@ proc soapinterop::validate.echoDate {} {
 }
 
 proc soapinterop::validate.echoBase64 {} {
+    package require base64
     set q [base64::encode [array get ::tcl_platform]]
     set r [echoBase64 $q]
     if {![string match $q $r]} {
