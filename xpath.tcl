@@ -14,13 +14,13 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package provide xpath 0.1
+package provide SOAP::xpath 0.1
 
 package require dom 1.6
 
-namespace eval xpath {
+namespace eval SOAP::xpath {
     variable version 0.1
-    variable rcsid { $Id: xpath.tcl,v 1.2 2001/02/26 12:41:04 pt111992 Exp pt111992 $ }
+    variable rcsid { $Id: xpath.tcl,v 1.3 2001/03/02 13:29:50 pat Exp pat $ }
     namespace export xpath
 }
 
@@ -31,7 +31,7 @@ namespace eval xpath {
 
 # TODO: Paths including attribute selection etc.
 
-proc xpath::xpath { args } {
+proc SOAP::xpath::xpath { args } {
     if { [llength $args] < 2 || [llength $args] > 3 } {
         error "wrong # args: should be \"xpath ?option? rootNode path\""
     }
@@ -103,7 +103,7 @@ proc xpath::xpath { args } {
 
 # check for an element called name that is a child of root. Returns
 # the node, or null
-proc xpath::find_node { root name } {
+proc SOAP::xpath::find_node { root name } {
     set r {}
     set kids ""
     foreach element $root { 
@@ -120,7 +120,7 @@ proc xpath::find_node { root name } {
 # -------------------------------------------------------------------------
 
 # remove extraneous whitespace from each end of string
-proc xpath::trim { str } {
+proc SOAP::xpath::trim { str } {
     set r {}
     regsub {^\s+} $str {} r
     regsub {\s+$} $r   {} r
@@ -130,7 +130,7 @@ proc xpath::trim { str } {
 # -------------------------------------------------------------------------
 
 # Return list of {node namespace elementname} for each child element of root
-proc xpath::child_elements { root } {
+proc SOAP::xpath::child_elements { root } {
     set kids {}
     set children [dom::node children $root]
     foreach node $children {
