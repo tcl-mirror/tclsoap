@@ -3,7 +3,7 @@
 # Provide a _SIGNIFICANTLY_ simplified version of XPath querying for DOM
 # document objects. This might get expanded to eventually conform to the
 # W3Cs XPath specification but at present this is purely for use in querying
-# DOM documents for specific elements.
+# DOM documents for specific elements by the SOAP package.
 #
 # Subject to interface changes
 #
@@ -14,7 +14,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package provide SOAP::xpath 0.1
+package provide SOAP::xpath 0.2
 
 if { [catch {package require dom 2.0}] } {
     if { [catch {package require dom 1.6}] } {
@@ -23,9 +23,9 @@ if { [catch {package require dom 2.0}] } {
 }
 
 namespace eval SOAP::xpath {
-    variable version 0.1
-    variable rcsid { $Id: xpath.tcl,v 1.4 2001/03/17 01:19:09 pat Exp pat $ }
-    namespace export xpath
+    variable version 0.2
+    variable rcsid { $Id: xpath.tcl,v 1.5 2001/04/10 00:23:16 pat Exp pat $ }
+    namespace export xpath xmlnsSplit
 }
 
 # -------------------------------------------------------------------------
@@ -61,8 +61,6 @@ proc SOAP::xpath::xpath { args } {
 
     set root [lindex $args 0]
     set path [lindex $args 1]
-    array set xmlns {}
-    set nsPath {}
 
     # split the path up and call find_node to get the new node or nodes.
     foreach nodeName [split $path {/}] {
@@ -70,11 +68,7 @@ proc SOAP::xpath::xpath { args } {
             continue
         }
 
-        ## BUG HERE
-        append nsPath "/${nodeName}" ; puts "nsPath: $nsPath"
-        xmlnsUpdate xmlns $root $nsPath ; puts "[array get xmlns]"
-
-        set root [find_node $root $nodeName xmlns]
+        set root [find_node $root $nodeName]
         if { $root == {}} {
             return -code error "$nodeName not found"
         }
@@ -104,7 +98,7 @@ proc SOAP::xpath::xpath { args } {
         set children [dom::node children $node]
         set v ""
         foreach child $children {
-            append v [trim [dom::node cget $child -nodeValue]]
+            append v [string trim [dom::node cget $child -nodeValue]]
         }
         lappend value $v
     }
@@ -113,18 +107,29 @@ proc SOAP::xpath::xpath { args } {
 
 # -------------------------------------------------------------------------
 
-# check for an element called name that is a child of root. Returns
-# the node, or null
-proc SOAP::xpath::find_node { root name xmlNamespaces } {
-    upvar $xmlNamespaces xmlns
+# check for an element (called $target) that is a child of root. Returns
+# the node(s) or {}
+proc SOAP::xpath::find_node { root target } {
     set r {}
     set kids ""
+
+    # split the target into XML namespace and element names.
+    set targetName [xmlnsSplit $target]
+    set targetNamespace [lindex $targetName 0]
+    set targetName [lindex $targetName 1]
+
+    # get information about the child elements.
     foreach element $root { 
-        append kids [child_elements $element xmlns]
+        append kids [child_elements $element]
     }
-    foreach {node namespace elt_name} $kids {
-        if { [string match $name $elt_name] } {
-            lappend r $node
+
+    # match name and (optionally) namespace
+    foreach {node ns elt} $kids {
+        if { [string match $targetName $elt] } {
+            #puts "ns:$ns targetNS:$targetNamespace"
+            if { $targetNamespace == {} || [string match $targetNamespace $ns] } {
+                lappend r $node
+            }
         }
     }
     return $r
@@ -133,22 +138,18 @@ proc SOAP::xpath::find_node { root name xmlNamespaces } {
 # -------------------------------------------------------------------------
 
 # Return list of {node namespace elementname} for each child element of root
-proc SOAP::xpath::child_elements { root xmlNamespaces } {
-    upvar $xmlNamespaces xmlns
+proc SOAP::xpath::child_elements { root } {
     set kids {}
     set children [dom::node children $root]
     foreach node $children {
         set type [string trim [dom::node cget $node -nodeType ]]
         if { $type == "element" } {
-            #set name [split [string trim [dom::node cget $node -nodeName]] {:}]
+            catch {unset xmlns}
+            array set xmlns [xmlnsConstruct $node]
+
             set name [xmlnsQualify xmlns [dom::node cget $node -nodeName]]
-            if { [llength $name] == 1 } {
-                set ns {}
-            } else {
-                set ns   [lindex $name 0]
-                set name [join [lrange $name 1 end] {:}]
-            }
-            lappend kids $node $ns $name
+            set name [xmlnsSplit $name]
+            lappend kids $node [lindex $name 0] [lindex $name 1]
         }
     }
     return $kids
@@ -156,42 +157,71 @@ proc SOAP::xpath::child_elements { root xmlNamespaces } {
 
 # -------------------------------------------------------------------------
 
-# read in the attributes for the current path in DOC and update a table
-# of namespace names. Used in xmlns_sub.
+# Return a list of the namespace and element names from a node name.
 #
-proc SOAP::xpath::xmlnsUpdate {varName doc path} {
-    upvar $varName xmlns
-    foreach {ns fqns} [array get [dom::node cget $doc -attributes]] {
+proc SOAP::xpath::xmlnsSplit {elementName} {
+    set name [split $elementName :]
+    set len [llength $name]
+    if { $len == 1 } {
+        set ns {}
+    } else {
+        incr len -2
+        set ns   [join [lrange $name 0 $len] :]
+        set name [lindex $name end]
+    }
+    return [list $ns $name]
+}
+
+# -------------------------------------------------------------------------
+
+# Build a list of any XML namespace definitions for node
+# Returns a list of {namesnameName qualifiedName}
+#
+proc SOAP::xpath::xmlnsGet {node} {
+    set result {}
+    foreach {ns fqns} [array get [dom::node cget $node -attributes]] {
 	set ns [split $ns :]
-        puts "  $ns -> $fqns"
 	if { [lindex $ns 0] == "xmlns" } {
-	    set xmlns([lindex $ns 1]) $fqns
+	    lappend result [lindex $ns 1] $fqns
 	}
     }
+    return $result
+}
+
+# Build a list of {{xml namespace name} {qualified namespace}} working up the
+# DOM tree from node. You should look for the last occurrence of your name
+# in the list.
+proc SOAP::xpath::xmlnsConstruct {node} {
+    set result [xmlnsGet $node]
+    set parent [dom::node parent $node]
+    while { [dom::node cget $parent -nodeType] == "element" } {
+        set result [concat [xmlnsGet $parent] $result]
+        set parent [dom::node parent $parent]
+    }
+    return $result
 }
 
 # -------------------------------------------------------------------------
 
 # Split an XML element name into its namespace and name parts and return
 # a fully qualified XML element name.
-# xmlnsArray is the set of xmlns definitions that have been seen so
-# far (see get_xmlns)
+# xmlnsNamespaces should be an array of namespaceNames to qualified names
+# constructed using array set var [xmlnsConstruct $node]
 #
 proc SOAP::xpath::xmlnsQualify {xmlnsNamespaces elementName} {
     upvar $xmlnsNamespaces xmlns
     set name [split $elementName :]
-
-    if { [llength $name] != 2} {
+    if { [llength $name] == 1} {
+        return $elementName
+    }
+    if { [llength $name] != 2 } {
 	error "wrong # elements: name should be namespaceName:elementName"
     }
-
     if { [catch {set fqns $xmlns([lindex $name 0])}] } {
 	error "invalid namespace name: \"[lindex $name 0]\" not found"
     }
 
-    set name [lindex $name 1]
-
-    return "${fqns}:${name}"
+    return "${fqns}:[lindex $name 1]"
 }
 
 # -------------------------------------------------------------------------
