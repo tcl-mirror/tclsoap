@@ -11,14 +11,12 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package provide XMLRPC 1.0
-
 package require SOAP 1.4
 package require rpcvar
 
 namespace eval XMLRPC {
     variable version 1.0
-    variable rcs_version { $Id: XMLRPC.tcl,v 1.5 2001/08/08 15:35:34 patthoyts Exp $ }
+    variable rcs_version { $Id: XMLRPC.tcl,v 1.6 2001/11/01 23:52:22 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force [uplevel {namespace current}]::rpcvar::*}
@@ -195,6 +193,10 @@ proc XMLRPC::insert_value {node value} {
         dom::document createTextNode $type_elt $value
     }    
 }
+
+# -------------------------------------------------------------------------
+
+package provide XMLRPC $XMLRPC::version
 
 # -------------------------------------------------------------------------
 

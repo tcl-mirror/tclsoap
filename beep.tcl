@@ -30,11 +30,9 @@ package require mime;                   # tcllib
 
 namespace eval SOAP::Transport::beep {
     variable version 1.0
-    variable rcsid {$Id: beep.tcl,v 1.4 2001/12/21 23:44:12 patthoyts Exp $}
+    variable rcsid {$Id: beep.tcl,v 1.5 2002/01/05 23:09:53 patthoyts Exp $}
     variable options
     variable sessions
-
-    package provide SOAP::beep $version
 
     SOAP::register soap.beep  [namespace current]
     SOAP::register soap.beeps [namespace current]
@@ -513,6 +511,10 @@ proc uri::SplitSoap.beeps {url} {
 proc uri::SplitBeep {url} {
     return [SplitHttp $url]
 }
+
+# -------------------------------------------------------------------------
+
+package provide SOAP::beep $SOAP::Transport::beep::version
 
 # -------------------------------------------------------------------------
 # Local Variables:
