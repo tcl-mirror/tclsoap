@@ -28,7 +28,7 @@ if { [catch {package require dom 2.0} domVer]} {
 namespace eval SOAP {
     variable version 1.4
     variable domVersion $domVer
-    variable rcs_version { $Id: SOAP.tcl,v 1.19 2001/06/21 00:18:47 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.20 2001/06/21 00:28:40 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig
 }
@@ -437,7 +437,7 @@ proc SOAP::Transport::http::xfer { procVarName url request } {
     #    [list "Proxy-Authorization" [basic_authorization]]
     set local_headers {}
     if {[info exists options(headers)]} {
-        set local_headers $headers
+        set local_headers $options(headers)
     }
 
     # Add mandatory SOAPAction header (SOAP 1.1). This may be empty otherwise
@@ -548,13 +548,13 @@ proc SOAP::transport_configure { transport args } {
             foreach {opt value} $args {
                 switch -- $opt {
                     -proxy   {
-                        set Transport::http::options(proxy) [list $value]
+                        set Transport::http::options(proxy) $value
                     }
                     -headers {
-                        set Transport::http::options(headers) [list $value]
+                        set Transport::http::options(headers) $value
                     }
                     -progress {
-                        set Transport::http::options(progress) [list $value]
+                        set Transport::http::options(progress) $value
                     }
                     default {
                         error [concat "invalid option \"$opt\":" \
