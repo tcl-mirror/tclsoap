@@ -42,7 +42,7 @@ if { [catch {package require Trf}] } {
 
 namespace eval SOAP::Service {
     variable version 1.0
-    variable rcs_version { $Id: SOAP-service.tcl,v 1.4 2001/04/10 00:22:18 pat Exp pat $ }
+    variable rcs_version { $Id: SOAP-service.tcl,v 1.5 2001/04/22 20:49:37 pat Exp $ }
     variable socket
     variable port
     variable stats
@@ -140,7 +140,7 @@ proc SOAP::Service::post { url headers channel} {
     set length [lsearch -regexp $headers {^Content-Length:}]
     if { $length != -1 } {
         set length [split [lindex $headers $length] :]
-        set length [expr [lindex $length 1] + 0]
+        set length [expr {[lindex $length 1] + 0}]
     }
 
     if { $length > 0 } {

@@ -28,8 +28,9 @@ Marshal Rose is after getting general SOAP-with-attachments done.
 
 de? was after tDOM shim. I seem to have lost the file though. :(
 
+** XMLRPC::Domain
 
-
+Looks like I forgot about XML-RPC when re-adding the SOAP::Domain package.
 
 Local variables:
   mode: outline

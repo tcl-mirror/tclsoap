@@ -22,7 +22,7 @@ package require ftp;                    # tcllib
 
 namespace eval ::SOAP::Transport::ftp {
     variable version 1.0
-    variable rcsid {$Id: ftp.tcl,v 1.2 2001/12/21 01:47:25 patthoyts Exp $}
+    variable rcsid {$Id: ftp.tcl,v 1.2.2.1 2003/02/07 01:31:17 patthoyts Exp $}
     variable options
     
     ::SOAP::register ftp [namespace current]
@@ -91,6 +91,7 @@ proc ::SOAP::Transport::ftp::configure {args} {
             }
         }
     }
+    return {}
 }
 
 # -------------------------------------------------------------------------

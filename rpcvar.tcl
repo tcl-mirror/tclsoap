@@ -18,7 +18,7 @@
 namespace eval ::rpcvar {
     variable version 1.2
     variable magic "rpcvar$version"
-    variable rcs_id {$Id: rpcvar.tcl,v 1.9.2.2 2003/02/04 01:56:55 patthoyts Exp $}
+    variable rcs_id {$Id: rpcvar.tcl,v 1.9.2.3 2003/02/07 01:31:18 patthoyts Exp $}
     variable typedefs
     variable typens
     variable enums
@@ -486,11 +486,13 @@ proc ::types::typedef {args} {
                 return [info exists types($typename)]
             }
             -i* {
+                set namespace *
                 set typename [lindex $args 1]
                 if {[string length $opts(namespace)] > 0} {
-                    set typename $opts(namespace):$typename
+                    set namespace $opts(namespace)
                 }
-                if {[catch {set types($typename)} typeinfo]} {
+                set typename $namespace:$typename
+                if {[catch {array get types $typename} typeinfo]} {
                     set typeinfo {}
                 }
                 return $typeinfo
@@ -515,6 +517,7 @@ proc ::types::typedef {args} {
     set typename [lindex $args 1]
 
     set types($opts(namespace):$typename) $typelist
+    return $typename
 }
 
 proc ::types::SetupBuiltins {} {

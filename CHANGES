@@ -4,6 +4,12 @@
 ** Code cleanup.
    Fix errors to use "return -code error" and fixed the e-mail
    address. Fully qualify the namespaces for all packages.
+   Handle frink warnings.
+
+** Partially implemented WSDL support.
+   See samples/BabelFish.tcl and samples/Google.tcl for example usage.
+
+** Starkit
 
 * TclSOAP 1.6.6
 ---------------

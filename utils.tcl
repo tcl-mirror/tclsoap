@@ -12,7 +12,7 @@
 namespace eval ::SOAP {
     namespace eval Utils {
         variable version 1.0.1
-        variable rcsid {$Id: utils.tcl,v 1.7.2.3 2003/02/04 01:56:55 patthoyts Exp $}
+        variable rcsid {$Id: utils.tcl,v 1.7.2.4 2003/02/07 01:31:18 patthoyts Exp $}
         namespace export getElements getElementsByName \
                 getElementValue getElementName \
                 getElementValues getElementNames \
@@ -60,11 +60,12 @@ proc ::SOAP::Utils::is_array {domElement} {
     # This code should check the namespace using namespaceURI code (CGI)
     #
     set attr [dom::node cget $domElement -attributes]
-    if {[info exists [subst $attr](SOAP-ENC:arrayType)]} {
+    upvar #0 attr Attr
+    if {[info exists Attr(SOAP-ENC:arrayType)]} {
         return 1
     }
-    if {[info exists [subst $attr](xsi:type)]} {
-        set type [set [subst $attr](xsi:type)]
+    if {[info exists Attr(xsi:type)]} {
+        set type $Attr(xsi:type)
         if {[string match -nocase {*:Array} $type]} {
             return 1
         }
@@ -292,8 +293,9 @@ proc ::SOAP::Utils::proc:name {} {
 
 proc ::SOAP::Utils::href {node} {
     set a [dom::node cget $node -attributes]
-    if {[info exists [subst $a](href)]} {
-        return [set [subst $a](href)]
+    upvar #0 $a A
+    if {[info exists A(href)]} {
+        return $A(href)
     }
     return {}
 }
@@ -302,8 +304,9 @@ proc ::SOAP::Utils::href {node} {
 
 proc ::SOAP::Utils::id {node} {
     set a [dom::node cget $node -attributes]
-    if {[info exists [subst $a](id)]} {
-        return [set [subst $a](id)]
+    upvar #0 $a A
+    if {[info exists A(id)]} {
+        return $A(id)
     }
     return {}
 }
@@ -390,14 +393,16 @@ proc ::SOAP::Utils::getElementAttribute {node attrname} {
 proc ::SOAP::Utils::namespaceURI {node} {
     #if {[dom::DOMImplementation hasFeature query 1.0]} {
     #    return [dom::node cget $node -namespaceURI]
-    #} else {
+    #} 
+    if {[catch {dom::node cget $node -namespaceURI} result]} {
         set nodeName [dom::node cget $node -nodeName]
         set ndx [string last : $nodeName]
         set nodeNS [string range $nodeName 0 $ndx]
         set nodeNS [string trimright $nodeNS :]
         
-        return [find_namespaceURI $node $nodeNS]
-    #}
+        set result [find_namespaceURI $node $nodeNS]
+    }
+    return $result
 }
 
 # Description:
@@ -445,16 +450,17 @@ proc ::SOAP::Utils::baseElementName {nodeName} {
 proc ::SOAP::Utils::find_namespaceURI {node nsname {find_targetNamespace 0}} {
     if {$node == {}} { return {} }
     set atts [dom::node cget $node -attributes]
+    upvar #0 atts Atts
 
     # check for the default namespace or targetNamespace
     if {$nsname == {}} {
         if {$find_targetNamespace} {
-            if {[info exists [subst $atts](targetNamespace)]} {
-                return [set [subst $atts](targetNamespace)]
+            if {[info exists Atts(targetNamespace)]} {
+                return $Atts(targetNamespace)
             }
         } else {
-            if {[info exists [subst $atts](xmlns)]} {
-                return [set [subst $atts](xmlns)]
+            if {[info exists Atts(xmlns)]} {
+                return $Atts(xmlns)
             }
         }
     } else {

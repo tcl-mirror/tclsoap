@@ -23,7 +23,7 @@ package require SOAP::Utils;            # TclSOAP
 
 namespace eval ::SOAP::Schema {
     variable version 0.1
-    variable rcsid {$Id$}
+    variable rcsid {$Id: schema.tcl,v 1.1.2.1 2003/02/04 22:59:30 patthoyts Exp $}
 
     catch {namespace import -force [namespace parent]::Utils::*}
 }
@@ -110,6 +110,7 @@ proc SOAP::Schema::parse_content {contentNode} {
         }
         default { log::log warning "unrecognised node \"$contentName\""}
     }
+    return {}
 }
 
 # -------------------------------------------------------------------------

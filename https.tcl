@@ -19,7 +19,7 @@ package require tls;			# Required for SSL support
 
 namespace eval ::SOAP::Transport::https {
     variable version 1.0
-    variable rcsid {$Id: https.tcl,v 1.1.2.1 2002/10/01 22:36:26 patthoyts Exp $}
+    variable rcsid {$Id: https.tcl,v 1.1.2.2 2003/02/07 01:31:18 patthoyts Exp $}
     variable options
 
     ::SOAP::register https [namespace current]
@@ -267,8 +267,8 @@ proc ::http::geturl_followRedirects {url args} {
             }
             default  { return $token }
         }
-        upvar \#0 $token state
-        array set meta [set ${token}(meta)]
+        upvar #0 $token state
+        array set meta $state(meta)
         if {![info exist meta(Location)]} {
             return $token
         }

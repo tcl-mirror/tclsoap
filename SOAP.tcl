@@ -37,9 +37,9 @@ if {[catch {package require SOAP::dom 1.0} ::SOAP::domVersion]} {
 # -------------------------------------------------------------------------
 
 namespace eval ::SOAP {
-    variable version 1.6.6
+    variable version 1.6.7
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.44.2.5 2003/02/04 01:56:55 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.44.2.6 2003/02/07 01:31:17 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -178,6 +178,7 @@ proc ::SOAP::cget { args } {
     set optionName [lindex $args 1]
     set configVarName [methodVarName $methodName]
 
+    # FRINK: nocheck
     if {[catch {set [subst $configVarName]([string trimleft $optionName "-"])} result]} {
         # kenstir@synchonicity.com: Fixed typo.
         return -code error "unknown option \"$optionName\""
@@ -273,6 +274,7 @@ proc ::SOAP::configure { procName args } {
     if {$scheme != {}} {
         set transport_opts "[schemeloc $scheme]::method:options"
         if {[info exists $transport_opts]} {
+            # FRINK: nocheck
             set options [concat $options [set $transport_opts]]
         }
         set transportHook "[schemeloc $scheme]::method:configure"
@@ -428,6 +430,7 @@ proc ::SOAP::create { args } {
     if {$scheme != {}} {
         # Add any transport defined method options
         set transportOptions "[schemeloc $scheme]::method:options"
+        # FRINK: nocheck
         foreach opt [set $transportOptions] {
             array set $varName [list $opt {}]
         }
@@ -503,6 +506,7 @@ proc ::SOAP::destroy {methodName} {
     }
 
     # Delete the SOAP method configuration array
+    # FRINK: nocheck
     unset $procVarName
 }
 
@@ -832,9 +836,9 @@ proc ::SOAP::soap_request {procVarName args} {
 
     # check for variable number of params and set the num required.
     if {[lindex $params end] == "args"} {
-        set n_params [expr ( [llength $params] - 1 ) / 2]
+        set n_params [expr {( [llength $params] - 1 ) / 2}]
     } else {
-        set n_params [expr [llength $params] / 2]
+        set n_params [expr {[llength $params] / 2}]
     }
 
     # check we have the correct number of parameters supplied.
@@ -928,7 +932,7 @@ proc ::SOAP::xmlrpc_request {procVarName args} {
     set params $procvar(params)
     set name   $procvar(name)
     
-    if { [llength $args] != [expr [llength $params] / 2]} {
+    if { [llength $args] != [expr { [llength $params] / 2 } ]} {
         set msg "wrong # args: should be \"$procName"
         foreach { id type } $params {
             append msg " " $id
@@ -991,8 +995,8 @@ proc ::SOAP::parse_soap_response { procVarName xml } {
         return {}
     } else {
         if {[catch {set doc [dom::DOMImplementation parse $xml]}]} {
-            return -code error "Server response is not well-formed XML.\n\
-                  response was $xml" $::errorInfo Server
+            return -code error -errorcode Server \
+                "Server response is not well-formed XML.\nresponse was $xml"
         }
     }
 
@@ -1001,8 +1005,8 @@ proc ::SOAP::parse_soap_response { procVarName xml } {
         array set fault [decomposeSoap $faultNode]
         dom::DOMImplementation destroy $doc
         if {![info exists fault(detail)]} { set fault(detail) {}}
-        return -code error [list $fault(faultcode)\
-                                $fault(faultstring)] $fault(detail)
+        return -code error -errorinfo $fault(detail) \
+            [list $fault(faultcode) $fault(faultstring)]
     }
 
     # If there is a header element then make it available via SOAP::getHeader
@@ -1062,8 +1066,9 @@ proc ::SOAP::parse_xmlrpc_response { procVarName xml } {
         return {}
     } else {
         if {[catch {set doc [dom::DOMImplementation parse $xml]}]} {
-            return -code error "Server response is not well-formed XML.\n\
-                  response was $xml" $::errorInfo Server
+            return -code error -errorcode Server \
+                "Server response is not well-formed XML.\n\
+                  response was $xml"
         }
     }
 
@@ -1072,8 +1077,10 @@ proc ::SOAP::parse_xmlrpc_response { procVarName xml } {
         array set err [lindex [decomposeXMLRPC \
                 [selectNode $doc /methodResponse]] 0]
         dom::DOMImplementation destroy $doc
-        return -code error $err(faultString) {Received XML-RPC Error}\
-            $err(faultCode)
+        return -code error \
+            -errorcode $err(faultCode) \
+            -errorinfo $err(faultString) \
+            "Received XML-RPC Error"
     }
     
     # Recurse over each params/param/value
@@ -1108,8 +1115,9 @@ proc ::SOAP::parse_xmlrpc_response { procVarName xml } {
 proc ::SOAP::parse_xmlrpc_request { xml } {
     set result {}
     if {[catch {set doc [dom::DOMImplementation parse $xml]}]} {
-        return -code error "Client request is not well-formed XML.\n\
-            call was $xml" $::errorInfo Server
+        return -code error -errorinfo Server \
+            "Client request is not well-formed XML.\n\
+            call was $xml"
     }
 
     set methodNode [selectNode $doc "/methodCall/methodName"]
