@@ -1,0 +1,40 @@
+TclSOAP 1.3
+-----------
+
+Added the SOAP::Domain package to provide support for SOAP services
+under tclhttpd. See doc/SOAPURLDomain.html for details.
+
+Fixes and improvements to the SOAP::Parse package.
+
+Fixes to the SOAP::xpath package. This package will be depreciated in
+favour of Steve Ball's XPath exensions to TclDOM 2.0. 
+
+Some adjustments to ensure the code runs with xml and dom 2.0 packages.
+
+Added a samples directory and moved the SOAP-tests file.
+
+Added a tests subdirectory. As shipped, TclSOAP 1.3 passes all the
+tests using xml 2.0 and dom 2.0. (Note I am not using xml::c). I am
+interested in receiving bug reports and feature requests if they are
+accompanied by a test.
+
+TclSOAP1.2
+----------
+
+Added SOAP::cget procedure.
+
+Updated to use the new SOAP::xpath namespace (to avoid xml 2.0's xpath)
+
+Various bug fixes.
+
+TclSOAP 1.1
+-----------
+
+Changed the create command to work on the tcl procedure name and added a -name option to replace the -alias option. This avoids tcl namespace clashes.
+
+Added some Fault processing using my xpath package.
+
+TclSOAP 1.0
+-----------
+
+Initial release.
