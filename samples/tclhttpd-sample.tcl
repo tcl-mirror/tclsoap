@@ -10,14 +10,14 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id$
+# @(#)$Id: tclhttpd-sample.tcl,v 1.2 2002/02/27 21:29:14 patthoyts Exp $
 
 # Load the SOAP service support framework
 package require SOAP::Domain
 
-# Use namespaces to isolate your methods
+# Use namespaces to isolate your methods.
+# For SOAP web services it is convenient to use the xml namespace name.
 namespace eval urn:tclsoap:DomainTest {
-
 
     proc random {num} {
         if {[catch {expr {rand() * $num}} msg]} {
@@ -29,6 +29,7 @@ namespace eval urn:tclsoap:DomainTest {
 
     # We have to publish the public methods...
     SOAP::export random
+    XMLRPC::export random
 }
 
 # register this service with tclhttpd
@@ -39,7 +40,11 @@ SOAP::Domain::register \
 
 # We can now connect a client and call our exported methods
 # e.g.:
-#  SOAP::create random \
+#    SOAP::create random \
 #         -proxy http://localhost:8015/domaintest \
 #         -uri urn:tclsoap:DomainTest \
+#         -params {num float}
+# or
+#    XMLRPC::create random \
+#         -proxy http://localhost:8015/domaintest \
 #         -params {num float}
