@@ -18,7 +18,7 @@
 namespace eval ::rpcvar {
     variable version 1.2
     variable magic "rpcvar$version"
-    variable rcs_id {$Id: rpcvar.tcl,v 1.9.2.3 2003/02/07 01:31:18 patthoyts Exp $}
+    variable rcs_id {$Id: rpcvar.tcl,v 1.9.2.4 2003/06/12 22:51:08 patthoyts Exp $}
     variable typedefs
     variable typens
     variable enums
@@ -89,8 +89,8 @@ proc ::rpcvar::rpcvar {args} {
         }
         
         if {! [rpcvalidate $type $value]} {
-            error "type mismatch: \"$value\" is not appropriate to the \"$type\"\
-                type."
+            return -code error "type mismatch: \
+                \"$value\" is not appropriate to the \"$type\" type."
         }
     }
     return [list $magic $xmlns [array get attr] $head $type $value]
@@ -119,7 +119,7 @@ proc ::rpcvar::Pop {varname {nth 0}} {
 proc ::rpcvar::is_rpcvar { varref } {
     variable magic
     set failed [catch {lindex $varref 0} ref_magic]
-    if { ! $failed && $ref_magic == $magic } {
+    if { (! $failed) && $ref_magic == $magic } {
         return 1
     }
     return 0
@@ -141,7 +141,7 @@ proc ::rpcvar::is_rpcvar { varref } {
 #
 proc ::rpcvar::rpctype { arg } {
     set type {}
-    if { [is_rpcvar $arg] } {
+    if {[is_rpcvar $arg]} {
         set type [lindex $arg 4]
     } elseif {[uplevel array exists [list $arg]]} {
         set type "struct"
