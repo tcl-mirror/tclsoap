@@ -1,5 +1,7 @@
-TclSOAP 1.3+
+TclSOAP 1.4
 -----------
+
+Added XML-RPC support using the same interface as that for SOAP methods.
 
 Added -replyProc and -postProc options the the SOAP::configure
 command.  These enable post-processing of the raw XML reply

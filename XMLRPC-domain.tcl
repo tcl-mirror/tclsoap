@@ -1,12 +1,13 @@
-# SOAP-domain.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+# XMLRPC-domain.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
 #
-# SOAP Domain Service module for the tclhttpd web server.
+# XML-RPC Domain Service module for the tclhttpd web server.
 #
-# Get the server to require the SOAP::Domain package and call 
-# SOAP::Domain::register to register the domain handler with the server.
-# ie: put the following in a file in tclhttpd/custom
-#    package require SOAP::Domain
-#    SOAP::Domain::register /soap
+# Usage:
+#   Get the server to require the XMLRPC::Domain package and call 
+#   XMLRPC::Domain::register to register the domain handler with the server.
+#   ie: put the following in a file in tclhttpd/custom
+#      package require XMLRPC::Domain
+#      XMLRPC::Domain::register /rpc
 #
 # -------------------------------------------------------------------------
 # This software is distributed in the hope that it will be useful, but
@@ -15,7 +16,32 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package provide SOAP::Domain 1.0
+# Valid Types:
+#  <i4> or <int>       four-byte signed integer -12
+#  <boolean>           0 (false) or 1 (true) 1
+#  <string>            ASCII string hello world 
+#  <double>            double-precision signed floating point number -12.214 
+#  <dateTime.iso8601>  date/time 19980717T14:08:55 
+#  <base64>            base64-encoded binary eW91IGNhbid0IHJlYWQgdGhpcyE= 
+#
+# Struct:
+#   <struct>
+#       <member>
+#          <name>_cx</name>
+#          <value><int>100</int></value>
+#       </member>
+#       <members...
+#   </struct>
+# Array: a bit like structs but unnamed members.
+#   <array>
+#      <data>
+#         <value><i4>1</i4>
+#         <value><string>Hello</string></value>
+#         ...
+#      </data>
+#   </array>
+
+package provide XMLRPC::Domain 1.0
 
 if { [catch {package require dom 2.0}] } {
     if { [catch {package require dom 1.6}] } {
@@ -23,30 +49,20 @@ if { [catch {package require dom 2.0}] } {
     }
 }
 
+package require XMLRPC::TypedVariable 1.0
 package require SOAP::xpath
 
-namespace eval SOAP::Domain {
-    variable version 1.0  ;# package version number
-    variable debug 0      ;# flag to toggle debug output
-    variable rcs_id {$Id: SOAP-domain.tcl,v 1.3 2001/04/19 00:11:42 pat Exp $}
+namespace eval XMLRPC::Domain {
+    variable version 1.0   ;# package version number
+    variable debug 1       ;# debugging flag
+    variable rcs_id {$Id$}
 
-    namespace export fault reply_envelope reply_simple
+    namespace export fault
 }
 
 # -------------------------------------------------------------------------
 
-# Register this package with tclhttpd.
-#
-# eg: register -prefix /soap ?-namespace ::zsplat? ?-interp slave?
-#
-# -prefix is the URL prefix for the SOAP methods to be implemented under
-# -interp is the Tcl slave interpreter to use ( {} for the current interp)
-# -namespace is the Tcl namespace look for the implementations under
-#            (default is global)
-# -uri    the XML namespace for these methods. Defaults to the Tcl interpreter
-#         and namespace name.
-#
-proc SOAP::Domain::register {args} {
+proc XMLRPC::Domain::register {args} {
 
     if { [llength $args] < 1 } {
         error "invalid # args: should be \"register ?option value  ...?\""
@@ -55,7 +71,7 @@ proc SOAP::Domain::register {args} {
     # set the default options. These work out to be the current interpreter,
     # toplevel namespace and under /soap URL
     array set opts [list \
-            -prefix /soap \
+            -prefix /xmlrpc \
             -namespace {::} \
             -interp {} \
             -uri {^} ]
@@ -117,15 +133,10 @@ proc SOAP::Domain::register {args} {
 
 # -------------------------------------------------------------------------
 
-# SOAP URL Domain handler
-#
-# Called from the namespace or interpreter domain_handler to perform the
-# work.
-# optsname the qualified name of the options array set up during registration.
-# sock     socket back to the client
-# suffix   the remainder of the url once the prefix was stripped.
-#
-proc SOAP::Domain::domain_handler {optsname sock args} {
+# Basic XMLRPC server.
+# Ignores any input and always returns a random number
+# args - the final part of the URL used
+proc XMLRPC::Domain::domain_handler {optsname sock args} {
     variable debug
     upvar \#0 Httpd$sock data
     
@@ -133,14 +144,13 @@ proc SOAP::Domain::domain_handler {optsname sock args} {
     set suffix [lindex $args 0]
     
     # Import the SOAP::xpath stuff for now.
-    namespace import -force [namespace parent]::xpath::*
+    namespace import -force ::SOAP::xpath::*
 
     # check this is an XML post
     set failed [catch {set type $data(mime,content-type)} msg]
     if { $failed } {
         Httpd_ReturnData $sock text/xml \
-                [fault SOAP-ENV:Client "Invalid SOAP request: not XML data"] \
-                500
+                [fault 500 "Invalid RPC request: not XML data"] 200
         return $failed
     }
     
@@ -148,16 +158,16 @@ proc SOAP::Domain::domain_handler {optsname sock args} {
     set failed [catch {set query $data(query)} msg]
     if { $failed } {
         Httpd_ReturnData $sock text/xml \
-                [fault SOAP-ENV:Client "Invalid SOAP request: no data sent"] \
-                500
+                [fault 500 "Invalid RPC request: no data sent"] 200
         return $failed
     }
 
     # Check that we have a properly registered domain
     if { ! [info exists $optsname] } {
         Httpd_ReturnData $sock text/xml \
-                [fault SOAP-ENV:Server "Internal server error: domain improperly registered"] \
-                500
+                [fault 500 \
+		   "Internal server error: domain improperly registered"] \
+		200
         return 1
     }        
 
@@ -165,15 +175,16 @@ proc SOAP::Domain::domain_handler {optsname sock args} {
     set doc [dom::DOMImplementation parse $query]
     if { $debug } { set ::doc $doc }
 
-    # methodNamespace should get set to the xmlns namespace in use.
-    # However, dom::DOMImplementation parse strips the xmlns attributes.
-    # FIX ME
-    set methodName [xpath -name $doc "/Envelope/Body/*"]
-    set methodNamespace [lindex [xmlnsSplit $methodName] 0]
-    set methodName [lindex [xmlnsSplit $methodName] 1]
-    if { [catch {xpath $doc "/Envelope/Body/${methodName}/*"} argValues] } {
-        set argValues {}
-    }
+    # This could probably be better done using XPath methods...
+    #
+    #set methodName [xpath $doc "/methodCall/methodName"]
+    #if { [catch {xpath $doc "/Envelope/Body/${methodName}/*"} argValues] } {
+    #    set argValues {}
+    #}
+    set argValues [SOAP::Parse::parse $query]
+    set methodName [lindex $argValues 0]
+    set argValues [lrange $argValues 1 end]
+
     if { ! $debug } {catch {dom::DOMImplementation destroy $doc}}
 
     # The implementation of this method will be in xmlinterp and the procname
@@ -187,22 +198,22 @@ proc SOAP::Domain::domain_handler {optsname sock args} {
     # indicating an error in header processing.
     if { [catch {interp eval $xmlinterp namespace origin $xmlns} xmlns] } {
         Httpd_ReturnData $sock text/xml \
-                [fault SOAP-ENV:Client \
-                  "Invalid SOAP request: method \"$methodName\" not found"
-                ] 500
+                [fault 500 \
+                  "Invalid RPC request: method \"$methodName\" not found"
+                ] 200
         return 1
     }
 
     # The URI for this method will be
     set xmluri [lindex [array get $optsname -uri] 1]
 
-    # Call the procedure and convert errors into SOAP Faults and the return
-    # data into a SOAP return packet.
+    # Call the procedure and convert errors into Faults and the return
+    # data into a response packet.
     set failed [catch {interp eval $xmlinterp [list $xmlns] $argValues} msg]
     if { $failed } {
         set detail [list "errorCode" $::errorCode "stackTrace" $::errorInfo]
         Httpd_ReturnData $sock text/xml \
-                [fault SOAP-ENV:Client "$msg" $detail] 500
+                [fault 500 "$msg" $detail] 200
     } else {
 
         set reply [reply_simple [dom::DOMImplementation create] \
@@ -220,58 +231,35 @@ proc SOAP::Domain::domain_handler {optsname sock args} {
 
 # -------------------------------------------------------------------------
 
-# Prepare a SOAP fault message
+# Description:
+#   Prepare an XML-RPC fault response
+# Parameters:
+#   faultcode   the XML-RPC fault code (numeric)
+#   faultstring summary of the fault
+#   detail      list of {detailName detailInfo}
+# Result:
+#   Returns the XML text of the SOAP Fault packet.
 #
-# faultcode   the SOAP faultcode e.g: SOAP-ENV:Client
-# faultstring summary of the fault
-# detail      list of {detailName detailInfo}
-#
-# returns the XML text of the SOAP Fault packet.
-# 
-proc SOAP::Domain::fault {faultcode faultstring {detail {}}} {
-    set doc [dom::DOMImplementation create]
-    set bod [reply_envelope $doc]
-    set flt [dom::document createElement $bod "SOAP-ENV:Fault"]
-    set fcd [dom::document createElement $flt "faultcode"]
-    dom::document createTextNode $fcd $faultcode
-    set fst [dom::document createElement $flt "faultstring"]
-    dom::document createTextNode $fst $faultstring
-
-    if { $detail != {} } {
-        set dtl0 [dom::document createElement $flt "detail"]
-        set dtl  [dom::document createElement $dtl0 "e:errorInfo"]
-        dom::element setAttribute $dtl "xmlns:e" "urn:TclSOAP-ErrorInfo"
-        
-        foreach {detailName detailInfo} $detail {
-            set err [dom::document createElement $dtl $detailName]
-            dom::document createTextNode $err $detailInfo
-        }
-    }
-    
-    # serialize the DOM document and return the XML text
-    regsub {<!DOCTYPE[^>]*>\n} [dom::DOMImplementation serialize $doc] {} r
-    dom::DOMImplementation destroy $doc
-    return $r
-}
-
-# -------------------------------------------------------------------------
-
-# Generate the common portion of a SOAP replay packet
-#
-# doc   the document element of a DOM document
-#
-# returns the body node
-#
-proc SOAP::Domain::reply_envelope { doc } {
-    set env [dom::document createElement $doc "SOAP-ENV:Envelope"]
-    dom::element setAttribute $env \
-            "xmlns:SOAP-ENV" "http://schemas.xmlsoap.org/soap/envelope/"
-    dom::element setAttribute $env \
-            "xmlns:xsi"      "http://www.w3.org/1999/XMLSchema-instance"
-    dom::element setAttribute $env \
-            "xmlns:xsd"      "http://www.w3.org/1999/XMLSchema"
-    set bod [dom::document createElement $env "SOAP-ENV:Body"]
-    return $bod
+proc XMLRPC::Domain::fault { faultcode faultstring {detail {}} } {
+    set xml [join [list \
+	    "<?xml version=\"1.0\" ?>" \
+	    "<methodResponse>" \
+	    "  <fault>" \
+	    "    <value>" \
+	    "      <struct>" \
+	    "        <member>" \
+	    "           <name>faultCode</name>"\
+	    "           <value><int>${faultcode}</int></value>" \
+	    "        </member>" \
+	    "        <member>" \
+	    "           <name>faultString</name>"\
+	    "           <value><string>${faultstring}</string></value>" \
+	    "        </member>" \
+	    "      </struct> "\
+	    "    </value>" \
+	    "  </fault>" \
+	    "</methodResponse>"] "\n"]
+    return $xml
 }
 
 # -------------------------------------------------------------------------
@@ -284,19 +272,47 @@ proc SOAP::Domain::reply_envelope { doc } {
 #   methodName  the SOAP method name
 #   type        the stype of the reply (string, float etc)
 #   result      the reply data
-# Returns:
-#   returns the DOM document root
+# Result:
+#   Returns the DOM document root of the generated reply packet
 #
-proc SOAP::Domain::reply_simple { doc uri methodName type result } {
-    set bod [reply_envelope $doc]
-    set cmd [dom::document createElement $bod "ns:$methodName"]
-    dom::element setAttribute $cmd "xmlns:ns" $uri
-    dom::element setAttribute $cmd \
-            "SOAP-ENV:encodingStyle" \
-            "http://schemas.xmlsoap.org/soap/encoding/"
-    set par [dom::document createElement $cmd "return"]
-    dom::element setAttribute $par "xsi:type" "xsd:$type"
-    dom::document createTextNode $par $result
+proc XMLRPC::Domain::reply_simple { doc uri methodName type result } {
+    set d_root [dom::document createElement $doc "methodResponse"]
+    set d_params [dom::document createElement $d_root "params"]
+    set d_param [dom::document createElement $d_params "param"]
+    set d_value [dom::document createElement $d_param "value"]
+
+    set type [XMLRPC::TypedVariable::get_type $result]
+    set value [XMLRPC::TypedVariable::get_value $result]
+
+    if { $type == "array" } {
+        set d_array [dom::document createElement $d_value "array"]
+        set d_data [dom::document createElement $d_array "data"]
+        foreach elt $value {
+            set d_elt [dom::document createElement $d_data "value"]
+            set subtype [XMLRPC::TypedVariable::get_type $elt]
+            set d_type [dom::document createElement $d_elt $subtype]
+            dom::document createTextNode $d_type $elt
+        }
+    } elseif { $type == "struct" } {
+        # Need to uplevel this into the procedures namespace somehow.
+        # Call uplevel ... ?
+        upvar $value upval
+        set d_struct [dom::document createElement $d_value "struct"]
+        foreach {eltname eltvalue} [array get $upval] {
+            set d_mmbr [dom::document createElement $d_struct "member"]
+            set d_name [dom::document createElement $d_mmbr "name"]
+            dom::document createTextNode $d_name $eltname
+            set d_value [dom::document createElement $d_mmbr "value"]
+            set d_eltyp [dom::document createElement $d_value \
+                    [XMLRPC::TypedVariable::get_type $eltvalue]]
+            dom::document createTextNode $d_eltyp \
+                    [XMLRPC::TypedVariable::get_value $eltvalue]
+        }
+    } else {
+        set d_type [dom::document createElement $d_value $type]
+        dom::document createTextNode $d_type $value
+    }
+
     return $doc
 }
 
@@ -306,3 +322,4 @@ proc SOAP::Domain::reply_simple { doc uri methodName type result } {
 #   mode: tcl
 #   indent-tabs-mode: nil
 # End:
+
