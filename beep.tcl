@@ -27,10 +27,11 @@ package require beepcore::log;          # beepcore-tcl
 package require beepcore::mixer;        # beepcore-tcl
 package require beepcore::peer;         # beepcore-tcl
 package require mime;                   # tcllib
+package require uri;                    # tcllib
 
 namespace eval ::SOAP::Transport::beep {
     variable version 1.0
-    variable rcsid {$Id: beep.tcl,v 1.6.2.1 2002/10/01 22:36:26 patthoyts Exp $}
+    variable rcsid {$Id: beep.tcl,v 1.6.2.2 2003/02/07 01:31:17 patthoyts Exp $}
     variable options
     variable sessions
 
