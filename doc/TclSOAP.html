@@ -1,6 +1,6 @@
 <!doctype HTML public "-//W3O//DTD W3 HTML 2.0//EN">
   <head>
-    <title>SOAP 1.5 Package for Tcl 8.3</title>
+    <title>SOAP 1.6 Package for Tcl 8.3</title>
     <meta http-equiv="Description" name="Description"
       content="SOAP package for Tcl. Provides remote procedure calls
       using the SOAP protocol over HTTP and utilities to provide Tcl
@@ -53,7 +53,7 @@
     <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
            bgcolor="#c0c0c0"><tr><td align="left"><pre>
 % package require SOAP
-1.5
+1.6
 % SOAP::create getTemp \
 	-uri "urn:xmethods-Temperature" \
 	-proxy "http://services.xmethods.net/soap/servlet/rpcrouter" \
@@ -78,7 +78,7 @@
     <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
            bgcolor="#c0c0c0"><tr><td align="left"><pre>
 % package require SOAP
-1.5
+1.6
 % SOAP::create C2F \
 	-uri "http://www.soaplite.com/Temperatures" \
 	-proxy "http://services.soaplite.com/temper.cgi" \
@@ -105,7 +105,7 @@
     <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
            bgcolor="#c0c0c0"><tr><td align="left"><pre>
 % package require SOAP
-1.5
+1.6
 % SOAP::configure -transport http -proxy proxyhost:8080 \
 	-headers { "Proxy-Authorization" "Basic dXNlcm5hbWUgOiBwYXNzd29yZA==" }
 % SOAP::create languages \
@@ -132,12 +132,11 @@ Perl sh C
            bgcolor="#c0c0c0"><tr><td align="left"><pre>	   	   
 # A dummy SOAP transport procedure to examine the SOAP requests generated.
 
-proc SOAP::transport_print { url soap } {
+proc SOAP::Transport::print::print {procVarName url soap} {
     puts "$soap"
-    return {}
 }
 
-% SOAP::configure languages -transport SOAP::transport_print
+% SOAP::configure languages -transport SOAP::Transport::print::print
 ::languages
 % languages
 &lt;?xml version='1.0'?&gt;
@@ -150,15 +149,81 @@ proc SOAP::transport_print { url soap } {
    &lt;ns:languages xmlns:ns="http://www.soaplite.com/Demo" /&gt;
 &lt;/SOAP-ENV:Body&gt;
 &lt;/SOAP-ENV:Envelope&gt;
-%
-    </pre></td></tr></table>
+%</pre></td></tr></table>
 
     For debugging purposes it can be useful to see the XML that was
     generated for the SOAP method request at each end. The
     <tt>SOAP::dump</tt> command will return the XML for the last
     transaction using HTTP for a named method.
     </p>
+
+    <!-- ---------------------------------------------------------------- -->
+
+    <h2>Using Complex Variable Types</h2>
+
+    <p>The SOAP protocol specifies a number of variable types in the
+    default encoding style. Most of these are simply mapped into Tcl
+    however the Array and Struct types create a special problem for
+    Tcl users. Given a string such as <em>"The cat sat on the
+    mat"</em> there is no way in Tcl to determine if this is a string
+    of 6 words, a list with 6 elements or the list representation of a
+    three element array. In SOAP terms, these would be a string, an
+    array of strings, or a struct. To properly implement SOAP clients we must
+    provide a method by which the SOAP framework can determine what
+    the parameters should be mapped into. This is achieved by the
+    <i>-params</i> configuration option and the <tt>rpcvar</tt> package.</p>
     
+    <p>The -params option is used the specify both the number of
+    parameters, their names and their types. In SOAP, the names of the
+    parameters is supposed to be more important than their
+    positions. So:
+    <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
+           bgcolor="#c0c0c0">
+       <tr><td><code>SOAP::create a -params {num double}</code></td>
+       <td>Parameter <em>num</em> is a <tt>double</tt></td></tr>
+       <tr><td><code>SOAP::create a -params {num dateTime}</code></td>
+       <td>Parameter <em>num</em> is a SOAP <tt>dateTime</tt> date.</td></tr>
+       <tr><td><code>SOAP::create a -params {nums int()}</code></td>
+       <td><em>nums</em> is an array of integers</td></tr>
+       <tr><td><code>SOAP::create a -params {dates dateTime()}</code></td>
+       <td><em>dates</em> is an array of SOAP <tt>dateTime</tt> values</tr>
+       <tr><td><code>SOAP::create a -params {anArray array}</code></td>
+       <td><em>anArray</em> is an array of mixed types.</tr>
+    </table>
+    The final version in an untyped array. This can also be specified
+    as <tt>ur-type()</tt> or <tt>any()</tt>. In the SOAP 1.1
+    specification these arrays are set to <tt>ur-type[n]</tt></p>
+
+    <p>Structs can be handled in a similar fashion. The simplest case
+    of a structure of simple guessable types can be handled by
+    specifying a type of <tt>struct</tt>. In this case the parameter
+    is expected to be a list of name-value pairs. For more complex
+    types, particularly structs containing structs we need to define a
+    new type. This is done using the <em>typedef</em> procedure from
+    the <tt>rpcvar</tt> package.
+    <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
+           bgcolor="#c0c0c0">
+    <tr><td>
+<pre>package require rpcvar
+namespace import -force rpcvar::typedef
+
+typedef {
+   intValue    int
+   floatValue  float
+   stringValue string
+} simpleStruct
+
+SOAP::create a -params {myStruct simpleStruct}
+
+a {intValue 2 stringValue "Hello, World!" floatValue 2.5}</pre></td></tr>
+</table>
+    An example using a nested struct type can be found in the
+    <tt><a href="../samples/soapinterop.tcl">samples/soapinterop.tcl</a></tt>
+    file.</p>
+
+    
+    <!-- ---------------------------------------------------------------- -->
+
     <hr size="2" />
 
     <h1><a name="methods">Methods</a></h1>
@@ -356,42 +421,24 @@ SOAP::configure hi -params {}
 
   <h1><a name="download">Download</a></h1>
 
-  <!-- http://prdownloads.sourceforge.net/tclsoap/TclSOAP-1.5.1.tar.gz -->
-  <p>The package can be downloaded from the SourceForge project site
-    at <a href="http://sourceforge.net/project/showfiles.php?group_id=25970&release_id=40865">
-       SourceForge
+  <!-- http://prdownloads.sourceforge.net/tclsoap/TclSOAP-X.X.tar.gz -->
+  <p>The package can be downloaded from 
+    <a href="http://sourceforge.net/project/showfiles.php?group_id=25970&release_id=40865">
+       the SourceForge project site
     </a>.
     This file should be unpacked somewhere handy and you should set
     your TCLLIBPATH environment variable to suit. For windows users,
     you may as well unpack it to <tt>Program Files\Tcl\lib\tcl8.3</tt>
   </p>
-
-  <p>The source is spread over the following files. These files have
-    all been htmlized so if you want to <em>use</em> them, rather than
-    just look at them, get and unpack the tar.gz distribution.
-
-    <dl>
-    <dt><a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/tclsoap/tclsoap/SOAP.tcl?rev=soap1_5_1&content-type=text/vnd.viewcvs-markup">SOAP.tcl</a></dt>
-    <dd>The SOAP package.</dd>
-    <dt><a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/tclsoap/tclsoap/XMLRPC.tcl?rev=soap1_5_1&content-type=text/vnd.viewcvs-markup">XMLRPC.tcl</a></dt>
-    <dd>The XMLRPC equivalent of the SOAP package.</dd>
-    <dt><a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/tclsoap/tclsoap/SOAP-parse.tcl?rev=soap1_5_1&content-type=text/vnd.viewcvs-markup">SOAP-parse.tcl</a></dt>
-    <dd>An auxiliary package to used to parse reply packets.</dd>
-    <dt><a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/tclsoap/tclsoap/SOAP-domain.tcl?rev=soap1_5_1&content-type=text/vnd.viewcvs-markup">SOAP-domain.tcl</a></dt>
-    <dd>A package to provide SOAP services from tclhttpd.</dd>
-    <dt><a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/tclsoap/tclsoap/SOAP-service.tcl?rev=soap1_5_1&content-type=text/vnd.viewcvs-markup">SOAP-service.tcl</a></dt>
-    <dd>A sample standalone Tcl SOAP server using HTTP.</dd>
-    <dt><a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/tclsoap/tclsoap/xpath.tcl?rev=soap1_5_1&content-type=text/vnd.viewcvs-markup">xpath.tcl</a></dt>
-    <dd>A simple pseudo-XPath XML querying package. (depreciated - use
-    the XPath facilities in TclDOM 2.0)</dd>
-    <dt><a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/tclsoap/tclsoap/samples/SOAP-tests.tcl?rev=soap1_5_1&content-type=text/vnd.viewcvs-markup">SOAP-tests.tcl</a></dt>
-    <dd>A number of test methods from various public SOAP servers on
-    the internet.</dd>
-    <dt><a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/tclsoap/tclsoap/samples/XMLRPC-tests.tcl?rev=soap1_5_1&content-type=text/vnd.viewcvs-markup">XMLRPC-tests.tcl</a></dt>
-    <dd>A number of test methods from various public XML-RPC servers on
-    the internet.</dd>
-    </dl>
-  </p>
+  
+  <p>You can also obtain the source via 
+  <a href="http://sourceforge.net/cvs/?group_id=25970">
+  anonymous CVS</a> or 
+  <a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/tclsoap/tclsoap">
+  browse the CVS repository</a>. You might also find recent news and
+  update information on the <a href="http://sourceforge.net/projects/tclsoap">
+  TclSOAP project page</a>. This is also the place to report bugs,
+  submit patches and discuss any issues.</p>
 
   <hr noshade="noshade" size="2" />
 
@@ -405,16 +452,16 @@ SOAP::configure hi -params {}
   <font size="2">
 <!-- Created: Wed Mar 14 00:26:30 GMT 2001 -->
 <!-- hhmts start -->
-Last modified: Mon Jun 25 01:28:53 BST 2001
+Last modified: Thu Aug 02 16:31:45 2001
 <!-- hhmts end -->
 
-  <br><tt>$Id: TclSOAP.html,v 1.14 2001/07/16 23:38:34 patthoyts Exp $</tt>
+  <br><tt>$Id: TclSOAP.html,v 1.15 2001/08/01 23:49:36 patthoyts Exp $</tt>
   </font>
 
   </body>
 </html>
 
 <!-- Local variables:           -->
-<!--   truncate-lines: "t"      -->
+<!--   truncate-lines: nil      -->
 <!--   indent-tabs-mode: nil    -->
 <!-- End:                       -->
