@@ -18,7 +18,7 @@ package require SOAP::Schema;           # TclSOAP 1.6.7
 
 namespace eval ::SOAP::WSDL {
     variable version 1.0
-    variable rcsid {$Id: WSDL.tcl,v 1.1.2.6 2003/02/04 01:56:55 patthoyts Exp $}
+    variable rcsid {$Id: WSDL.tcl,v 1.1.2.7 2003/02/07 01:31:17 patthoyts Exp $}
     variable logLevel debug #warning
     
     #namespace export 
@@ -33,8 +33,8 @@ namespace eval ::SOAP::WSDL {
             http    http://schemas.xmlsoap.org/wsdl/http/
             smtp    http://schemas.xmlsoap.org/wsdl/smtp/
             mime    http://schemas.xmlsoap.org/wsdl/mime/
-            soapenc http:/schemas.xmlsoap.org/soap/encoding/
-            soapenv http:/schemas.xmlsoap.org/soap/envelope/
+            soapenc http://schemas.xmlsoap.org/soap/encoding/
+            soapenv http://schemas.xmlsoap.org/soap/envelope/
             xsi     http://www.w3.org/2000/10/XMLSchema-instance
             xsd     http://www.w3.org/2000/10/XMLSchema
         }
