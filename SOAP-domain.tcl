@@ -21,11 +21,13 @@
 package require SOAP::CGI;              # TclSOAP 1.6
 package require rpcvar;                 # TclSOAP 1.6
 package require log;                    # tcllib 1.0
+package require ncgi;			# tcllib 1.0
+package require mime;			# tcllib 1.0
 
 namespace eval ::SOAP::Domain {
     variable version 1.4  ;# package version number
     variable debug 0      ;# flag to toggle debug output
-    variable rcs_id {$Id: SOAP-domain.tcl,v 1.13.2.4 2004/03/08 03:21:52 patthoyts Exp $}
+    variable rcs_id {$Id: SOAP-domain.tcl,v 1.13.2.5 2004/03/10 21:31:02 patthoyts Exp $}
 
     namespace export register
 
@@ -60,6 +62,7 @@ proc ::SOAP::Domain::register {args} {
             -namespace {::} \
             -interp {} \
             -dir . \
+            -formhandler ::SOAP::Domain::echohandler \
             -uri {^} ]
 
     # process the arguments
@@ -70,6 +73,7 @@ proc ::SOAP::Domain::register {args} {
             -int* {set opts(-interp) $value}
             -uri  {set opts(-uri) $value}
             -dir  {set opts(-dir) $value}
+            -form* {set opts(-formhandler) $value}
             default {
                 set names [join [array names opts -*] ", "]
                 return -code error "unrecognised option \"$opt\":\
@@ -166,6 +170,10 @@ proc ::SOAP::Domain::domain_handler {optsname sock args} {
     set mime {}
     set doc  {}
     switch -glob -- $type {
+        application/x-www-urlencoded --
+        application/x-www-form-urlencoded {
+            return [htmlform_handler $optsname $sock]
+        }
         multipart/related* {
             package require mime
             set mime [mime::initialize -string "Content-type: $type\n\n$query"]
@@ -179,6 +187,13 @@ proc ::SOAP::Domain::domain_handler {optsname sock args} {
         text/xml* {
             # Parse the XML into a DOM tree.
             set doc [dom::DOMImplementation parse $query]
+        }
+        default {
+            set msg "Invalid request: MIME type \"$type\"is not applicable."
+            log::log debug $msg
+            Httpd_ReturnData $sock text/html \
+                [html_fault SOAP-ENV:Client $msg] 500
+            return 1
         }
     }
 
@@ -260,17 +275,19 @@ proc ::SOAP::Domain::domain_handler {optsname sock args} {
                 $options(-interp) $options(-namespace)
         } msg]
         Httpd_ReturnData $sock text/xml $msg [expr {$failed ? 500 : 200}]
-    } else {
-        # Call the XML-RPC procedure.
-        set failed [catch {
-            SOAP::CGI::xmlrpc_call $doc \
-                $options(-interp) $options(-namespace)
-        } msg]
-        Httpd_ReturnData $sock text/xml $msg [expr {$failed ? 500 : 200}]
+        catch {dom::DOMImplementation destroy $doc}
+        if {$mime != {}} {mime::finalize $mime -subordinates all}
+        return $failed
     }
-    
+
+    # Call the XML-RPC procedure.
+    set failed [catch {
+        SOAP::CGI::xmlrpc_call $doc \
+            $options(-interp) $options(-namespace)
+    } msg]
+    Httpd_ReturnData $sock text/xml $msg [expr ($failed ? 500 : 200)]
     catch {dom::DOMImplementation destroy $doc}
-    if {$mime != {}} { mime::finalize $mime -subordinates all }
+    if {$mime != {}} {mime::finalize $mime -subordinates all}
     return $failed
 }
 
@@ -324,6 +341,98 @@ proc SOAP::Domain::ensureLoaded {methodName cmdName namespace dir interp} {
         return false
     } msg
     return $msg
+}
+
+# Special handler for HTML forms. Parse the query part and call
+# the implementation directly.
+
+proc ::SOAP::Domain::htmlform_handler {optsname sock} {
+    upvar \#0 Httpd$sock data
+    upvar \#0 $optsname options
+
+    # Decode the query:
+
+    set query [::ncgi::decode $data(query)]
+
+    # Split it apart:
+
+    set nvlist {}
+    foreach {x} [split [string trim $query] &] {
+        # Turns out you might not get an = sign,
+        # especially with <isindex> forms.
+        if {![regexp -- (.*)=(.*) $x dummy varname val]} {
+            set varname anonymous
+            set val $x
+        }
+        lappend nvlist $varname $val
+    }
+
+    # If the handler is the default handler, then run it in
+    # the current interp and be done:
+
+    if {$options(-formhandler) == "SOAP::Domain::echohandler"} {
+        return [SOAP::Domain::echohandler $sock $nvlist]
+    }
+
+    # Identify the method to call:
+
+    set cmdName $options(-formhandler)
+    set methodName $options(-namespace)::$cmdName
+
+    # Ensure the method to call is loaded, and bail out otherwise:
+
+    if {![ensureLoaded $methodName \
+		       $cmdName \
+                       $options(-namespace) \
+            	       $options(-dir) \
+                       $options(-interp)]} {
+        set msg "Method $methodName not found"
+        Httpd_ReturnData $sock \
+			 text/html \
+			 [html_fault SOAP-ENV:Server $msg] \
+			 500
+        return 1
+    }
+
+    # Issue the call:
+
+    if {[catch {interp eval $options(-interp) \
+                    $methodName $sock [list $nvlist]} msg]} {
+
+        # Convention: If success, the method already called Httpd_ReturnData
+        # so we only do it for errors. Also, the mime type should be text/html.
+
+        Httpd_ReturnData $sock \
+			 text/html \
+			 [html_fault SOAP-ENV:Server $msg] \
+			 500
+
+        return 1
+    }
+
+    return 0
+}
+
+# Default handler for HTML forms:
+
+proc ::SOAP::Domain::echohandler {sock nvlist} {
+    set type text/html
+    set html {}
+    append html "<html>\n<head>\n<title>Form sent to SOAP"
+    append html "</title>\n</head>\n<body>\n"
+    append html "<h2>Form type: $type</h2><ul>"
+
+    foreach {name value} $nvlist {
+        append html "<li>$name&nbsp;$value</li>"
+    }
+
+    append html "</ul></body></html>"
+
+    Httpd_ReturnData $sock $type $html 200
+
+    # Indicate success:
+
+    return 0
 }
 
 # Return an html wrapping of an error:
