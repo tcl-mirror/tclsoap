@@ -1,6 +1,10 @@
 * TclSOAP 1.6.8
 ---------------
 
+** Included XMLRPC-domain.tcl
+   Jacob Levy provided a wrapper around the SOAP-domain code for registering
+   XMLRPC methods in tclhttpd.
+
 ** Added XMLRPC support for tclhttpd
    The SOAP::Domain code now recognises XMLRPC method calls and will
    call the appropriate methods from SOAP::CGI to handle the call.
