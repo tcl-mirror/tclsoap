@@ -36,7 +36,7 @@ if {[catch {
 namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
-    variable rcs_version { $Id: SOAP.tcl,v 1.27 2001/08/08 15:35:34 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.28 2001/08/13 21:03:29 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -325,8 +325,8 @@ proc SOAP::invoke { procVarName args } {
 #   The second stage of the method invocation deals with unwrapping the
 #   reply packet that has been received from the remote service.
 # Parameters:
-#   procName  - the SOAP method configuration variable path
-#   reply     - the raw data returned from the remote service
+#   procVarName - the SOAP method configuration variable path
+#   reply       - the raw data returned from the remote service
 # Notes:
 #   This has been separated from `invoke' to support asynchronous
 #   transports. It calls the various unwrapping hooks in turn.
@@ -339,7 +339,7 @@ proc SOAP::invoke2 {procVarName reply} {
     # Post-process the raw XML using -replyProc
     set replyProc [set [subst $procVarName](replyProc)]
     if { $replyProc != {} } {
-        set reply [$replyProc $procName $reply]
+        set reply [$replyProc $procVarName $reply]
     }
 
     # Call the relevant parser to extract the returned values
@@ -347,12 +347,12 @@ proc SOAP::invoke2 {procVarName reply} {
     if { $parseProc == {} } {
         set parseProc parse_soap_response
     }
-    set r [$parseProc $procName $reply]
+    set r [$parseProc $procVarName $reply]
 
     # Post process the parsed reply using -postProc
     set postProc [set [subst $procVarName](postProc)]
     if { $postProc != {} } {
-        set r [$postProc $procName $r]
+        set r [$postProc $procVarName $r]
     }
 
     return $r
@@ -922,7 +922,13 @@ proc SOAP::parse_soap_response { procVarName xml } {
     
     set result {}
 
-    set nodes [selectNode $doc "/Envelope/Body/*/*"]
+    set responseName "[set [subst $procVarName](name)]Response"
+    set responseNode [selectNode $doc "/Envelope/Body/$responseName"]
+    if {$responseNode == {}} {
+        set responseNode [lindex [selectNode $doc "/Envelope/Body/*"] 0]
+    }
+
+    set nodes [getElements $responseNode]
     foreach node $nodes {
         set r [decomposeSoap $node]
         if {$result == {}} { set result $r } else { lappend result $r }
