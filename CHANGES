@@ -1,5 +1,9 @@
 * TclSOAP 1.6.5
 ----------------
+** Applied patches from Vico Klump
+   Vico provided a patch to differentiate between float and doubles
+   and to ensure we find the method name in case there are multiple Body
+   elements.
 
 ** Implemented typedef for arrays
    See usage in interop/soapinteropB.tcl. [typdef string() Arrayofstring]

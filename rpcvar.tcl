@@ -20,7 +20,7 @@ package provide rpcvar 1.2
 namespace eval rpcvar {
     variable version 1.2
     variable magic "rpcvar$version"
-    variable rcs_id {$Id: rpcvar.tcl,v 1.9 2002/02/26 22:58:47 patthoyts Exp $}
+    variable rcs_id {$Id: rpcvar.tcl,v 1.10 2002/08/20 00:38:00 patthoyts Exp $}
     variable typedefs
     variable typens
     variable enums
@@ -150,7 +150,13 @@ proc rpcvar::rpctype { arg } {
     } elseif {[string is integer -strict $arg]} {
         set type "int"
     } elseif {[string is double -strict $arg]} {
-        set type "double"
+        # See: http://www.w3.org/TR/xmlschema-2/#float
+        if {[expr {(abs($arg) > (pow(2,24)*pow(10,-149))) 
+            && (abs($arg) < (pow(2,24)*pow(10,104)))}]} {
+            set type "float"
+        } else {
+            set type "double"
+        }
     } elseif {[string is boolean -strict $arg]} { 
         set type "boolean"
     } else {
