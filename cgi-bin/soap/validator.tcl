@@ -10,7 +10,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: validator.tcl,v 1.1 2001/07/16 23:42:13 patthoyts Exp $
+# @(#)$Id: validator.tcl,v 1.2 2001/08/03 21:33:17 patthoyts Exp $
 
 package require SOAP
 package require XMLRPC
@@ -118,6 +118,17 @@ proc validator1.echoStructTest {myStruct} {
 # all the parameters.
 #
 proc validator1.manyTypesTest {num bool state doub dat bin} {
+    set r {}
+    if {$bool} {set bool true} else {set bool false}
+    set dat [rpcvar "dateTime.iso8601" $dat]
+    set bin [rpcvar "base64" $bin]
+    lappend r $num $bool $state $doub $dat $bin
+    return [rpcvar array $r]
+}
+
+# I need to do better handling of the type mismatching between SOAP and
+# XML-RPC, until then...
+proc soapvalidator.manyTypesTest {num bool state doub dat bin} {
     set r {}
     if {$bool} {set bool true} else {set bool false}
     set dat [rpcvar "timeInstant" $dat]
@@ -257,6 +268,9 @@ foreach procname [info proc validator1.*] {
     set soapname [lindex [split $procname .] end]
     if {[string match "nestedStructTest" $soapname]} {
 	set procname soapvalidator.nestedStructTest ;# redirect for SOAP
+    }
+    if {[string match "manyTypesTest" $soapname]} {
+	set procname soapvalidator.manyTypesTest ;# redirect for SOAP
     }
     interp alias {} $soapname {} $procname
 }
