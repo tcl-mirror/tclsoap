@@ -1,4 +1,6 @@
 # Make SOAP distribution.
+#
+# @(#)$Id$
 
 dist:
 	tar -c -z -v -C .. -f ../TclSOAP-1.2.tar.gz \
