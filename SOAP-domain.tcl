@@ -22,7 +22,7 @@ package require log;                    # tcllib 1.0
 namespace eval ::SOAP::Domain {
     variable version 1.4  ;# package version number
     variable debug 0      ;# flag to toggle debug output
-    variable rcs_id {$Id: SOAP-domain.tcl,v 1.13.2.2 2004/03/04 00:40:39 patthoyts Exp $}
+    variable rcs_id {$Id: SOAP-domain.tcl,v 1.13.2.3 2004/03/08 03:13:37 patthoyts Exp $}
 
     namespace export register
 
@@ -191,7 +191,6 @@ proc ::SOAP::Domain::domain_handler {optsname sock args} {
         Httpd_ReturnData $sock text/xml $msg [expr {$failed ? 500 : 200}]
     } elseif {[selectNode $doc "/methodCall"] != {}} {
         # Call the XML-RPC procedure.
-        puts stderr "Calling xmlrpc methid with $query"
         set failed [catch {
             SOAP::CGI::xmlrpc_call $doc \
                 $options(-interp) $options(-namespace)
