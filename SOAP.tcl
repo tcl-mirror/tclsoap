@@ -36,7 +36,7 @@ if {[catch {
 namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
-    variable rcs_version { $Id: SOAP.tcl,v 1.29 2001/08/24 22:07:14 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.30 2001/08/28 22:54:30 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -1119,6 +1119,10 @@ proc SOAP::insert_value {node value} {
         # a typedef'd struct.
         dom::element setAttribute $node "xsi:type" "$typexmlns:$type"
         array set ti $typeinfo
+        # Bounds checking - <simon@e-ppraisal.com>
+        if {[llength $typeinfo] != [llength $value]} {
+            error "wrong # args: type $type contains \"$typeinfo\""
+        }
         foreach {eltname eltvalue} $value {
             set d_elt [dom::document createElement $node $eltname]
             if {![info exists ti($eltname)]} {
