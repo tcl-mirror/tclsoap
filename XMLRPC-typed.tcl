@@ -10,14 +10,16 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package provide XMLRPC::TypedVariable 1.0
+package provide XMLRPC::TypedVariable 1.1
 
 namespace eval XMLRPC::TypedVariable {
-    variable version 1.0
+    variable version 1.1
     variable magic {XTVar}
-    variable rcs_id {$Id: XMLRPC-typed.tcl,v 1.1 2001/06/03 12:17:05 pat Exp pat $}
+    variable rcs_id {$Id: XMLRPC-typed.tcl,v 1.1 2001/06/06 00:46:09 patthoyts Exp $}
 
-    namespace export create destroy is_typed_variable get_type get_value 
+    namespace export create destroy is_typed_variable get_type get_value \
+            get_subtype
+    
 }
 
 # -------------------------------------------------------------------------
@@ -83,8 +85,9 @@ proc XMLRPC::TypedVariable::is_typed_variable { varref } {
 #   typed variable.
 #
 proc XMLRPC::TypedVariable::get_type { arg } {
+    set type {}
     if { [is_typed_variable $arg] } {
-        set type [lindex $arg 1]
+        regexp {([^(]+)(\([^)]+\))?} [lindex $arg 1] -> type subtype
     } elseif { [uplevel 1 array exists [list $arg]] } {
         set type "struct"
     } elseif { [ string is integer -strict $arg ] } {
@@ -97,6 +100,17 @@ proc XMLRPC::TypedVariable::get_type { arg } {
         set type "string"
     }
     return $type
+}
+
+# If the value is not a typed variable, then there cannot be a subtype.
+# otherwise we are looking for array(int) or struct(Typename) etc.
+proc XMLRPC::TypedVariable::get_subtype { arg } {
+    set subtype {}
+    if {[is_typed_variable $arg]} {
+        regexp {([^(]+)(\([^)]+\))?} [lindex $arg 1] -> type subtype
+        set subtype [string trim $subtype "()"]
+    }
+    return $subtype
 }
 
 # -------------------------------------------------------------------------
