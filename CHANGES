@@ -1,9 +1,19 @@
 TclSOAP 1.4.1
 -------------
 
-Fixed bug in SOAP::configure from old -xmlrpc option.
+Added support for asynchronous transports with the -command option to the
+create and configure commands. If set to a callback procedure the callback
+is called with the extracted RPC reply data: e.g: 
+proc callback {data} { puts "$data"}
+Support is provided in the HTTP transport code.
 
-Made the http transport somewhat more backwardly compatible.
+Made the http transport somewhat more backwardly compatible for tcl 8.0+
+
+Added xmlrpc.test file.
+
+Fixed bug in SOAP::configure from old -xmlrpc option.
+Fixed bug in XMLRPC response parsing. values with no type are strings.
+Fixed bug in error message for missing XMLRPC parameters.
 
 TclSOAP 1.4
 -----------
