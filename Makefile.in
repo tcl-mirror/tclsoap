@@ -11,7 +11,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.5 2001/12/09 21:48:05 patthoyts Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.6 2001/12/21 00:44:40 patthoyts Exp $
 
 FILES= \
 	SOAP.tcl		\
@@ -149,12 +149,26 @@ install-libraries: libraries
 install-doc: doc
 
 test:
+	$(TCLSH_PROG) `$(CYGPATH) $(srcdir)/tests/all.tcl`
 
 depend:
 
 # Make a distribution.  This includes:
 #   Code, doc's, and tests for all modules
 dist:
+	@echo We dont use this. What you do is tag the cvs repository with
+	@echo   cvs tag soap-a_b_c
+	@echo then use the export command to create the release package.
+	@echo   cvs export -r soap-a_b_c -d soapa.b.c tclsoap
+	@echo then package it up.
+
+frink:
+	frink -H $(srcdir)/*.tcl
+
+procheck:
+	procheck $(srcdir)/*.tcl
+
+statcheck: frink procheck
 
 #========================================================================
 # End of user-definable section
