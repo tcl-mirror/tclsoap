@@ -30,7 +30,7 @@ package require rpcvar
 namespace eval SOAP::Domain {
     variable version 1.3  ;# package version number
     variable debug 0      ;# flag to toggle debug output
-    variable rcs_id {$Id: SOAP-domain.tcl,v 1.8 2001/07/16 23:44:48 patthoyts Exp $}
+    variable rcs_id {$Id: SOAP-domain.tcl,v 1.9 2001/08/03 21:48:50 patthoyts Exp $}
 
     namespace export fault reply_envelope reply_simple
     catch {namespace import -force [namespace parent]::Utils::*}
@@ -288,6 +288,8 @@ proc SOAP::Domain::reply_envelope { doc } {
             "xmlns:xsi"      "http://www.w3.org/1999/XMLSchema-instance"
     dom::element setAttribute $env \
             "xmlns:xsd"      "http://www.w3.org/1999/XMLSchema"
+    dom::element setAttribute $env \
+            "xmlns:SOAP-ENC" "http://schemas.xmlsoap.org/soap/encoding/"
     set bod [dom::document createElement $env "SOAP-ENV:Body"]
     return $bod
 }
