@@ -30,7 +30,7 @@ if { [catch {package require dom 2.0} domVer]} {
 namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
-    variable rcs_version { $Id: SOAP.tcl,v 1.24 2001/08/01 23:34:54 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.25 2001/08/03 21:48:50 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -156,9 +156,10 @@ proc SOAP::dump {args} {
 #   Sets up a configuration array for the SOAP method.
 
 proc SOAP::configure { procName args } {
-    # The list of valid options
+    # The list of valid options, used in the error messsage
     set options { uri proxy params name transport action \
-                  wrapProc replyProc parseProc postProc }
+                  wrapProc replyProc parseProc postProc \
+                  command errorCommand }
 
     if { $procName == "-transport" } {
         return [eval "transport_configure $args"]
@@ -200,6 +201,8 @@ proc SOAP::configure { procName args } {
             -postProc  { set [subst $procVarName](postProc) \
                     [qualifyNamespace $value] }
             -command   { set [subst $procVarName](command) \
+                    [qualifyNamespace $value] }
+            -errorCommand { set [subst $procVarName](errorCommand) \
                     [qualifyNamespace $value] }
             default {
                 error "unknown option \"$opt\": must be one of ${options}"
@@ -260,6 +263,7 @@ proc SOAP::create { args } {
     array set $varName {parseProc {}} ;# parse raw XML and extract the values
     array set $varName {postProc  {}} ;# post process the parsed result
     array set $varName {command   {}} ;# asynchronous reply handler
+    array set $varName {errorCommand {}} ;# asynchronous error handler
 
     # call configure from the callers level so it can get the namespace.
     return [uplevel 1 "[namespace current]::configure $procName $args"]
@@ -476,7 +480,14 @@ proc SOAP::Transport::http::xfer { procVarName url request } {
 #    Asynchronous http handler command.
 proc SOAP::Transport::http::asynchronous {procVarName token} {
     if {[catch {asynchronous2 $procVarName $token} msg]} {
-        bgerror $msg
+        if {[set [subst $procVarName](errorCommand)] != {}} {
+            set errorCommand [set [subst $procVarName](errorCommand)]
+            if {[catch {eval $errorCommand [list $msg]} result]} {
+                bgerror $result
+            }
+        } else {
+            bgerror $msg
+        }
     }
     return $msg
 }
