@@ -17,9 +17,10 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: SOAP-tests.tcl,v 1.12 2001/07/16 23:39:51 patthoyts Exp $
+# @(#)$Id: SOAP-tests.tcl,v 1.13 2001/08/01 23:47:06 patthoyts Exp $
 
 package require SOAP
+package require SOAP::http
 
 # -------------------------------------------------------------------------
 # Validators

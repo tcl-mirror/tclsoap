@@ -15,21 +15,24 @@ package provide SOAP 1.6
 
 # -------------------------------------------------------------------------
 
-package require http 2.0;               # tcl
-package require log;                    # tcllib
+package require http 2.0;               # tcl 8.n
+package require log;                    # tcllib 1.0
+package require uri;                    # tcllib 1.0
+package require uri::urn;               # tcllib 1.1
 package require SOAP::Utils;            # TclSOAP
-package require rpcvar;                 # TclSOAP
+package require rpcvar;                 # TclSOAP 
 
 if {[catch {
+    set domVer 0.0
     package require tdom
-    package require SOAP::dom
+    package require SOAP::dom;          # TclSOAP
     log::log debug "using tDOM and SOAP::dom"
 }]} {
     if { [catch {package require dom 2.0} domVer]} {
         if { [catch {package require dom 1.6} domVer]} {
             error "require dom package greater than 1.6"
         }
-        package require SOAP::xpath
+        package require SOAP::xpath;    # TclSOAP
     }
 }
 
@@ -38,7 +41,7 @@ namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.36 2001/10/11 22:38:38 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.37 2001/11/01 23:52:22 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -46,6 +49,35 @@ namespace eval SOAP {
 }
 
 unset domVer
+
+# -------------------------------------------------------------------------
+
+# Description:
+#  Register the namespace for handling SOAP methods using 'scheme' as a 
+#  transport. See the http.tcl and smtp.tcl files for examples of how 
+#  to plug in a new scheme.
+#  A SOAP transport package requires an 'xfer' method for performing the
+#  SOAP method call and a 'configure' method for setting any transport
+#  specific options via SOAP::configure -transport.
+#  You may also have a 'dump' method to help with debugging.
+# Parameters:
+#  scheme    - should be a URI scheme (in fact it must be recognised by the
+#              then uri package from tcllib)
+#  namespace - the namespace within which the transport methods are defined.
+#
+proc SOAP::register {scheme namespace} {
+    variable transports
+    set transports($scheme) $namespace
+}
+
+proc SOAP::schemeloc {scheme} {
+    variable transports
+    if {[info exists transports($scheme)]} {
+        return $transports($scheme)
+    } else {
+        error "invalid transport scheme: \"$scheme\" is not registered"
+    }
+}
 
 # -------------------------------------------------------------------------
 
@@ -69,14 +101,31 @@ proc SOAP::qualifyNamespace {name} {
 
 # -------------------------------------------------------------------------
 
+# Description:
+#  An interal procedure to mangle and SOAP method name and it's namespace
+#  and generate a name for use as a specific SOAP variable. This ensures 
+#  that similarly named methods in different namespaces do not conflict
+#  within the SOAP package.
+# Parameters:
+#  methodName - the SOAP method name
+#
 proc SOAP::methodVarName {methodName} {
-    set name [uplevel 2 namespace origin $methodName]
+    if {[catch {uplevel 2 namespace origin $methodName} name]} {
+        error "invalid method name: \"$methodName\" is not a SOAP method"
+    }
     regsub -all {::+} $name {_} name
     return [namespace current]::$name
 }
 
 # -------------------------------------------------------------------------
 
+# Description:
+#  Set the amount of logging you would like to see. This is for debugging
+#  the SOAP package. We use the tcllib log package for this so the level
+#  must be one of log::levels. The default is 'warning'.
+# Parameters:
+#  level - one of log::levels. See the tcllib log package documentation.
+#
 proc SOAP::setLogLevel {level} {
     variable logLevel
     set logLevel $level
@@ -91,8 +140,12 @@ if {[info exists SOAP::logLevel]} {
 
 # -------------------------------------------------------------------------
 
-# Retrieve configuration variables
-
+# Description:
+#  Retrieve configuration variables from the SOAP package. The options
+#  are all as found for SOAP::configure.
+#
+# FIXME: do for -transport as well!
+#
 proc SOAP::cget { args } {
 
     if { [llength $args] != 2 } {
@@ -112,9 +165,14 @@ proc SOAP::cget { args } {
 
 # -------------------------------------------------------------------------
 
-# Dump the HTTP data from the last request performed.
-# Options to dump the HTTP meta data the reply data or the XML of the
-# SOAP request that was posted to the server
+# Description:
+#  Dump out information concerning the last SOAP transaction for a
+#  SOAP method. What you can deump depends on the transport involved.
+# Parameters:
+#  ?-option?  - specify type of data to dump.
+#  methodName - the SOAP method to dump data from.
+# Notes:
+#  Delegates to the transport namespace to a 'dump' procedure.
 #
 proc SOAP::dump {args} {
     if {[llength $args] == 1} {
@@ -127,27 +185,14 @@ proc SOAP::dump {args} {
         error "wrong # args: should be \"dump ?option? methodName\""
     }
 
-    # Check that methodName exists and has a http variable.
-    if { [catch {cget $methodName http} token] } {
-        error "invalid method name: \"$methodName\" is not a SOAP command"
+    # call the transports 'dump' proc if found
+    set dumpproc ::[namespace qualifiers [cget $methodName transport]]::dump
+    if {[info command $dumpproc] != {}} {
+        return [eval $dumpproc [list $methodName] [list $type]]
+    } else {
+        error "no dump available: the configured transport has no 'dump'\
+              procedure defined"
     }
-    if { $token == {} } {
-        error "no information HTTP information available for SOAP method \"$methodName\""
-    }
-
-    set result {}
-    switch -glob -- $type {
-        -meta   {set result [lindex [array get $token meta] 1]}
-        -qu*    -
-        -req*   {set result [lindex [array get $token -query] 1]}
-        -rep*   {set result [::http::data $token]}
-        default {
-            error "unrecognised option: must be one of \
-                    \"-meta\", \"-request\" or \"-reply\""
-        }
-    }
-
-    return $result
 }
 
 # -------------------------------------------------------------------------
@@ -159,8 +204,10 @@ proc SOAP::dump {args} {
 #   args     - list of option name / option pairs
 # Result:
 #   Sets up a configuration array for the SOAP method.
-
+#
 proc SOAP::configure { procName args } {
+    variable transports
+
     # The list of valid options, used in the error messsage
     set options { uri proxy params name transport action \
                   wrapProc replyProc parseProc postProc \
@@ -168,8 +215,16 @@ proc SOAP::configure { procName args } {
                   encoding }
 
     if { $procName == "-transport" } {
-        return [eval "transport_configure $args"]
+        set scheme [lindex $args 0]
+        set config "[schemeloc $scheme]::configure"
+        if {[info command $config] != {}} {
+            return [eval $config [lrange $args 1 end]]
+        } else {
+            error "invalid transport: \"$scheme\" is not a valid\
+                  SOAP transport method."
+        }
     }
+
     if { [string match "-logLevel" $procName] } {
         if {[llength $args] > 0} {
             setLogLevel [lindex $args 0]
@@ -197,77 +252,87 @@ proc SOAP::configure { procName args } {
         return $r
     }
 
+    upvar $procVarName procvar
+
     foreach {opt value} $args {
         switch -- $opt {
-            -uri       { set [subst $procVarName](uri) $value }
-            -proxy     { set [subst $procVarName](proxy) $value }
-            -params    { set [subst $procVarName](params) $value }
-            -transport { set [subst $procVarName](transport) $value }
-            -name      { set [subst $procVarName](name) $value }
-            -action    { set [subst $procVarName](action) $value }
-            -schemas   { set [subst $procVarName](schemas) $value }
-            -version   { set [subst $procVarName](version) $value }
-            -encoding  { set [subst $procVarName](encoding) $value }
-            -wrapProc  { set [subst $procVarName](wrapProc) \
-                    [qualifyNamespace $value] }
-            -replyProc { set [subst $procVarName](replyProc) \
-                    [qualifyNamespace $value] }
-            -parseProc { set [subst $procVarName](parseProc) \
-                    [qualifyNamespace $value] }
-            -postProc  { set [subst $procVarName](postProc) \
-                    [qualifyNamespace $value] }
-            -command   { set [subst $procVarName](command) \
-                    [qualifyNamespace $value] }
-            -errorCommand { set [subst $procVarName](errorCommand) \
-                    [qualifyNamespace $value] }
+            -uri       { set procvar(uri) $value }
+            -proxy     { set procvar(proxy) $value }
+            -params    { set procvar(params) $value }
+            -transport { set procvar(transport) $value }
+            -name      { set procvar(name) $value }
+            -action    { set procvar(action) $value }
+            -schemas   { set procvar(schemas) $value }
+            -version   { set procvar(version) $value }
+            -encoding  { set procvar(encoding) $value }
+            -wrapProc  { set procvar(wrapProc) [qualifyNamespace $value] }
+            -replyProc { set procvar(replyProc) [qualifyNamespace $value] }
+            -parseProc { set procvar(parseProc) [qualifyNamespace $value] }
+            -postProc  { set procvar(postProc) [qualifyNamespace $value] }
+            -command   { set procvar(command) [qualifyNamespace $value] }
+            -errorCommand { 
+                set procvar(errorCommand) [qualifyNamespace $value] 
+            }
             default {
                 error "unknown option \"$opt\": must be one of ${options}"
             }
         }
     }
 
-    if { [set [subst $procVarName](name)] == {} } { 
-        set [subst $procVarName](name) $procName
+    if { $procvar(name) == {} } { 
+        set procvar(name) $procName
     }
 
-    if { [set [subst $procVarName](transport)] == {} } {
-        set [subst $procVarName](transport) \
-                [namespace current]::Transport::http::xfer
+    # If the transport proc is not overridden then set based upon the proxy
+    # scheme registered by SOAP::register.
+    if { $procvar(transport) == {} } {
+        array set a [uri::split $procvar(proxy)]
+        if {$a(scheme) == "urn"} {
+            set a(scheme) "$a(scheme):$a(nid)"
+        }
+        set ns [schemeloc $a(scheme)]
+        if {[info command ${ns}::xfer] != {}} {
+            set procvar(transport) ${ns}::xfer
+        } else {
+            error "invalid transport: \"$a(scheme)\" is improperly registered"
+        }
     } 
     
     # The default version is SOAP 1.1
-    set soapver [set [subst $procVarName](version)]
-    if { $soapver == {} } {
-        set soapver SOAP1.1
+    if { $procvar(version) == {} } {
+        set procvar(version) SOAP1.1
     }
     # Canonicalize the SOAP version URI
-    switch -glob -- $soapver {
-        SOAP1.1 - 1.1 { set soapver "http://schemas.xmlsoap.org/soap/envelope/" }
-        SOAP1.2 - 1.2 { set soapver "http://www.w3.org/2001/06/soap-envelope" }
+    switch -glob -- $procvar(version) {
+        SOAP1.1 - 1.1 {
+            set procvar(version) "http://schemas.xmlsoap.org/soap/envelope/" 
+        }
+        SOAP1.2 - 1.2 {
+            set procvar(version) "http://www.w3.org/2001/06/soap-envelope" 
+        }
     }
-    set [subst $procVarName](version) $soapver
 
     # Default SOAP encoding is SOAP 1.1
-    set soapenc [set [subst $procVarName](encoding)]
-    if { $soapenc == {} } {
-        set soapenc SOAP1.1
+    if { $procvar(encoding) == {} } {
+        set procvar(encoding) SOAP1.1
     }
-    switch -glob -- $soapenc {
-        SOAP1.1 - 1.1 { set soapenc "http://schemas.xmlsoap.org/soap/encoding/" }
-        SOAP1.2 - 1.2 { set soapenc "http://www.w3.org/2001/06/soap-encoding" }
+    switch -glob -- $procvar(encoding) {
+        SOAP1.1 - 1.1 {
+            set procvar(encoding) "http://schemas.xmlsoap.org/soap/encoding/"
+        }
+        SOAP1.2 - 1.2 {
+            set procvar(encoding) "http://www.w3.org/2001/06/soap-encoding" 
+        }
     }
-    set [subst $procVarName](encoding) $soapenc
 
     # Select the default parser unless one is specified
-    if { [set [subst $procVarName](parseProc)] == {} } {
-        set [subst $procVarName](parseProc) \
-                [namespace current]::parse_soap_response
+    if { $procvar(parseProc) == {} } {
+        set procvar(parseProc) [namespace current]::parse_soap_response
     } 
 
     # If no request wrapper is set, use the default SOAP wrap proc.
-    if { [set [subst $procVarName](wrapProc)] == {} } {
-        set [subst $procVarName](wrapProc) \
-                [namespace current]::soap_request
+    if { $procvar(wrapProc) == {} } {
+        set procvar(wrapProc) [namespace current]::soap_request
     }
 
     # Create the Tcl procedure that maps to this RPC method.
@@ -279,6 +344,11 @@ proc SOAP::configure { procName args } {
 
 # -------------------------------------------------------------------------
 
+# Description:
+#  Create a Tcl wrapper for a SOAP methodcall. This constructs a Tcl command
+#  and the necessary data structures to support the method call using the 
+#  specified transport.
+#
 proc SOAP::create { args } {
     if { [llength $args] < 1 } {
         error "wrong # args: should be \"create procName ?options?\""
@@ -297,14 +367,13 @@ proc SOAP::create { args } {
     array set $varName {transport {}} ;# transport procedure for this method
     array set $varName {name      {}} ;# SOAP method name
     array set $varName {action    {}} ;# Contents of the SOAPAction header
-    array set $varName {http      {}} ;# the http data variable (if used)
     array set $varName {wrapProc  {}} ;# encode request into XML for sending
     array set $varName {replyProc {}} ;# post process the raw XML result
     array set $varName {parseProc {}} ;# parse raw XML and extract the values
     array set $varName {postProc  {}} ;# post process the parsed result
     array set $varName {command   {}} ;# asynchronous reply handler
     array set $varName {errorCommand {}} ;# asynchronous error handler
-    array set $varName {headers   {}} ;# SOAP Header information of last call
+    array set $varName {headers   {}} ;# SOAP Head elements returned.
     array set $varName {schemas   {}} ;# List of SOAP Schemas in force
     array set $varName {version   {}} ;# SOAP Version in force (URI)
     array set $varName {encoding  {}} ;# SOAP Encoding (URI)
@@ -315,6 +384,13 @@ proc SOAP::create { args } {
 
 # -------------------------------------------------------------------------
 
+# Description:
+#   Export a list of procedure names as SOAP endpoints. This is only used
+#   in the SOAP server code to specify the subset of Tcl commands that should
+#   be accessible via a SOAP call.
+# Parameters:
+#   args - a list of tcl commands to be made available as SOAP endpoints.
+#
 proc SOAP::export {args} {
     foreach item $args {
         uplevel "set \[namespace current\]::__soap_exports($item)\
@@ -326,7 +402,38 @@ proc SOAP::export {args} {
 # -------------------------------------------------------------------------
 
 # Description:
+#  Reverse the SOAP::create command by deleting the SOAP method binding and
+#  freeing up any allocated resources. This needs to delegate to the
+#  transports cleanup procedure if one is defined as well.
+# Parameters:
+#  methodName - the name of the SOAP method command
+#
+proc SOAP::destroy {methodName} {
+    set procVarName [methodVarName $methodName]
+    upvar $procVarName procvar
+
+    # Delete the SOAP command
+    uplevel rename $methodName {{}}
+
+    # Call the transport cleanup (if any)
+    array set a [uri::split $procvar(proxy)]
+    if {$a(scheme) == "urn"} {
+        set a(scheme) "$a(scheme):$a(nid)"
+    }
+    set cmd [schemeloc $a(scheme)]::cleanup
+    if {[info command $cmd] != {}} {
+        $cmd $procVarName
+    }
+
+    # Delete the SOAP method configuration array
+    unset $procVarName
+}
+
+# -------------------------------------------------------------------------
+
+# Description:
 #   Make a SOAP method call using the configured transport.
+#   See also 'invoke2' for the reply handling which may be asynchronous.
 # Parameters:
 #   procName  - the SOAP method configuration variable path
 #   args      - the parameter list for the SOAP method call
@@ -339,20 +446,22 @@ proc SOAP::invoke { procVarName args } {
         error "invalid command: \"$procName\" not defined"
     }
 
+    upvar $procVarName procvar
+
     # Get the URL
-    set url [set [subst $procVarName](proxy)]
+    set url $procvar(proxy)
 
     # Get the XML data containing our request by calling the -wrapProc 
     # procedure
-    set req [eval "[set [subst $procVarName](wrapProc)] $procVarName $args"]
+    set req [eval "$procvar(wrapProc) $procVarName $args"]
 
     # Send the SOAP packet (req) using the configured transport procedure
-    set transport [set [subst $procVarName](transport)]
+    set transport $procvar(transport)
     set reply [$transport $procVarName $url $req]
 
     # Check for an async command handler. If async then return now,
     # otherwise call the invoke second stage immediately.
-    if { [set [subst $procVarName](command)] != {} } {
+    if { $procvar(command) != {} } {
         return $reply
     }
     return [invoke2 $procVarName $reply]
@@ -374,24 +483,23 @@ proc SOAP::invoke2 {procVarName reply} {
     set ::lastReply $reply
 
     set procName [lindex [split $procVarName {_}] end]
+    upvar $procVarName procvar
 
     # Post-process the raw XML using -replyProc
-    set replyProc [set [subst $procVarName](replyProc)]
-    if { $replyProc != {} } {
-        set reply [$replyProc $procVarName $reply]
+    if { $procvar(replyProc) != {} } {
+        set reply [$procvar(replyProc) $procVarName $reply]
     }
 
     # Call the relevant parser to extract the returned values
-    set parseProc [set [subst $procVarName](parseProc)]
+    set parseProc $procvar(parseProc)
     if { $parseProc == {} } {
         set parseProc parse_soap_response
     }
     set r [$parseProc $procVarName $reply]
 
     # Post process the parsed reply using -postProc
-    set postProc [set [subst $procVarName](postProc)]
-    if { $postProc != {} } {
-        set r [$postProc $procVarName $r]
+    if { $procvar(postProc) != {} } {
+        set r [$procvar(postProc) $procVarName $r]
     }
 
     return $r
@@ -400,245 +508,31 @@ proc SOAP::invoke2 {procVarName reply} {
 # -------------------------------------------------------------------------
 
 # Description:
-#   Handle a proxy server.
-# Notes:
-#   Needs expansion to use a list of non-proxied sites or a list of
-#   {regexp proxy} or something.
-#   The proxy variable in this namespace is set up by 
-#   configure -transport http.
-#
-namespace eval SOAP::Transport::http {
-    variable options
-
-    proc filter {host} {
-        variable options
-        if { [string match "localhost*" $host] \
-                || [string match "127.*" $host] } {
-            return {}
-        }
-        return [lrange [split $options(proxy) {:}] 0 1]
-    }
-
-    # Provide missing code for http < 2.3
-    if {[info proc ::http::ncode] == {}} {
-        namespace eval ::http {
-            proc ncode {token} {
-                return [lindex [split [code $token]] 1]
-            }
-        }
-    }
-}
-
-# -------------------------------------------------------------------------
-
-# Description:
-#   Perform a remote procedure call using HTTP as the transport protocol.
-#   This uses the Tcl http package to do the work. If the SOAP method has
-#   the -command option set to something then the call is made 
-#   asynchronously and the result data passed to the users callback
-#   procedure.
-#   If you have an HTTP proxy to deal with then you should set up the 
-#   SOAP::Transport::http::filter procedure and proxy variable to suit.
-#   This can be done using SOAP::proxyconfig.
-# Parameters:
-#   procVarName - 
-#   url         -
-#   request     -
-# Result:
-#   The request data is POSTed to the SOAP provider via HTTP using any
-#   configured proxy host. If the HTTP returns an error code then an error
-#   is raised otherwise the reply data is returned. If the method has
-#   been configured to be asynchronous then the async handler is called
-#   once the http request completes.
-#
-proc SOAP::Transport::http::xfer { procVarName url request } {
-    variable options
-
-    # Get the SOAP package version
-    set version [set [namespace parent [namespace parent]]::version]
-
-    # setup the HTTP POST request
-    ::http::config -useragent "TclSOAP/$version ($::tcl_platform(os))"
-
-    # If a proxy was configured, use it.
-    if { [info exists options(proxy)] && $options(proxy) != {} } {
-        ::http::config -proxyfilter [namespace origin filter]
-    }
-
-    # Check for an HTTP progress callback.
-    set local_progress {}
-    if { [info exists options(progress)] && $options(progress) != {} } {
-        set local_progress "-progress [list $options(progress)]"
-    }
-    
-    # There may be http headers configured. eg: for proxy servers
-    # eg: SOAP::configure -transport http -headers 
-    #    [list "Proxy-Authorization" [basic_authorization]]
-    set local_headers {}
-    if {[info exists options(headers)]} {
-        set local_headers $options(headers)
-    }
-
-    # Add mandatory SOAPAction header (SOAP 1.1). This may be empty otherwise
-    # must be in quotes.
-    set action [set [subst $procVarName](action)]
-    if { $action != {} } { 
-        set action [string trim $action "\""]
-        set action "\"$action\""
-        lappend local_headers "SOAPAction" $action
-    }
-
-    # cleanup the last http request
-    if { [set [subst $procVarName](http)] != {} } {
-        catch { eval "::http::cleanup [set [subst $procVarName](http)]" }
-    }
-
-    # Check for an asynchronous handler and perform the transfer.
-    # If async - return immediately.
-    set command {}
-    if {[set [subst $procVarName](command)] != {}} {
-        set command "-command {[namespace current]::asynchronous $procVarName}"
-    }
-
-    set token [eval ::http::geturl [list $url] \
-            -headers [list $local_headers] \
-            -type text/xml -query [list $request] \
-            $local_progress $command]
-    set [subst $procVarName](http) $token
-    if { $command != {}} { return {} }
-    
-
-    # store the http structure reference for possible access later.
-    set [subst $procVarName](http) $token
-
-    log::log debug "[::http::status $token] - [::http::code $token]"
-
-    # Check for Proxy Authentication requests and handle it.
-    if {[::http::ncode $token] == 407} {
-        SOAP::proxyconfig
-        return [xfer $procVarName $url $request]
-    }
-
-    # Some other sort of error ...
-    if {[::http::status $token] != "ok"} {
-         error "SOAP transport error: \"[::http::code $token]\""
-    }
-
-    return [::http::data $token]
-}
-
-# -------------------------------------------------------------------------
-
-# Description:
-#    Asynchronous http handler command.
-proc SOAP::Transport::http::asynchronous {procVarName token} {
-    if {[catch {asynchronous2 $procVarName $token} msg]} {
-        if {[set [subst $procVarName](errorCommand)] != {}} {
-            set errorCommand [set [subst $procVarName](errorCommand)]
-            if {[catch {eval $errorCommand [list $msg]} result]} {
-                bgerror $result
-            }
-        } else {
-            bgerror $msg
-        }
-    }
-    return $msg
-}
-
-proc SOAP::Transport::http::asynchronous2 {procVarName token} {
-    set procName [lindex [split $procVarName {_}] end]
-
-    # Some other sort of error ...
-    if {[::http::status $token] != "ok"} {
-         error "SOAP transport error: \"[::http::code $token]\""
-    }
-
-    set reply [::http::data $token]
-
-    # Call the second part of invoke to unwrap the packet data.
-    set reply [SOAP::invoke2 $procVarName $reply]
-
-    # Call the users handler.
-    set command [set [subst $procVarName](command)]
-    return [eval $command [list $reply]]
-}
-
-# -------------------------------------------------------------------------
-
-# Description:
-#   A dummy SOAP transport procedure to examine the SOAP requests generated.
+#   Dummy SOAP transports to examine the SOAP requests generated for use
+#   with the test package and for debugging.
 # Parameters:
 #   procVarName  - SOAP method name configuration variable
 #   url          - URL of the remote server method implementation
 #   soap         - the XML payload for this SOAP method call
 #
 namespace eval SOAP::Transport::print {
-    proc print { procVarName url soap } {
+    proc configure {args} {
+        return
+    }
+    proc xfer { procVarName url soap } {
         puts "$soap"
     }
+    SOAP::register urn:print [namespace current]
 }
 
 namespace eval SOAP::Transport::reflect {
-    proc reflect {procVarName url soap} {
+    proc configure {args} {
+        return
+    }
+    proc xfer {procVarName url soap} {
         return $soap
     }
-}
-
-# -------------------------------------------------------------------------
-
-# Description:
-#   Helper procedure called from configure used to setup the SOAP transport
-#   options. Calling `invoke' for a method will call the configured 
-#   transport procedure.
-# Parameters:
-#   transport - the name of the transport mechanism (smtp, http, etc)
-#   args      - list of options for the named transport mechanism
-#
-proc SOAP::transport_configure { transport args } {
-    switch -- $transport {
-        http {
-            # If no args then print out the current settings
-            if { $args == {} } {
-                set r {}
-                foreach {opt value} [array get Transport::http::options] {
-                    lappend r "-$opt" $value
-                }
-                return $r
-            }
-            
-            foreach {opt value} $args {
-                switch -- $opt {
-                    -proxy   {
-                        set Transport::http::options(proxy) $value
-                    }
-                    -headers {
-                        if {[catch {
-                            set h $Transport::http::options(headers)}]
-                        } {
-                            set h {}
-                        }
-                        set Transport::http::options(headers) \
-                                [concat $h $value]
-                    }
-                    -progress {
-                        set Transport::http::options(progress) $value
-                    }
-                    default {
-                        error [concat "invalid option \"$opt\":" \
-                                "must be \"-proxy host:port\" "\
-                                "or \"-headers list\""]
-                    }
-                }
-            }
-        }
-        print {
-            return "no configuration required"
-        }
-        default {
-            error "SOAP transport \"$transport\" is undefined: \
-                    must be one of \"http\" or \"print\"."
-        }
-    }
+    SOAP::register urn:reflect [namespace current]
 }
 
 # -------------------------------------------------------------------------
@@ -801,7 +695,7 @@ proc SOAP::reply { doc uri methodName result } {
 #   XML data containing the SOAP method call.
 #
 proc SOAP::soap_request {procVarName args} {
-
+    
     set procName [lindex [split $procVarName {_}] end]
     set params [set [subst $procVarName](params)]
     set name [set [subst $procVarName](name)]

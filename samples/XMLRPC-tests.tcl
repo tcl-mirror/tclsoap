@@ -14,9 +14,10 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: XMLRPC-tests.tcl,v 1.2 2001/06/09 12:52:21 patthoyts Exp $
+# @(#)$Id: XMLRPC-tests.tcl,v 1.3 2001/06/15 00:45:33 patthoyts Exp $
 
 package require XMLRPC
+package require SOAP::http
 
 set methods {}
 

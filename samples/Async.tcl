@@ -14,10 +14,11 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# $Id$
+# $Id: Async.tcl,v 1.1 2001/06/21 23:02:23 patthoyts Exp $
 
 package require XMLRPC
 package require Tkhtml
+package require SOAP::http
 
 # -------------------------------------------------------------------------
 # Meerkat service

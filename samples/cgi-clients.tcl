@@ -14,10 +14,11 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id$
+# @(#)$Id: cgi-clients.tcl,v 1.1 2001/08/03 21:47:40 patthoyts Exp $
 
 package require SOAP
 package require XMLRPC
+package require SOAP::http
 
 # -------------------------------------------------------------------------
 
