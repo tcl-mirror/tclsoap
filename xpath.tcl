@@ -1,4 +1,4 @@
-# xpath.tcl - Copyright (C) 2001 Pat Thoyts <pat@zsplat.freeserve.co.uk>
+# xpath.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
 #
 # Provide a _SIGNIFICANTLY_ simplified version of XPath querying for DOM
 # document objects. This might get expanded to eventually conform to the
@@ -24,7 +24,7 @@ if { [catch {package require dom 2.0}] } {
 
 namespace eval SOAP::xpath {
     variable version 0.2
-    variable rcsid { $Id: xpath.tcl,v 1.5 2001/04/10 00:23:16 pat Exp pat $ }
+    variable rcsid { $Id: xpath.tcl,v 1.6 2001/04/13 12:17:52 pat Exp pat $ }
     namespace export xpath xmlnsSplit
 }
 
@@ -98,7 +98,7 @@ proc SOAP::xpath::xpath { args } {
         set children [dom::node children $node]
         set v ""
         foreach child $children {
-            append v [string trim [dom::node cget $child -nodeValue]]
+            append v [string trim [dom::node cget $child -nodeValue] "\n"]
         }
         lappend value $v
     }
