@@ -15,7 +15,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id$
+# @(#)$Id: soapinterop.tcl,v 1.1 2001/08/28 22:43:20 patthoyts Exp $
 
 package provide soapinterop::base 1.0
 
@@ -121,6 +121,12 @@ proc soapinterop::rand_string {} {
     return [lindex $cmds $ndx]
 }
 
+proc soapinterop::float=? {lhs rhs {dp 4}} {
+    set lhs [format %0.${dp}f $lhs]
+    set rhs [format %0.${dp}f $rhs]
+    return [expr $lhs == $rhs]
+}
+
 # -------------------------------------------------------------------------
 # Round 1 and Round 2 Base Tests
 # -------------------------------------------------------------------------
@@ -163,7 +169,7 @@ proc soapinterop::validate.echoInteger {} {
 proc soapinterop::validate.echoFloat {} {
     set f [rand_float]
     set r [echoFloat $f]
-    if {[expr $f != $r]} {
+    if {! [float=? $f $r]} {
 	error "echoFloat failed: $f != $r" 
     }
     return "echoFloat"
@@ -205,7 +211,7 @@ proc soapinterop::validate.echoFloatArray {} {
 	error "echoFloatArray failed: lists are different: $q != $r"
     }
     for {set n 0} {$n < $max} {incr n} {
-	if {[expr [lindex $q $n] != [lindex $r $n]]} {
+	if {![float=? [lindex $q $n] [lindex $r $n]]} {
 	    error "echoFloatArray failed: element $n is different: $q != $r"
 	}
     }
@@ -233,8 +239,8 @@ proc soapinterop::validateSOAPStruct {first second} {
     foreach key [array names f] {
 	set type [rpcvar::rpctype $f($key)]
 	switch -- $type {
-	    double  { set r [expr $f($key) == $s($key)] }
-	    float   { set r [expr $f($key) == $s($key)] }
+	    double  { set r [float=? $f($key) $s($key)] }
+	    float   { set r [float=? $f($key) $s($key)] }
 	    int     { set r [expr $f($key) == $s($key)] }
 	    default { set r [string match $f($key) $s($key)] }
 	}
