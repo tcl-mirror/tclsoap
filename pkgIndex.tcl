@@ -10,7 +10,6 @@
 
 package ifneeded SOAP 1.6 [list source [file join $dir SOAP.tcl]]
 package ifneeded SOAP::CGI 1.0 [list source [file join $dir SOAP-CGI.tcl]]
-package ifneeded SOAP::Parse 1.0 [list source [file join $dir SOAP-parse.tcl]]
 package ifneeded SOAP::Service 0.4 [list source [file join $dir SOAP-service.tcl]]
 package ifneeded SOAP::Utils 1.0 [list source [file join $dir utils.tcl]]
 package ifneeded SOAP::xpath 0.2 [list source [file join $dir xpath.tcl]]

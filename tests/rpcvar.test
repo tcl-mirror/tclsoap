@@ -9,7 +9,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id$
+# @(#)$Id: rpcvar.test,v 1.1 2001/08/01 23:40:55 patthoyts Exp $
 
 # Initialize the required packages
 
@@ -195,6 +195,92 @@ test rpcvar-4.2 {Test the namespace non-assignment} {
     set result
 } {}
 
+# -------------------------------------------------------------------------
+
+test rpcvar-5.1 {Test attributes: non-assignment} {
+    set failed [catch {
+        rpcvar::rpcvar -namespace urn:tclsoap int 5
+    } result]
+    if { ! $failed } {
+        set failed [catch {
+            rpcvar::rpcattributes $result
+        } result]
+    }
+    set result
+} {}
+
+test rpcvar-5.2 {Test attributes: check assignment} {
+    set failed [catch {
+        rpcvar::rpcvar -namespace urn:tclsoap \
+                -attributes {actor next mustUnderstand 0} int 5
+    } result]
+    if {!$failed} {
+        set failed [catch {
+            array set attr [rpcvar::rpcattributes $result]
+            set attr(actor)
+        } result]
+    }
+    set result
+} {next}
+
+# -------------------------------------------------------------------------
+
+test rpcvar-6.1 {Test typedef: define struct} {
+    catch {rpcvar::typedef -namespace urn:tclsoap \
+            {varInt int varFloat float} MyStruct} result
+    set result
+} {MyStruct}
+
+test rpcvar-6.2 {Test typedef: check exists for valid type} {
+    catch {rpcvar::typedef -exists MyStruct} result
+    set result
+} {1}
+
+test rpcvar-6.3 {Test typedef: check exists for invalid type} {
+    catch {rpcvar::typedef -exists NotMyStruct} result
+    set result
+} {0}
+
+test rpcvar-6.4 {Test typedef: check -info} {
+    set f [catch {array set a [rpcvar::typedef -info MyStruct]} result]
+    if {! $f} {
+        set result $a(varInt)
+        append result $a(varFloat)
+    }
+    set result
+} {intfloat}
+
+test rpcvar-6.5 {Test typedef: check -namespace for invalid type} {
+    catch {rpcvar::typedef -namespace NotMyStruct} result
+    set result
+} {}
+
+test rpcvar-6.6 {Test typedef: check -namespace for valid type} {
+    catch {rpcvar::typedef -namespace MyStruct} result
+    set result
+} {urn:tclsoap}
+
+test rpcvar-6.7 {Test typedef: check enumerations} {
+    catch {rpcvar::typedef -namespace urn:tclsoap \
+            -enum {red green blue black} Colour} result
+    set result
+} {Colour}
+
+
+test rpcvar-6.8 {Test typedef: check -enum usage} {
+    catch {rpcvar::typedef -info Colour} result
+    set result
+} {enum}
+
+test rpcvar-6.9 {Test typedef: validate enumeration members} {
+    catch {rpcvar::rpcvalidate Colour red} result
+    set result
+} {1}
+
+test rpcvar-6.10 {Test typedef: validate enumeration members} {
+    catch {rpcvar::rpcvalidate Colour yellow} result
+    set result
+} {0}
 # -------------------------------------------------------------------------
 
 # Clean up the tests

@@ -2,7 +2,7 @@
 #
 # Provide a set of tests to excercise the SOAP package.
 #
-# @(#)$Id: soap.test,v 1.4 2001/06/15 00:43:51 patthoyts Exp $
+# @(#)$Id: soap.test,v 1.5 2001/06/21 00:16:51 patthoyts Exp $
 
 # Initialize the required packages
 
@@ -69,7 +69,7 @@ test soap-2.2 {XML generation with one argument} {
     }
     set result
 } {<?xml version='1.0'?>
-<SOAP-ENV:Envelope xmlns:xsi="http://www.w3.org/1999/XMLSchema-instance" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" SOAP-ENV:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:xsd="http://www.w3.org/1999/XMLSchema"><SOAP-ENV:Body><ns:mySoapTest xmlns:ns="urn:new-soap-Test"><arg xsi:type="xsd:string">testParameter</arg></ns:mySoapTest></SOAP-ENV:Body></SOAP-ENV:Envelope>}
+<SOAP-ENV:Envelope xmlns:xsi="http://www.w3.org/1999/XMLSchema-instance" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/" SOAP-ENV:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:xsd="http://www.w3.org/1999/XMLSchema"><SOAP-ENV:Body><ns:mySoapTest xmlns:ns="urn:new-soap-Test"><arg xsi:type="xsd:string">testParameter</arg></ns:mySoapTest></SOAP-ENV:Body></SOAP-ENV:Envelope>}
 
 test soap-2.3 {XML generation with two arguments} {
     set failed [catch {::SOAP::configure ::soapTest \
@@ -82,7 +82,13 @@ test soap-2.3 {XML generation with two arguments} {
     }
     set result
 } {<?xml version='1.0'?>
-<SOAP-ENV:Envelope xmlns:xsi="http://www.w3.org/1999/XMLSchema-instance" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" SOAP-ENV:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:xsd="http://www.w3.org/1999/XMLSchema"><SOAP-ENV:Body><ns:mySoapTest xmlns:ns="urn:new-soap-Test"><text xsi:type="xsd:string">textParam</text><number xsi:type="xsd:double">1.3</number></ns:mySoapTest></SOAP-ENV:Body></SOAP-ENV:Envelope>}
+<SOAP-ENV:Envelope xmlns:xsi="http://www.w3.org/1999/XMLSchema-instance" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/" SOAP-ENV:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:xsd="http://www.w3.org/1999/XMLSchema"><SOAP-ENV:Body><ns:mySoapTest xmlns:ns="urn:new-soap-Test"><text xsi:type="xsd:string">textParam</text><number xsi:type="xsd:double">1.3</number></ns:mySoapTest></SOAP-ENV:Body></SOAP-ENV:Envelope>}
+
+test soap-2.4 {XML generation with header element} {
+    catch {::soapTest -header [list Transaction 1] textParam 1.3} result
+    set result $::SOAP::testXML
+} {<?xml version='1.0'?>
+<SOAP-ENV:Envelope xmlns:xsi="http://www.w3.org/1999/XMLSchema-instance" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/" SOAP-ENV:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:xsd="http://www.w3.org/1999/XMLSchema"><Header><Transaction xsi:type="xsd:int">1</Transaction></Header><SOAP-ENV:Body><ns:mySoapTest xmlns:ns="urn:new-soap-Test"><text xsi:type="xsd:string">textParam</text><number xsi:type="xsd:double">1.3</number></ns:mySoapTest></SOAP-ENV:Body></SOAP-ENV:Envelope>}
 
 # -------------------------------------------------------------------------
 

@@ -15,14 +15,15 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package provide rpcvar 1.0
+package provide rpcvar 1.1
 
 namespace eval rpcvar {
-    variable version 1.0
+    variable version 1.1
     variable magic "rpcvar$version"
-    variable rcs_id {$Id$}
+    variable rcs_id {$Id: rpcvar.tcl,v 1.2 2001/08/01 23:34:54 patthoyts Exp $}
     variable typedefs
     variable typens
+    variable enums
 
     # Initialise the core types
     proc _init {xmlns typename} {
@@ -34,6 +35,7 @@ namespace eval rpcvar {
     if {! [info exists typedefs]} {
         _init xsd string
         _init xsd int
+        _init xsd integer
         _init xsd float
         _init xsd double
         _init xsd timeInstant
@@ -41,7 +43,7 @@ namespace eval rpcvar {
     }
 
     namespace export rpcvar is_rpcvar rpctype rpcsubtype rpcvalue \
-            rpcnamespace typedef
+            rpcnamespace rpcattributes rpcvalidate rpcheaders typedef
 }
 
 # -------------------------------------------------------------------------
@@ -49,12 +51,13 @@ namespace eval rpcvar {
 # Description:
 #   Create a typed variable with optionally an XML namespace for SOAP types.
 # Syntax:
-#   rpcvar ?-namespace soap-uri? type value
+#   rpcvar ?-namespace soap-uri? ?-attributes list? type value
 # Parameters:
-#   namespace - the SOAP XML namespace for this type
-#   type      - the XML-RPC or SOAP type of this value
-#   value     - the value being typed or, for struct type, either a list
-#               of name-value pairs, or the name of the Tcl array.
+#   namespace  - the SOAP XML namespace for this type
+#   attributes - a list of attribute name/value pairs for this element 
+#   type       - the XML-RPC or SOAP type of this value
+#   value      - the value being typed or, for struct type, either a list
+#                of name-value pairs, or the name of the Tcl array.
 # Result:
 #   Returns a reference to the newly created typed variable
 #
@@ -62,13 +65,26 @@ proc rpcvar::rpcvar {args} {
     variable magic
 
     set xmlns {}
+    set head {}
+    array set attr {}
     while {[string match -* [lindex $args 0]]} {
         switch -glob -- [lindex $args 0] {
             -n* {
+                # namespace
                 set xmlns [lindex $args 1]
                 set args [lreplace $args 0 0]
             }
-            --  { 
+            -a* {
+                # attributes
+                array set attr [lindex $args 1]
+                set args [lreplace $args 0 0]
+            }
+            -h* {
+                # headers
+                lappend head [lindex $args 1]
+                set args [lreplace $args 0 0]
+            }
+            --  {
                 set args [lreplace $args 0 0]
                 break 
             }
@@ -84,11 +100,15 @@ proc rpcvar::rpcvar {args} {
 
     set type [lindex $args 0]
     set value [lindex $args 1]
-
     if {[uplevel array exists [list $value]]} {
         set value [uplevel array get [list $value]]
     }
-    return [list $magic $xmlns $type $value]
+
+    if {! [rpcvalidate $type $value]} {
+        error "type mismatch: \"$value\" is not appropriate to the \"$type\"\
+                type."
+    }
+    return [list $magic $xmlns [array get attr] $head $type $value]
 }
 
 # -------------------------------------------------------------------------
@@ -126,8 +146,7 @@ proc rpcvar::is_rpcvar { varref } {
 proc rpcvar::rpctype { arg } {
     set type {}
     if { [is_rpcvar $arg] } {
-        #regexp {([^(]+)(\((.+)\))?} [lindex $arg 2] -> type -> subtype
-        set type [lindex $arg 2]
+        set type [lindex $arg 4]
     } elseif {[uplevel array exists [list $arg]]} {
         set type "struct"
     } elseif {[string is integer -strict $arg]} {
@@ -145,6 +164,10 @@ proc rpcvar::rpctype { arg } {
 # -------------------------------------------------------------------------
 
 # Description:
+#   --- IT DOESN'T WORK LIKE THIS NOW -- DELETE ME ?!
+#   --- we declare arrays as int() and struct() or MyType()
+#   --- Still used in SOAP.tcl
+#   ---
 #   If the value is not a typed variable, then there cannot be a subtype.
 #   otherwise we are looking for array(int) or struct(Typename) etc.
 # Result:
@@ -153,7 +176,7 @@ proc rpcvar::rpctype { arg } {
 proc rpcvar::rpcsubtype { arg } {
     set subtype {}
     if {[is_rpcvar $arg]} {
-        regexp {([^(]+)(\((.+)\))?} [lindex $arg 2] -> type -> subtype
+        regexp {([^(]+)(\((.+)\))?} [lindex $arg 4] -> type -> subtype
     }
     return $subtype
 }
@@ -171,7 +194,7 @@ proc rpcvar::rpcsubtype { arg } {
 #
 proc rpcvar::rpcvalue { arg } {
     if { [is_rpcvar $arg] } {
-        return [lindex $arg 3]
+        return [lindex $arg 5]
     } else {
         return $arg
     }
@@ -182,16 +205,51 @@ proc rpcvar::rpcvalue { arg } {
 #   Retrieve the xml namespace assigned to this variable. This is only used
 #   by SOAP.
 # Parameters:
-#   arg - reference to an RPC typed variable.
+#   varref - reference to an RPC typed variable.
 # Result:
 #   Returns the set namespace or an empty value is no namespace is assigned.
 #
-proc rpcvar::rpcnamespace { arg } {
+proc rpcvar::rpcnamespace { varref } {
     set xmlns {}
-    if { [is_rpcvar $arg] } {
-        set xmlns [lindex $arg 1]
+    if { [is_rpcvar $varref] } {
+        set xmlns [lindex $varref 1]
     }
     return $xmlns
+}
+
+# -------------------------------------------------------------------------
+
+# Description:
+#   Retrieve the XML attributes assigned to this variable. This is only
+#   relevant to SOAP.
+# Parameters:
+#   varref - reference to an RPC typed variable.
+# Result:
+#   Returns the list of name/value pairs for the assigned attributes. The
+#   list is suitable for use in array set.
+#
+proc rpcvar::rpcattributes { varref } {
+    set attrs {}
+    if {[is_rpcvar $varref]} {
+        set attrs [lindex $varref 2]
+    }
+    return $attrs
+}
+
+# -------------------------------------------------------------------------
+
+# Description:
+#   Retrieve the optional list of SOAP Header elements defined for this
+#   variable. The intent of this mechanism is to allow a returning procedure
+#   to specify SOAP Header elements if required.
+# Results:
+#
+proc rpcvar::rpcheaders { varref } {
+    set head {}
+    if {[is_rpcvar $varref]} {
+        set head [lindex $varref 3]
+    }
+    return $head
 }
 
 # -------------------------------------------------------------------------
@@ -218,6 +276,7 @@ proc rpcvar::rpcnamespace { arg } {
 proc rpcvar::typedef {args} {
     variable typedefs
     variable typens
+    variable enums
 
     set namespace {}
     set enum 0
@@ -274,6 +333,22 @@ proc rpcvar::typedef {args} {
     set typens($typename) $namespace
 
     return $typename
+}
+
+# -------------------------------------------------------------------------
+
+# Description:
+#   Check that the value is suitable for type. Basically for enum's
+# Result:
+#   Returns a boolean true/false value.
+proc rpcvar::rpcvalidate {type value} {
+    variable enums
+    if {[typedef -info $type] == "enum"} {
+        if {[lsearch -exact $enums($type) $value] == -1} {
+            return 0
+        }
+    }
+    return 1
 }
 
 # -------------------------------------------------------------------------

@@ -16,21 +16,27 @@ package provide SOAP 1.6
 # -------------------------------------------------------------------------
 
 package require http 2.0
-package require SOAP::Parse
 package require SOAP::Utils
 package require rpcvar
 
-if { [catch {package require dom 2.0} domVer]} {
-    if { [catch {package require dom 1.6} domVer]} {
-        error "require dom package greater than 1.6"
+if {[catch {
+    package require tdom
+    package require SOAP::dom
+    puts "using tDOM and SOAP::dom"
+}]} {
+    if { [catch {package require dom 2.0} domVer]} {
+        if { [catch {package require dom 1.6} domVer]} {
+            error "require dom package greater than 1.6"
+        }
+        package require SOAP::xpath
     }
-    package require SOAP::xpath
 }
+
 
 namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
-    variable rcs_version { $Id: SOAP.tcl,v 1.26 2001/08/07 11:37:39 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.27 2001/08/08 15:35:34 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -519,7 +525,7 @@ proc SOAP::Transport::http::asynchronous2 {procVarName token} {
 #   url          - URL of the remote server method implementation
 #   soap         - the XML payload for this SOAP method call
 #
-namespace eval Transport::print {
+namespace eval SOAP::Transport::print {
     proc print { procVarName url soap } {
         puts "$soap"
     }
@@ -743,6 +749,26 @@ proc SOAP::soap_request {procVarName args} {
     set name [set [subst $procVarName](name)]
     set uri [set [subst $procVarName](uri)]
 
+    # Check for options (ie: -header)
+    array set opts {-headers {}}
+    while {[string match -* [lindex $args 0]]} {
+        switch -glob -- [lindex $args 0] {
+            -header* {
+                append opts(-headers) [lindex $args 1]
+                set args [lreplace $args 0 0]
+            }
+            -- {
+                set args [lreplace $args 0 0]
+                break
+            }
+            default {
+                # stop option processing at the first invalid option.
+                break
+            }
+        }
+        set args [lreplace $args 0 0]
+    }
+
     # check for variable number of params and set the num required.
     if {[lindex $params end] == "args"} {
         set n_params [expr ( [llength $params] - 1 ) / 2]
@@ -768,12 +794,31 @@ proc SOAP::soap_request {procVarName args} {
             "xmlns:xsi"      "http://www.w3.org/1999/XMLSchema-instance"
     dom::element setAttribute $envx \
             "xmlns:xsd"      "http://www.w3.org/1999/XMLSchema"
+    dom::element setAttribute $envx \
+            "xmlns:SOAP-ENC" "http://schemas.xmlsoap.org/soap/encoding/"
     dom::element setAttribute $envx "SOAP-ENV:encodingStyle" \
             "http://schemas.xmlsoap.org/soap/encoding/"
+
+    # Insert the Header elements (if any)
+    if {$opts(-headers) != {}} {
+        set headelt [dom::document createElement $envx "SOAP-ENV:Header"]
+        foreach {hname hvalue} $opts(-headers) {
+            set hnode [dom::document createElement $headelt $hname]
+            insert_value $hnode $hvalue
+        }
+    }
+
+    # Insert the body element and atributes.
     set bod [dom::document createElement $envx "SOAP-ENV:Body"]
-    set cmd [dom::document createElement $bod "ns:$name" ]
-    dom::element setAttribute $cmd "xmlns:ns" $uri
-    
+    if {$uri == ""} {
+        # don't use a namespace prefix if we don't have a namespace.
+        set cmd [dom::document createElement $bod "$name" ]
+    } else {
+        set cmd [dom::document createElement $bod "ns:$name" ]
+        dom::element setAttribute $cmd "xmlns:ns" $uri
+    }
+
+    # insert the parameters.
     set param_no 0
     foreach {key type} $params {
         set val [lindex $args $param_no]
@@ -870,9 +915,9 @@ proc SOAP::parse_soap_response { procVarName xml } {
 
     set faultNode [selectNode $doc "/Envelope/Body/Fault"]
     if {$faultNode != {}} {
-        set fault [SOAP::Parse::parse $xml]
+        array set fault [decomposeSoap $faultNode]
         dom::DOMImplementation destroy $doc
-        error [lrange $fault 0 1] [lrange $fault 2 end]
+        error [list $fault(faultcode) $fault(faultstring)] $fault(detail)
     }
     
     set result {}
@@ -911,9 +956,10 @@ proc SOAP::parse_xmlrpc_response { procVarName xml } {
 
     set faultNode [selectNode $doc "/methodResponse/fault"]
     if {$faultNode != {}} {
-        array set err [SOAP::Parse::parse $xml]
+        array set err [lindex [decomposeXMLRPC \
+                [selectNode $doc /methodResponse]] 0]
         dom::DOMImplementation destroy $doc
-        error $err(faultString) {} $err(faultCode)
+        error $err(faultString) {Received XML-RPC Error} $err(faultCode)
     }
     
     # Recurse over each params/param/value
@@ -987,11 +1033,22 @@ proc SOAP::insert_value {node value} {
 
     set type     [rpctype $value]
     set subtype  [rpcsubtype $value]
+    set attrs    [rpcattributes $value]
     set value    [rpcvalue $value]
     set typeinfo [typedef -info $type]
     set typexmlns [typedef -namespace $type]
-    if {$typexmlns == {}} {
-        set typexmlns xsd
+    
+    # If the rpcvar namespace is a URI then assign it a name.
+    if {$typexmlns != {} && [regexp : $typexmlns]} {
+        dom::element setAttribute $node "xmlns:t" $typexmlns
+        set typexmlns t
+    }
+
+    # If there are any attributes assigned, apply them.
+    if {$attrs != {}} {
+        foreach {aname avalue} $attrs {
+            dom::element setAttribute $node $aname $avalue
+        }
     }
 
     if {[string match {*()} $type] || [string match array $type]} {
@@ -1000,11 +1057,19 @@ proc SOAP::insert_value {node value} {
         if {$itemtype == "array"} {
             set itemtype ur-type
         }
+        
+        # Look up the typedef info of the item type
+        set itemxmlns [typedef -namespace $itemtype]
+        if {$itemxmlns != {} && [regexp : $itemxmlns]} {
+            dom::element setAttribute $node "xmlns:i" $itemxmlns
+            set itemxmlns i
+        }
+        
         dom::element setAttribute $node \
                 "xmlns:SOAP-ENC" "http://schemas.xmlsoap.org/soap/encoding/"
         dom::element setAttribute $node "xsi:type" "SOAP-ENC:Array"
         dom::element setAttribute $node \
-                "SOAP-ENC:arrayType" "$typexmlns:$itemtype\[[llength $value]\]"
+                "SOAP-ENC:arrayType" "$itemxmlns:$itemtype\[[llength $value]\]"
 
         foreach elt $value {
             set d_elt [dom::document createElement $node "item"]
@@ -1033,7 +1098,7 @@ proc SOAP::insert_value {node value} {
             insert_value $d_elt $eltvalue
         }
     } else {
-        # simple type
+        # simple type or typedef'd enumeration
         dom::element setAttribute $node "xsi:type" "$typexmlns:$type"
         dom::document createTextNode $node $value
     }
