@@ -1,0 +1,147 @@
+<!doctype HTML public "-//W3O//DTD W3 HTML 2.0//EN">
+  <head>
+    <title>SOAP URL Domain Package for TclHTTPD</title>
+    <meta http-equiv="Description" name="Description"
+      content="SOAP package for Tcl. Provides remote procedure calls
+      using the SOAP protocol over HTTP." />
+    <meta http-equiv="Keywords" name="Keywords"
+      content="Tcl,SOAP,Simple Object Access Protocol,XML,tclHTTPD" />
+  </head>
+
+  <body bgcolor="white" text="black">
+
+  <!-- ----------------------------------------------------------------- -->
+
+  <img src="tclsoap.gif" alt="TclSOAP Logo" align="bottom" border="0" />
+  <p><h1 align="center">Soap for Tcl</h1></p>
+  <hr noshade="noshade" size="2" />
+
+  <!-- ----------------------------------------------------------------- -->
+
+  <h1>Tcl SOAP Server Utility Package</h1>
+
+  <p>The <tt>SOAP::Domain</tt> package provides a wrapper enabling the
+  simple use of Tcl procedures as SOAP methods. The package is
+  designed to operate with the tclhttpd web server but in prinipal
+  could be converted to another server fairly easily. </p>
+
+  <p>As an example of its use enter the following code and save as
+  <tt>soap1.tcl</tt> in the custom subdirectory of the tclhttp
+  server. (Alternatively source this script into a running
+  server).</p>
+
+    <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
+           bgcolor="#c0c0c0"><tr><td align="left"><pre>
+package require SOAP::Domain
+SOAP::Domain::register -prefix /soap -namespace zsplat
+
+proc zsplat::/soaptime {} {
+   return [clock format [clock seconds]]
+}
+  </pre></td></tr></table>
+
+  <p>This block of code loads the SOAP server utilities (the
+  SOAP::Domain package) and registers a handler for the /soap URL
+  namespace with the http server. The effect of this is that any URL
+  under /soap will be handled by SOAP::Domain::domain_handler. This
+  procedure examines incoming SOAP requests and attempts to evaluate
+  corresponding procedures in the specified namespace.</p>
+
+  <p>We can test this by entering the following script to get a SOAP
+  command in Tcl to use this service.</p>
+
+    <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
+           bgcolor="#c0c0c0"><tr><td align="left"><pre>
+% package require SOAP
+1.3
+% SOAP::create soaptime -proxy http://localhost:8015/soap/soaptime \
+           -uri urn:zsplat-soaptime
+::soaptime
+% soaptime
+Thu Apr 12 18:53:08 GMT Daylight Time 2001
+  </pre></td></tr></table>
+
+  <p>Errors returned by the Tcl procedure are converted into SOAP
+  Fault reply packets. According to the SOAP 1.1 specification the
+  presence of a detail element under the Fault element is indicative
+  of a failure in evaluating the body of the SOAP
+  request. For errors thrown by the evaluated procedure this package
+  generates a Fault packet and places the contents of the global
+  errorInfo variable into the detail element.</p>
+
+  <p>To illustrate this, if we evaluate the following in the server
+
+  <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
+         bgcolor="#c0c0c0"><tr><td align="left"><pre>
+proc zsplat::/square {num} {
+    if { [catch {expr $num + 0}] } {
+        error "parameter num must be a number"
+    }
+    return [expr $num * $num]
+}
+
+# Create a client command
+SOAP::create square -uri urn:zsplat-square \
+      -proxy http://localhost:8015/soap/square \
+      -params { num integer }
+  </pre></td></tr></table>
+
+  If we now evaluate <tt>square "Hello, World"</tt> we receive the
+  following XML
+
+  <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
+         bgcolor="#c0c0c0"><tr><td align="left"><pre>
+&lt;?xml version='1.0'?&gt;
+&lt;SOAP-ENV:Envelope 
+     xmlns:xsi="http://www.w3.org/1999/XMLSchema-instance" 
+     xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" 
+     xmlns:xsd="http://www.w3.org/1999/XMLSchema"&gt;
+   &lt;SOAP-ENV:Body&gt;
+      &lt;SOAP-ENV:Fault&gt;
+         &lt;faultcode&gt;SOAP-ENV:Client&lt;/faultcode&gt;
+         &lt;faultstring&gt;parameter must be a number&lt;/faultstring&gt;
+         &lt;detail&gt;
+            &lt;e:errorInfo xmlns:e="urn:TclSOAP-ErrorInfo"&gt;
+               &lt;errorCode&gt;NONE&lt;/errorCode&gt;
+               &lt;stackTrace&gt;parameter must be a number
+    while executing
+&quot;error &quot;parameter must be a number&quot; &quot;
+    (procedure &quot;::SOAP::Domain::/square&quot; line 2)
+    invoked from within
+&quot;::SOAP::Domain::/square {Hello, World}&quot;
+    (&quot;eval&quot; body line 1)
+    invoked from within
+&quot;eval ::SOAP::Domain::/square $argValues&quot;
+    invoked from within
+&quot;catch &quot;eval [namespace current]::$suffix \$argValues&quot;msg&quot; 
+               &lt;/stackTrace&gt;
+            &lt;/e:errorInfo&gt;
+         &lt;/detail&gt;
+      &lt;/SOAP-ENV:Fault&gt;
+   &lt;/SOAP-ENV:Body&gt;
+&lt;/SOAP-ENV:Envelope&gt;
+  </pre></td></tr></table>
+
+  <!-- ----------------------------------------------------------------- -->
+
+  <hr noshade="noshade" size="2" />
+
+  <p>This page is maintained by Pat Thoyts. You can find out about
+     me on <a href="../../resume.html">my contact page</a>.</p>
+
+    <font size="2">
+<!-- Created: Thu Apr 12 17:32:20 2001
+<!-- hhmts start -->
+Last modified: Thu Apr 19 01:25:09 2001
+<!-- hhmts end -->
+
+    <br><tt>$Id$</tt>
+    </font>
+
+  </body>
+</html>
+
+<!-- Local variables:           -->
+<!--   truncate-lines: "t"      -->
+<!--   indent-tabs-mode: nil    -->
+<!-- End:                       -->
