@@ -1,4 +1,4 @@
-# ftp.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+# ftp.tcl - Copyright (C) 2001 Pat Thoyts <patthoyts@users.sourceforge.net>
 #
 # Provide an FTP based transport for the SOAP package.
 #
@@ -20,14 +20,12 @@
 
 package require ftp;                    # tcllib
 
-namespace eval SOAP::Transport::ftp {
+namespace eval ::SOAP::Transport::ftp {
     variable version 1.0
-    variable rcsid {$Id: ftp.tcl,v 1.1 2001/12/20 00:08:24 patthoyts Exp $}
+    variable rcsid {$Id: ftp.tcl,v 1.2 2001/12/21 01:47:25 patthoyts Exp $}
     variable options
     
-    package provide SOAP::ftp $version
-
-    SOAP::register ftp [namespace current]
+    ::SOAP::register ftp [namespace current]
 
     # Initialize the transport options.
     if {![info exists options]} {
@@ -54,7 +52,7 @@ namespace eval SOAP::Transport::ftp {
 #  username - username to login on (can also be part of the URL)
 #  password - password for server (can also be part of the URL)
 #
-proc SOAP::Transport::ftp::method:configure {procVarName opt value} {
+proc ::SOAP::Transport::ftp::method:configure {procVarName opt value} {
     upvar $procVarName procvar
     switch -glob -- $opt {
         -user* {
@@ -65,7 +63,7 @@ proc SOAP::Transport::ftp::method:configure {procVarName opt value} {
         }
         default {
             # not reached.
-            error "unknown option \"$opt\""
+            return -code error "unknown option \"$opt\""
         }
     }
 }
@@ -74,7 +72,7 @@ proc SOAP::Transport::ftp::method:configure {procVarName opt value} {
 # Description:
 #   Permit configuration of the FTP transport.
 #
-proc SOAP::Transport::ftp::configure {args} {
+proc ::SOAP::Transport::ftp::configure {args} {
     variable options
 
     if {[llength $args] == 0} {
@@ -88,7 +86,8 @@ proc SOAP::Transport::ftp::configure {args} {
     foreach {opt value} $args {
         switch -- $opt {
             default {
-                error "invalid option \"$opt\": no transport configuration options"
+                return -code error "invalid option \"$opt\":\
+                    no transport configuration options"
             }
         }
     }
@@ -112,7 +111,7 @@ proc SOAP::Transport::ftp::configure {args} {
 #   The data payload is uploaded to the server using FTP. No
 #   response is available.
 #
-proc SOAP::Transport::ftp::xfer {procVarName url soap} {
+proc ::SOAP::Transport::ftp::xfer {procVarName url soap} {
     variable options
     upvar $procVarName procvar
 
@@ -135,7 +134,7 @@ proc SOAP::Transport::ftp::xfer {procVarName url soap} {
     ftp::Close $tok
 
     if {! $r} {
-        error "SOAP transport error: $r"
+        return -code error "SOAP transport error: $r"
     }
 
     return {}
@@ -148,14 +147,18 @@ proc SOAP::Transport::ftp::xfer {procVarName url soap} {
 # Parameters:
 #  methodVarName - the name of the SOAP method configuration array
 #
-#proc SOAP::Transport::ftp::method:destroy {methodVarName} {
+#proc ::SOAP::Transport::ftp::method:destroy {methodVarName} {
 #    upvar $methodVarName procvar
 #}
 
 # -------------------------------------------------------------------------
 
-#proc SOAP::Transport::ftp::dump {methodName type} {
+#proc ::SOAP::Transport::ftp::dump {methodName type} {
 #}
+
+# -------------------------------------------------------------------------
+
+package provide SOAP::ftp $::SOAP::Transport::ftp::version
 
 # -------------------------------------------------------------------------
 # Local variables:

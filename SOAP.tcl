@@ -1,4 +1,4 @@
-# SOAP.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+# SOAP.tcl - Copyright (C) 2001 Pat Thoyts <patthoyts@users.sourceforge.net>
 #
 # Provide Tcl access to SOAP 1.1 methods.
 #
@@ -39,7 +39,7 @@ if {[catch {package require SOAP::dom 1.0} ::SOAP::domVersion]} {
 namespace eval ::SOAP {
     variable version 1.6.6
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.44.2.4 2003/02/01 00:37:24 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.44.2.5 2003/02/04 01:56:55 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -75,8 +75,8 @@ proc ::SOAP::schemeloc {scheme} {
     if {[info exists transports($scheme)]} {
         return $transports($scheme)
     } else {
-        error "invalid transport scheme: \"$scheme\" is not registered\
-              try one of [array names transports]"
+        return -code error "invalid transport scheme:\
+            \"$scheme\" is not registered. Try one of [array names transports]"
     }
 }
 
@@ -131,7 +131,8 @@ proc ::SOAP::qualifyNamespace {name} {
 #
 proc ::SOAP::methodVarName {methodName} {
     if {[catch {uplevel 2 namespace origin $methodName} name]} {
-        error "invalid method name: \"$methodName\" is not a SOAP method"
+        return -code error "invalid method name:\
+            \"$methodName\" is not a SOAP method"
     }
     regsub -all {::+} $name {_} name
     return [namespace current]::$name
@@ -169,7 +170,8 @@ if {[info exists SOAP::logLevel]} {
 proc ::SOAP::cget { args } {
 
     if { [llength $args] != 2 } {
-        error "wrong # args: should be \"cget methodName optionName\""
+        return -code error "wrong # args:\
+            should be \"cget methodName optionName\""
     }
 
     set methodName [lindex $args 0]
@@ -178,7 +180,7 @@ proc ::SOAP::cget { args } {
 
     if {[catch {set [subst $configVarName]([string trimleft $optionName "-"])} result]} {
         # kenstir@synchonicity.com: Fixed typo.
-        error "unknown option \"$optionName\""
+        return -code error "unknown option \"$optionName\""
     }
     return $result
 }
@@ -202,7 +204,8 @@ proc ::SOAP::dump {args} {
         set type [lindex $args 0]
         set methodName [lindex $args 1]
     } else {
-        error "wrong # args: should be \"dump ?option? methodName\""
+        return -code error "wrong # args:\
+           should be \"dump ?option? methodName\""
     }
 
     # call the transports 'dump' proc if found
@@ -210,8 +213,8 @@ proc ::SOAP::dump {args} {
     if {[set cmd [transportHook $procVarName dump]] != {}} {
         $cmd $methodName $type
     } else {
-        error "no dump available: the configured transport has no 'dump'\
-              procedure defined"
+        return -code error "no dump available:\
+            the configured transport has no 'dump' procedure defined"
     }
 }
 
@@ -240,8 +243,8 @@ proc ::SOAP::configure { procName args } {
         if {[info command $config] != {}} {
             return [eval $config [lrange $args 1 end]]
         } else {
-            error "invalid transport: \"$scheme\" is not a valid\
-                  SOAP transport method."
+            return -code error "invalid transport:\
+                \"$scheme\" is not a valid SOAP transport method."
         }
     }
 
@@ -260,7 +263,7 @@ proc ::SOAP::configure { procName args } {
 
     # Check that the named method has actually been defined
     if {! [array exists $procVarName]} {
-        error "invalid command: \"$procName\" not defined"
+        return -code error "invalid command: \"$procName\" not defined"
     }
     upvar $procVarName procvar
 
@@ -287,22 +290,22 @@ proc ::SOAP::configure { procName args } {
     }
 
     foreach {opt value} $args {
-        switch -- $opt {
+        switch -glob -- $opt {
             -uri       { set procvar(uri) $value }
             -proxy     { set procvar(proxy) $value }
-            -params    { set procvar(params) $value }
-            -transport { set procvar(transport) $value }
+            -param*    { set procvar(params) $value }
+            -trans*    { set procvar(transport) $value }
             -name      { set procvar(name) $value }
             -action    { set procvar(action) $value }
-            -schemas   { set procvar(schemas) $value }
-            -version   { set procvar(version) $value }
-            -encoding  { set procvar(encoding) $value }
-            -wrapProc  { set procvar(wrapProc) [qualifyNamespace $value] }
-            -replyProc { set procvar(replyProc) [qualifyNamespace $value] }
-            -parseProc { set procvar(parseProc) [qualifyNamespace $value] }
-            -postProc  { set procvar(postProc) [qualifyNamespace $value] }
-            -command   { set procvar(command) [qualifyNamespace $value] }
-            -errorCommand { 
+            -schema*   { set procvar(schemas) $value }
+            -ver*      { set procvar(version) $value }
+            -enc*      { set procvar(encoding) $value }
+            -wrap*     { set procvar(wrapProc) [qualifyNamespace $value] }
+            -rep*      { set procvar(replyProc) [qualifyNamespace $value] }
+            -parse*    { set procvar(parseProc) [qualifyNamespace $value] }
+            -post*     { set procvar(postProc) [qualifyNamespace $value] }
+            -com*      { set procvar(command) [qualifyNamespace $value] }
+            -err*      { 
                 set procvar(errorCommand) [qualifyNamespace $value] 
             }
             default {
@@ -313,11 +316,12 @@ proc ::SOAP::configure { procName args } {
                     && [info command $transportHook] != {}} {
                     if {[catch {eval $transportHook $procVarName \
                                     [list $opt] [list $value]}]} {
-                        error "unknown option \"$opt\":\
+                        return -code error "unknown option \"$opt\":\
                             must be one of ${options}"
                     }
                 } else {
-                    error "unknown option \"$opt\": must be one of ${options}"
+                    return -code error "unknown option \"$opt\":\
+                        must be one of ${options}"
                 }
             }
         }
@@ -334,7 +338,8 @@ proc ::SOAP::configure { procName args } {
         if {[info command $xferProc] != {}} {
             set procvar(transport) $xferProc
         } else {
-            error "invalid transport: \"$scheme\" is improperly registered"
+            return -code error "invalid transport:\
+                \"$scheme\" is improperly registered"
         }
     } 
     
@@ -391,7 +396,8 @@ proc ::SOAP::configure { procName args } {
 #
 proc ::SOAP::create { args } {
     if { [llength $args] < 1 } {
-        error "wrong # args: should be \"create procName ?options?\""
+        return -code error "wrong # args:\
+            should be \"create procName ?options?\""
     } else {
         set procName [lindex $args 0]
         set args [lreplace $args 0 0]
@@ -530,7 +536,7 @@ proc ::SOAP::wait {methodName} {
 proc ::SOAP::invoke { procVarName args } {
     set procName [lindex [split $procVarName {_}] end]
     if {![array exists $procVarName]} {
-        error "invalid command: \"$procName\" not defined"
+        return -code error "invalid command: \"$procName\" not defined"
     }
 
     upvar $procVarName procvar
@@ -636,19 +642,13 @@ namespace eval SOAP::Transport::reflect {
 proc ::SOAP::proxyconfig {} {
     package require Tk
     if { [catch {package require base64}] } {
-        if { [catch {package require Trf}] } {
-            error "proxyconfig requires either tcllib or Trf packages."
-        } else {
-            set local64 "base64 -mode enc"
-        }
-    } else {
-        set local64 "base64::encode"
+        return -code error "proxyconfig requires the tcllib base64 package."
     }
-
     toplevel .tx
     wm title .tx "Proxy Authentication Configuration"
     set m [message .tx.m1 -relief groove -justify left -width 6c -aspect 200 \
-            -text "Enter details of your proxy server (if any) and your username and password if it is needed by the proxy."]
+            -text "Enter details of your proxy server (if any) and your\
+                   username and password if it is needed by the proxy."]
     set f1 [frame .tx.f1]
     set f2 [frame .tx.f2]
     button $f2.b -text "OK" -command {destroy .tx}
@@ -677,7 +677,7 @@ proc ::SOAP::proxyconfig {} {
     if { [info exists SOAP::conf_userid] } {
         SOAP::configure -transport http \
             -headers [list "Proxy-Authorization" \
-            "Basic [lindex [$local64 ${SOAP::conf_userid}:${SOAP::conf_passwd}] 0]" ]
+            "Basic [lindex [base64::encode ${SOAP::conf_userid}:${SOAP::conf_passwd}] 0]" ]
     }
     unset SOAP::conf_passwd
 }
@@ -844,7 +844,7 @@ proc ::SOAP::soap_request {procVarName args} {
             append msg " " $id
         }
         append msg "\""
-        error $msg
+        return -code error $msg
     }
 
     set doc [dom::DOMImplementation create]
@@ -934,7 +934,7 @@ proc ::SOAP::xmlrpc_request {procVarName args} {
             append msg " " $id
         }
         append msg "\""
-        error $msg
+        return -code error $msg
     }
     
     set doc [dom::DOMImplementation create]
@@ -991,7 +991,7 @@ proc ::SOAP::parse_soap_response { procVarName xml } {
         return {}
     } else {
         if {[catch {set doc [dom::DOMImplementation parse $xml]}]} {
-            error "Server response is not well-formed XML.\n\
+            return -code error "Server response is not well-formed XML.\n\
                   response was $xml" $::errorInfo Server
         }
     }
@@ -1001,7 +1001,8 @@ proc ::SOAP::parse_soap_response { procVarName xml } {
         array set fault [decomposeSoap $faultNode]
         dom::DOMImplementation destroy $doc
         if {![info exists fault(detail)]} { set fault(detail) {}}
-        error [list $fault(faultcode) $fault(faultstring)] $fault(detail)
+        return -code error [list $fault(faultcode)\
+                                $fault(faultstring)] $fault(detail)
     }
 
     # If there is a header element then make it available via SOAP::getHeader
@@ -1061,7 +1062,7 @@ proc ::SOAP::parse_xmlrpc_response { procVarName xml } {
         return {}
     } else {
         if {[catch {set doc [dom::DOMImplementation parse $xml]}]} {
-            error "Server response is not well-formed XML.\n\
+            return -code error "Server response is not well-formed XML.\n\
                   response was $xml" $::errorInfo Server
         }
     }
@@ -1071,7 +1072,8 @@ proc ::SOAP::parse_xmlrpc_response { procVarName xml } {
         array set err [lindex [decomposeXMLRPC \
                 [selectNode $doc /methodResponse]] 0]
         dom::DOMImplementation destroy $doc
-        error $err(faultString) {Received XML-RPC Error} $err(faultCode)
+        return -code error $err(faultString) {Received XML-RPC Error}\
+            $err(faultCode)
     }
     
     # Recurse over each params/param/value
@@ -1106,8 +1108,8 @@ proc ::SOAP::parse_xmlrpc_response { procVarName xml } {
 proc ::SOAP::parse_xmlrpc_request { xml } {
     set result {}
     if {[catch {set doc [dom::DOMImplementation parse $xml]}]} {
-        error "Client request is not well-formed XML.\ncall was $xml" \
-                $::errorInfo Server
+        return -code error "Client request is not well-formed XML.\n\
+            call was $xml" $::errorInfo Server
     }
 
     set methodNode [selectNode $doc "/methodCall/methodName"]
@@ -1286,13 +1288,14 @@ proc ::SOAP::insert_value {node value} {
         array set ti $typeinfo
         # Bounds checking - <simon@e-ppraisal.com>
         if {[llength $typeinfo] != [llength $value]} {
-            error "wrong # args: type $type contains \"$typeinfo\""
+            return -code error "wrong # args:\
+                type $type contains \"$typeinfo\""
         }
         foreach {eltname eltvalue} $value {
             set d_elt [dom::document createElement $node $eltname]
             if {![info exists ti($eltname)]} {
-                error "invalid member name: \"$eltname\" is not a member of\
-                        the $type type."
+                return -code error "invalid member name:\
+                    \"$eltname\" is not a member of the $type type."
             }
             insert_value $d_elt [rpcvar $ti($eltname) $eltvalue]
         }

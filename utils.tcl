@@ -1,4 +1,4 @@
-# utils.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+# utils.tcl - Copyright (C) 2001 Pat Thoyts <patthoyts@users.sourceforge.net>
 #
 # DOM data access utilities for use in the TclSOAP package.
 #
@@ -9,11 +9,10 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package provide SOAP::Utils 1.0
-
-namespace eval SOAP {
+namespace eval ::SOAP {
     namespace eval Utils {
-        variable rcsid {$Id: utils.tcl,v 1.7.2.2 2002/11/20 01:13:42 patthoyts Exp $}
+        variable version 1.0.1
+        variable rcsid {$Id: utils.tcl,v 1.7.2.3 2003/02/04 01:56:55 patthoyts Exp $}
         namespace export getElements getElementsByName \
                 getElementValue getElementName \
                 getElementValues getElementNames \
@@ -38,7 +37,7 @@ namespace eval SOAP {
 #   Returns the selected node or a list of matching nodes or an empty list
 #   if no match.
 #
-proc SOAP::Utils::selectNode {node path} {
+proc ::SOAP::Utils::selectNode {node path} {
     package require SOAP::xpath
     if {[catch {SOAP::xpath::xpath -node $node $path} r]} {
         set r {}
@@ -55,7 +54,7 @@ proc SOAP::Utils::selectNode {node path} {
 # names == parameter names. This allows us to check the param name if we need
 # to.
 
-proc SOAP::Utils::is_array {domElement} {
+proc ::SOAP::Utils::is_array {domElement} {
     # Look for "xsi:type"="SOAP-ENC:Array"
     # FIX ME
     # This code should check the namespace using namespaceURI code (CGI)
@@ -84,7 +83,7 @@ proc SOAP::Utils::is_array {domElement} {
 # -------------------------------------------------------------------------
 
 # Break down a SOAP packet into a Tcl list of the data.
-proc SOAP::Utils::decomposeSoap {domElement} {
+proc ::SOAP::Utils::decomposeSoap {domElement} {
     set result {}
 
     # get a list of the child elements of this base element.
@@ -112,7 +111,7 @@ proc SOAP::Utils::decomposeSoap {domElement} {
 # -------------------------------------------------------------------------
 
 # I expect domElement to be the params element.
-proc SOAP::Utils::decomposeXMLRPC {domElement} {
+proc ::SOAP::Utils::decomposeXMLRPC {domElement} {
     set result {}
     foreach param_elt [getElements $domElement] {
         lappend result [getXMLRPCValue [getElements $param_elt]]
@@ -122,7 +121,7 @@ proc SOAP::Utils::decomposeXMLRPC {domElement} {
 
 # -------------------------------------------------------------------------
 
-proc SOAP::Utils::getXMLRPCValue {value_elt} {
+proc ::SOAP::Utils::getXMLRPCValue {value_elt} {
     set value {}
     if {$value_elt == {}} { return $value }
 
@@ -163,7 +162,7 @@ proc SOAP::Utils::getXMLRPCValue {value_elt} {
 # Parameters:
 #   domNode  - a reference to a node in a dom tree
 #
-proc SOAP::Utils::getElements {domNode} {
+proc ::SOAP::Utils::getElements {domNode} {
     set elements {}
     if {$domNode != {}} {
         foreach node [dom::node children $domNode] {
@@ -185,7 +184,7 @@ proc SOAP::Utils::getElements {domNode} {
 # Result:
 #   Returns a value or a list of values.
 #
-proc SOAP::Utils::getElementValues {domElement} {
+proc ::SOAP::Utils::getElementValues {domElement} {
     set result {}
     if {$domElement != {}} {
         set nodes [getElements $domElement]
@@ -202,7 +201,7 @@ proc SOAP::Utils::getElementValues {domElement} {
 
 # -------------------------------------------------------------------------
 
-proc SOAP::Utils::getElementValuesList {domElement} {
+proc ::SOAP::Utils::getElementValuesList {domElement} {
     set result {}
     if {$domElement != {}} {
         set nodes [getElements $domElement]
@@ -219,7 +218,7 @@ proc SOAP::Utils::getElementValuesList {domElement} {
 
 # -------------------------------------------------------------------------
 
-proc SOAP::Utils::getElementNames {domElement} {
+proc ::SOAP::Utils::getElementNames {domElement} {
     set result {}
     if {$domElement != {}} {
         set nodes [getElements $domElement]
@@ -236,7 +235,7 @@ proc SOAP::Utils::getElementNames {domElement} {
 
 # -------------------------------------------------------------------------
 
-proc SOAP::Utils::getElementNamedValues {domElement} {
+proc ::SOAP::Utils::getElementNamedValues {domElement} {
     set name [getElementName $domElement]
     set value {}
     set nodes [getElements $domElement]
@@ -262,14 +261,14 @@ proc SOAP::Utils::getElementNamedValues {domElement} {
 # Result:
 #   A string containing the elements value
 #
-proc SOAP::Utils::getElementValue {domElement} {
+proc ::SOAP::Utils::getElementValue {domElement} {
     set r {}
     set dataNodes [dom::node children $domElement]
     if {[set href [href $domElement]] != {}} {
         if {[string match "\#*" $href]} {
             set href [string trimleft $href "\#"]
         } else {
-            error "cannot follow non-local href"
+            return -code error "cannot follow non-local href"
         }
         set r [[uplevel proc:name] [getNodeById \
                 [getDocumentElement $domElement] $href]]
@@ -285,13 +284,13 @@ proc SOAP::Utils::getElementValue {domElement} {
 # Description:
 #   Get the name of the current proc
 #   - from http://purl.org/thecliff/tcl/wiki/526.html
-proc SOAP::Utils::proc:name {} {
+proc ::SOAP::Utils::proc:name {} {
     lindex [info level -1] 0
 } 
 
 # -------------------------------------------------------------------------
 
-proc SOAP::Utils::href {node} {
+proc ::SOAP::Utils::href {node} {
     set a [dom::node cget $node -attributes]
     if {[info exists [subst $a](href)]} {
         return [set [subst $a](href)]
@@ -301,7 +300,7 @@ proc SOAP::Utils::href {node} {
 
 # -------------------------------------------------------------------------
 
-proc SOAP::Utils::id {node} {
+proc ::SOAP::Utils::id {node} {
     set a [dom::node cget $node -attributes]
     if {[info exists [subst $a](id)]} {
         return [set [subst $a](id)]
@@ -310,13 +309,13 @@ proc SOAP::Utils::id {node} {
 }
 # -------------------------------------------------------------------------
 
-proc SOAP::Utils::getElementName {domElement} {
+proc ::SOAP::Utils::getElementName {domElement} {
     return [dom::node cget $domElement -nodeName]
 }
 
 # -------------------------------------------------------------------------
 
-proc SOAP::Utils::getElementAttributes {domElement} {
+proc ::SOAP::Utils::getElementAttributes {domElement} {
     set attr [dom::node cget $domElement -attributes]
     set attrlist [array get $attr]
     return $attrlist
@@ -325,7 +324,7 @@ proc SOAP::Utils::getElementAttributes {domElement} {
 # -------------------------------------------------------------------------
 
 # Find a node by id (sort of the xpath id() function)
-proc SOAP::Utils::getNodeById {base id} {
+proc ::SOAP::Utils::getNodeById {base id} {
     if {[string match $id [id $base]]} {
         return $base
     }
@@ -341,7 +340,7 @@ proc SOAP::Utils::getNodeById {base id} {
 # -------------------------------------------------------------------------
 
 # Walk up the DOM until you get to the top.
-proc SOAP::Utils::getDocumentElement {node} {
+proc ::SOAP::Utils::getDocumentElement {node} {
     set parent [dom::node parent $node]
     if {$parent == {}} {
         return $node
@@ -357,7 +356,7 @@ proc SOAP::Utils::getDocumentElement {node} {
 # Result:
 #  Returns the value of the attribute.
 #
-proc SOAP::Utils::getElementAttribute {node attrname} {
+proc ::SOAP::Utils::getElementAttribute {node attrname} {
     set r {}
     set attrs [array get [dom::node cget $node -attributes]]
     if {[set ndx [lsearch -exact $attrs $attrname]] == -1} {
@@ -388,7 +387,7 @@ proc SOAP::Utils::getElementAttribute {node attrname} {
 #  but the versions that support 'query' seem to have the namespaceURI
 #  method so we'll use this test for now.
 #
-proc SOAP::Utils::namespaceURI {node} {
+proc ::SOAP::Utils::namespaceURI {node} {
     #if {[dom::DOMImplementation hasFeature query 1.0]} {
     #    return [dom::node cget $node -namespaceURI]
     #} else {
@@ -406,7 +405,7 @@ proc SOAP::Utils::namespaceURI {node} {
 #  URI. This is commonly used in XML schemas to specify the default namespace
 #  for the defined items.
 #
-proc SOAP::Utils::targetNamespaceURI {node value} {
+proc ::SOAP::Utils::targetNamespaceURI {node value} {
     set ndx [string last : $value]
     set ns [string trimright [string range $value 0 $ndx] :]
     #set base [string trimleft [string range $value $ndx end] :]
@@ -422,13 +421,13 @@ proc SOAP::Utils::targetNamespaceURI {node value} {
 # Result:
 #   the node name without any namespace prefix.
 #
-proc SOAP::Utils::nodeName {node} {
+proc ::SOAP::Utils::nodeName {node} {
     set nodeName [dom::node cget $node -nodeName]
     set nodeName [string range $nodeName [string last : $nodeName] end]
     return [string trimleft $nodeName :]
 }
 
-proc SOAP::Utils::baseElementName {nodeName} {
+proc ::SOAP::Utils::baseElementName {nodeName} {
     set nodeName [string range $nodeName [string last : $nodeName] end]
     return [string trimleft $nodeName :]
 }
@@ -443,7 +442,7 @@ proc SOAP::Utils::baseElementName {nodeName} {
 # Result:
 #   Returns the namespace uri or an empty string.
 #
-proc SOAP::Utils::find_namespaceURI {node nsname {find_targetNamespace 0}} {
+proc ::SOAP::Utils::find_namespaceURI {node nsname {find_targetNamespace 0}} {
     if {$node == {}} { return {} }
     set atts [dom::node cget $node -attributes]
 
@@ -481,7 +480,7 @@ proc SOAP::Utils::find_namespaceURI {node nsname {find_targetNamespace 0}} {
 # Parameters:
 #   domNode  - a reference to a node in a dom tree
 #
-proc SOAP::Utils::getElementsByName {domNode name} {
+proc ::SOAP::Utils::getElementsByName {domNode name} {
     set elements {}
     if {$domNode != {}} {
         foreach node [dom::node children $domNode] {
@@ -495,6 +494,9 @@ proc SOAP::Utils::getElementsByName {domNode name} {
 }
 
 # -------------------------------------------------------------------------       
+package provide SOAP::Utils $::SOAP::Utils::version
+
+# -------------------------------------------------------------------------
 # Local variables:
 #    indent-tabs-mode: nil
 # End:

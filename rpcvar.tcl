@@ -1,4 +1,4 @@
-# rpcvar.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+# rpcvar.tcl - Copyright (C) 2001 Pat Thoyts <patthoyts@users.sourceforge.net>
 #
 # Provide a mechanism for passing hints as to the XML-RPC or SOAP value type
 # from the user code to the TclSOAP framework.
@@ -15,12 +15,10 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package provide rpcvar 1.2
-
-namespace eval rpcvar {
+namespace eval ::rpcvar {
     variable version 1.2
     variable magic "rpcvar$version"
-    variable rcs_id {$Id: rpcvar.tcl,v 1.9.2.1 2002/10/01 22:36:26 patthoyts Exp $}
+    variable rcs_id {$Id: rpcvar.tcl,v 1.9.2.2 2003/02/04 01:56:55 patthoyts Exp $}
     variable typedefs
     variable typens
     variable enums
@@ -53,7 +51,7 @@ namespace eval rpcvar {
 # Result:
 #   Returns a reference to the newly created typed variable
 #
-proc rpcvar::rpcvar {args} {
+proc ::rpcvar::rpcvar {args} {
     variable magic
 
     set xmlns {}
@@ -102,7 +100,7 @@ proc rpcvar::rpcvar {args} {
 # Description:
 #  Pop the nth element off a list. Used in options processing.
 #
-proc rpcvar::Pop {varname {nth 0}} {
+proc ::rpcvar::Pop {varname {nth 0}} {
     upvar $varname args
     set r [lindex $args $nth]
     set args [lreplace $args $nth $nth]
@@ -118,7 +116,7 @@ proc rpcvar::Pop {varname {nth 0}} {
 # Result:
 #   Returns 1 if the object is a typed value or 0 if not
 #
-proc rpcvar::is_rpcvar { varref } {
+proc ::rpcvar::is_rpcvar { varref } {
     variable magic
     set failed [catch {lindex $varref 0} ref_magic]
     if { ! $failed && $ref_magic == $magic } {
@@ -141,7 +139,7 @@ proc rpcvar::is_rpcvar { varref } {
 #   of struct, int, double, boolean or string unless we were passed a 
 #   typed variable.
 #
-proc rpcvar::rpctype { arg } {
+proc ::rpcvar::rpctype { arg } {
     set type {}
     if { [is_rpcvar $arg] } {
         set type [lindex $arg 4]
@@ -177,7 +175,7 @@ proc rpcvar::rpctype { arg } {
 # Result:
 #   Either the subtype of an array, or an empty string.
 #
-proc rpcvar::rpcsubtype { arg } {
+proc ::rpcvar::rpcsubtype { arg } {
     set subtype {}
     if {[is_rpcvar $arg]} {
         regexp {([^(]+)(\((.+)\))?} [lindex $arg 4] -> type -> subtype
@@ -196,7 +194,7 @@ proc rpcvar::rpcsubtype { arg } {
 #   Returns the value of a typed variable.
 #   If arg is not a typed variable it return the contents of arg
 #
-proc rpcvar::rpcvalue { arg } {
+proc ::rpcvar::rpcvalue { arg } {
     if { [is_rpcvar $arg] } {
         return [lindex $arg 5]
     } else {
@@ -213,7 +211,7 @@ proc rpcvar::rpcvalue { arg } {
 # Result:
 #   Returns the set namespace or an empty value is no namespace is assigned.
 #
-proc rpcvar::rpcnamespace { varref } {
+proc ::rpcvar::rpcnamespace { varref } {
     set xmlns {}
     if { [is_rpcvar $varref] } {
         set xmlns [lindex $varref 1]
@@ -232,7 +230,7 @@ proc rpcvar::rpcnamespace { varref } {
 #   Returns the list of name/value pairs for the assigned attributes. The
 #   list is suitable for use in array set.
 #
-proc rpcvar::rpcattributes { varref } {
+proc ::rpcvar::rpcattributes { varref } {
     set attrs {}
     if {[is_rpcvar $varref]} {
         set attrs [lindex $varref 2]
@@ -248,7 +246,7 @@ proc rpcvar::rpcattributes { varref } {
 #   to specify SOAP Header elements if required.
 # Results:
 #
-proc rpcvar::rpcheaders { varref } {
+proc ::rpcvar::rpcheaders { varref } {
     set head {}
     if {[is_rpcvar $varref]} {
         set head [lindex $varref 3]
@@ -277,7 +275,7 @@ proc rpcvar::rpcheaders { varref } {
 #   Each enumerator may be a two element list, in which case the first element
 #   is the name and the second is the integer value.
 #
-proc rpcvar::typedef {args} {
+proc ::rpcvar::typedef {args} {
     variable typedefs
     variable typens
     variable enums
@@ -345,7 +343,7 @@ proc rpcvar::typedef {args} {
 #   Check that the value is suitable for type. Basically for enum's
 # Result:
 #   Returns a boolean true/false value.
-proc rpcvar::rpcvalidate {type value} {
+proc ::rpcvar::rpcvalidate {type value} {
     variable enums
     if {[typedef -info $type] == "enum"} {
         if {[lsearch -exact $enums($type) $value] == -1} {
@@ -397,7 +395,7 @@ proc rpcvar::rpcvalidate {type value} {
 
 # -------------------------------------------------------------------------
 
-proc rpcvar::default_schemas {soapenv} {
+proc ::rpcvar::default_schemas {soapenv} {
 
     if {[string match $soapenv "http://schemas.xmlsoap.org/soap/encoding/"]} {
         # SOAP 1.1
@@ -418,7 +416,7 @@ proc rpcvar::default_schemas {soapenv} {
 
 # initialize with the SOAP 1.1 encodings for xsd and SOAP-ENC
 #
-proc rpcvar::init_builtins {} {
+proc ::rpcvar::init_builtins {} {
     # The xsi types from http://www.w3.org/TR/xmlschema-2/ section 3.2 & 3.3
     # the uri's for these are http://www.w33.org/2001/XMLSchema#int etc
     set xsd2001 [list \
@@ -462,19 +460,19 @@ proc rpcvar::init_builtins {} {
 # Initialize the core SOAP types. xsd and SOAP-ENC namespace names are
 # pre-defined within the TclSOAP framework. All other namespaces will
 # have to be fully specified
-if {! [info exists rpcvar::typedefs]} {
-    rpcvar::init_builtins
+if {! [info exists ::rpcvar::typedefs]} {
+    ::rpcvar::init_builtins
 }
 
 
 # -------------------------------------------------------------------------
 # -------------------------------------------------------------------------
-namespace eval types {
+namespace eval ::types {
     variable types
     namespace export typedef
 }
 
-proc types::typedef {args} {
+proc ::types::typedef {args} {
     variable types
     array set opts {namespace {}}
     while {[string match -* [set option [lindex $args 0]]]} {
@@ -519,7 +517,7 @@ proc types::typedef {args} {
     set types($opts(namespace):$typename) $typelist
 }
 
-proc types::SetupBuiltins {} {
+proc ::types::SetupBuiltins {} {
     # The xsi types from http://www.w3.org/TR/xmlschema-2/ section 3.2 & 3.3
     # the uri's for these are http://www.w3.org/2001/XMLSchema#int etc
     set xsd2001 [list \
@@ -562,12 +560,16 @@ proc types::SetupBuiltins {} {
     }
 }
 
-proc types::Pop {varname {nth 0}} {
+proc ::types::Pop {varname {nth 0}} {
     upvar $varname args
     set r [lindex $args $nth]
     set args [lreplace $args $nth $nth]
     return $r
 }
+
+# -------------------------------------------------------------------------
+
+package provide rpcvar $::rpcvar::version
 
 # -------------------------------------------------------------------------
 # Local variables:

@@ -13,7 +13,7 @@
 package require tdom
 
 namespace eval ::SOAP::dom {
-    variable rcsid {$Id: dom.tcl,v 1.1.2.2 2003/02/01 00:37:24 patthoyts Exp $}
+    variable rcsid {$Id: dom.tcl,v 1.1.2.3 2003/02/04 01:56:55 patthoyts Exp $}
     variable version 1.0
 
     namespace export DOMImplementation document node element \
@@ -168,7 +168,7 @@ proc ::SOAP::dom::processinginstruction {method token args} {
 
 # -------------------------------------------------------------------------
 
-package provide ::SOAP::dom $SOAP::dom::version
+package provide SOAP::dom $SOAP::dom::version
 
 # -------------------------------------------------------------------------
 

@@ -16,9 +16,9 @@ package require uri;                    # tcllib 1.0
 package require SOAP::Utils;            # TclSOAP
 package require SOAP::Schema;           # TclSOAP 1.6.7
 
-namespace eval SOAP::WSDL {
+namespace eval ::SOAP::WSDL {
     variable version 1.0
-    variable rcsid {$Id: WSDL.tcl,v 1.1.2.5 2003/02/01 00:34:36 patthoyts Exp $}
+    variable rcsid {$Id: WSDL.tcl,v 1.1.2.6 2003/02/04 01:56:55 patthoyts Exp $}
     variable logLevel debug #warning
     
     #namespace export 
@@ -41,7 +41,7 @@ namespace eval SOAP::WSDL {
     }
 }
 
-proc SOAP::WSDL::parse {doc} {
+proc ::SOAP::WSDL::parse {doc} {
     variable URI
     variable output
 
@@ -54,7 +54,7 @@ proc SOAP::WSDL::parse {doc} {
     return [namespace which -variable output]
 }
 
-proc SOAP::WSDL::parse_definitions {Node} {
+proc ::SOAP::WSDL::parse_definitions {Node} {
     variable URI
     variable types
     variable messages
@@ -92,7 +92,7 @@ proc SOAP::WSDL::parse_definitions {Node} {
 }
 
 # Parse a single service definition
-proc SOAP::WSDL::parse_service {defNode serviceNode} {
+proc ::SOAP::WSDL::parse_service {defNode serviceNode} {
     variable types
 
     set serviceName [getElementAttribute $serviceNode name]   
@@ -109,7 +109,7 @@ proc SOAP::WSDL::parse_service {defNode serviceNode} {
     return 0
 }
 
-proc SOAP::WSDL::parse_port {defNode portNode} {
+proc ::SOAP::WSDL::parse_port {defNode portNode} {
     set portName [baseElementName [getElementAttribute $portNode name]]
     set portBinding [baseElementName [getElementAttribute $portNode binding]]
 #    log::log debug "port name=$portName binding=$portBinding"
@@ -135,7 +135,7 @@ proc SOAP::WSDL::parse_port {defNode portNode} {
     return 0
 }
 
-proc SOAP::WSDL::parse_binding {defNode bindingNode} {
+proc ::SOAP::WSDL::parse_binding {defNode bindingNode} {
     # interested in binding style, transport and the operation tags.
     variable portTypes
     variable messages
@@ -190,7 +190,7 @@ proc SOAP::WSDL::parse_binding {defNode bindingNode} {
     return 0
 }
 
-proc SOAP::WSDL::parse_message {definitionsNode messageNode arrayName} {
+proc ::SOAP::WSDL::parse_message {definitionsNode messageNode arrayName} {
     upvar $arrayName messages
     set name [getElementAttribute $messageNode name]
     set params {}
@@ -204,7 +204,7 @@ proc SOAP::WSDL::parse_message {definitionsNode messageNode arrayName} {
     return 0
 }
 
-proc SOAP::WSDL::parse_portType {definitionsNode portTypeNode arrayName} {
+proc ::SOAP::WSDL::parse_portType {definitionsNode portTypeNode arrayName} {
     upvar $arrayName portTypes
     foreach opNode [getElementsByName $portTypeNode operation] {
         set opName [qualify $opNode [getElementAttribute $opNode name]]
@@ -224,7 +224,7 @@ proc SOAP::WSDL::parse_portType {definitionsNode portTypeNode arrayName} {
     return 0
 }
 
-proc SOAP::WSDL::parse_types {definitionsNode typesNode} {
+proc ::SOAP::WSDL::parse_types {definitionsNode typesNode} {
     variable types
     foreach schemaNode [getElementsByName $typesNode schema] {
         set t [::SOAP::Schema::parse $schemaNode]
@@ -235,15 +235,15 @@ proc SOAP::WSDL::parse_types {definitionsNode typesNode} {
     }
 }
 
-proc SOAP::WSDL::qualifyNodeName {node} {
+proc ::SOAP::WSDL::qualifyNodeName {node} {
     return [namespaceURI $node]:[getElementName $node]
 }
 
-proc SOAP::WSDL::qualifyTarget {node what} {
+proc ::SOAP::WSDL::qualifyTarget {node what} {
     return [qualify $node $what 1]
 }
 
-proc SOAP::WSDL::qualify {node name {target 0}} {
+proc ::SOAP::WSDL::qualify {node name {target 0}} {
     set ndx [string last : $name]
     set nodeNS [string trimright [string range $name 0 $ndx] :]
     set nodeBase [string trimleft [string range $name $ndx end] :]
@@ -252,14 +252,16 @@ proc SOAP::WSDL::qualify {node name {target 0}} {
     return $nodeNS:$nodeBase
 }
 
-proc SOAP::WSDL::baseName {qualName} {
+proc ::SOAP::WSDL::baseName {qualName} {
     return [lindex [split $qualName :] end]
 }
 
-proc SOAP::WSDL::output {what} {
+proc ::SOAP::WSDL::output {what} {
     variable output
     append output $what "\n"
 }
+
+# -------------------------------------------------------------------------
 
 package provide SOAP::WSDL $SOAP::WSDL::version
 

@@ -2,7 +2,8 @@
 #             transport to enable SSL support.  Original copyright
 #             follows:
 #
-# http.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+# Copyright (C) 2002 David Bleicher
+# Copyright (C) 2001 Pat Thoyts <patthoyts@users.sourceforge.net>
 #
 # The SOAP HTTPS Transport.
 #
@@ -16,14 +17,12 @@
 package require http;                   # tcl
 package require tls;			# Required for SSL support
 
-namespace eval SOAP::Transport::https {
+namespace eval ::SOAP::Transport::https {
     variable version 1.0
-    variable rcsid {$Id: https.tcl,v 1.1 2002/03/26 23:35:41 patthoyts Exp $}
+    variable rcsid {$Id: https.tcl,v 1.1.2.1 2002/10/01 22:36:26 patthoyts Exp $}
     variable options
 
-    package provide SOAP::https $version
-
-    SOAP::register https [namespace current]
+    ::SOAP::register https [namespace current]
 
     # Initialize the transport options.
     if {![info exists options]} {
@@ -62,7 +61,7 @@ namespace eval SOAP::Transport::https {
 #       the header name and value eg: [list Cookie $cookiedata]
 # -timeout - the method can override the transport defined http timeout.
 #       Set to {} to use the transport timeout, 0 for infinity.
-proc SOAP::Transport::https::method:configure {procVarName opt value} {
+proc ::SOAP::Transport::https::method:configure {procVarName opt value} {
     upvar $procVarName procvar
     switch -glob -- $opt {
         -httpheaders {
@@ -73,7 +72,7 @@ proc SOAP::Transport::https::method:configure {procVarName opt value} {
         }
         default {
             # not reached.
-            error "unknown option \"$opt\""
+            return -code error "unknown option \"$opt\""
         }
     }
 }
@@ -83,7 +82,7 @@ proc SOAP::Transport::https::method:configure {procVarName opt value} {
 # Description:
 #  Configure any https transport specific settings.
 #
-proc SOAP::Transport::https::configure {args} {
+proc ::SOAP::Transport::https::configure {args} {
     variable options
 
     if {[llength $args] == 0} {
@@ -103,7 +102,7 @@ proc SOAP::Transport::https::configure {args} {
                 set options(headers) $value
             }
             default {
-                error "invalid option \"$opt\":\
+                return -code error "invalid option \"$opt\":\
                       must be \"-proxy host:port\" or \"-headers list\""
             }
         }
@@ -114,19 +113,19 @@ proc SOAP::Transport::https::configure {args} {
 #  Configure any TLS sepcific parameters (e.g. certificate location)
 #  Pass any values received to the "::tls::init" proceure
 #  --Added by David Bleicher 26/03/02
-proc SOAP::Transport::https::tlsConfigure {args} {
-	set validopts [list -cafile -cadir -certfile -cipher -command -keyfile \
-			    -model -request -require -server -ssl2 -ssl3 -tls1]
-	set tlsoptslist "::tls::init"
-	foreach {opt value} $args {
-		if {[lsearch $validopts $opt] == -1} {
-			error "Invalid option \"$opt\" (valid options are: $validopts)\n"
-		}
-		lappend tlsoptslist $opt $value
-	}
-	eval $tlsoptslist
+proc ::SOAP::Transport::https::tlsConfigure {args} {
+    set validopts [list -cafile -cadir -certfile -cipher -command -keyfile \
+                       -model -request -require -server -ssl2 -ssl3 -tls1]
+    set tlsoptslist "::tls::init"
+    foreach {opt value} $args {
+        if {[lsearch $validopts $opt] == -1} {
+            return -code error "Invalid option \"$opt\"\
+                            (valid options are: $validopts)\n"
+        }
+        lappend tlsoptslist $opt $value
+    }
+    eval $tlsoptslist
 }
-
 
 
 # -------------------------------------------------------------------------
@@ -151,7 +150,7 @@ proc SOAP::Transport::https::tlsConfigure {args} {
 #   been configured to be asynchronous then the async handler is called
 #   once the http request completes.
 #
-proc SOAP::Transport::https::xfer { procVarName url request } {
+proc ::SOAP::Transport::https::xfer { procVarName url request } {
     variable options
     upvar $procVarName procvar
     
@@ -243,12 +242,13 @@ proc SOAP::Transport::https::xfer { procVarName url request } {
     # Some other sort of error ...
     switch -exact -- [::http::status $token] {
         timeout {
-            error "error: SOAP https transport timed out after $timeout ms"
+            return -code error "error: SOAP https transport timed out\
+                after $timeout ms"
         }
         ok {
         }
         default {
-            error "SOAP transport error: \"[::http::code $token]\""
+            return -code error "SOAP transport error: \"[::http::code $token]\""
         }
     }
 
@@ -275,7 +275,7 @@ proc ::http::geturl_followRedirects {url args} {
         set url $meta(Location)
         unset meta
     }
-    error "maximum relocation depth reached: site loop?"
+    return -code error "maximum relocation depth reached: site loop?"
 }
 
 
@@ -283,7 +283,7 @@ proc ::http::geturl_followRedirects {url args} {
 
 # Description:
 #    Asynchronous http handler command.
-proc SOAP::Transport::https::asynchronous {procVarName token} {
+proc ::SOAP::Transport::https::asynchronous {procVarName token} {
     upvar $procVarName procvar
 
     if {[catch {asynchronous2 $procVarName $token} msg]} {
@@ -299,13 +299,13 @@ proc SOAP::Transport::https::asynchronous {procVarName token} {
     return $msg
 }
 
-proc SOAP::Transport::https::asynchronous2 {procVarName token} {
+proc ::SOAP::Transport::https::asynchronous2 {procVarName token} {
     upvar $procVarName procvar
     set procName [lindex [split $procVarName {_}] end]
 
     # Some other sort of error ...
     if {[::http::status $token] != "ok"} {
-         error "SOAP transport error: \"[::http::code $token]\""
+         return -code error "SOAP transport error: \"[::http::code $token]\""
     }
 
     set reply [::http::data $token]
@@ -329,7 +329,7 @@ proc SOAP::Transport::https::asynchronous2 {procVarName token} {
 #   The proxy variable in this namespace is set up by 
 #   SOAP::configure -transport http.
 #
-proc SOAP::Transport::https::filter {host} {
+proc ::SOAP::Transport::https::filter {host} {
     variable options
     if { [string match "localhost*" $host] \
              || [string match "127.*" $host] } {
@@ -345,7 +345,7 @@ proc SOAP::Transport::https::filter {host} {
 #   calls.
 # Parameters:
 #
-proc SOAP::Transport::https::wait {procVarName} {
+proc ::SOAP::Transport::https::wait {procVarName} {
     upvar $procVarName procvar
     http::wait $procvar(http)
 }
@@ -357,7 +357,7 @@ proc SOAP::Transport::https::wait {procVarName} {
 # Parameters:
 #  methodVarName - the name of the SOAP method configuration array
 #
-proc SOAP::Transport::https::method:destroy {methodVarName} {
+proc ::SOAP::Transport::https::method:destroy {methodVarName} {
     upvar $methodVarName procvar
     if {[info exists procvar(http)] && $procvar(http) != {}} {
         catch {::http::cleanup $procvar(http)}
@@ -366,14 +366,15 @@ proc SOAP::Transport::https::method:destroy {methodVarName} {
 
 # -------------------------------------------------------------------------
 
-proc SOAP::Transport::https::dump {methodName type} {
+proc ::SOAP::Transport::https::dump {methodName type} {
     SOAP::cget $methodName proxy
     if {[catch {SOAP::cget $methodName http} token]} {
         set token {}
     }
 
     if { $token == {} } {
-        error "cannot dump: no information is available for \"$methodName\""
+        return -code error "cannot dump: no information is available\
+            for \"$methodName\""
     }
 
     set result {}
@@ -383,13 +384,17 @@ proc SOAP::Transport::https::dump {methodName type} {
         -req*   {set result [lindex [array get $token -query] 1]}
         -rep*   {set result [::http::data $token]}
         default {
-            error "unrecognised option: must be one of \
+            return -code error "unrecognised option: must be one of \
                     \"-meta\", \"-request\" or \"-reply\""
         }
     }
 
     return $result
 }
+
+# -------------------------------------------------------------------------
+
+package provide SOAP::https $::SOAP::Transport::https::version
 
 # -------------------------------------------------------------------------
 # Local variables:
