@@ -43,7 +43,7 @@ namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.43 2002/02/02 00:29:16 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.44 2002/02/26 22:58:47 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -862,7 +862,12 @@ proc SOAP::soap_request {procVarName args} {
 
     # The set of namespaces depends upon the SOAP encoding as specified by
     # the encoding option and the user specified set of relevant schemas.
-    foreach {nsname url} [rpcvar::default_schemas $soapenc] {
+    foreach {nsname url} [concat \
+                              [rpcvar::default_schemas $soapenc] \
+                              $procvar(schemas)] {
+        if {! [string match "xmlns:*" $nsname]} {
+            set nsname "xmlns:$nsname"
+        }
         dom::element setAttribute $envx $nsname $url
     }
 

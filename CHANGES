@@ -1,5 +1,10 @@
 * TclSOAP 1.6.4+
 ----------------
+
+** Fixed missing '-schemas' option
+   The '-schemas' option is supposed to add additional attributes to
+   the Envelope element but was not done. 
+
 ** Update beep.tcl for RFC 3288
    SF Patch #584390 by M Rose updates the beep transport for the RFC.
 
