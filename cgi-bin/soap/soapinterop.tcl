@@ -43,7 +43,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: soapinterop.tcl,v 1.1 2001/08/03 21:35:41 patthoyts Exp $
+# @(#)$Id: soapinterop.tcl,v 1.2 2001/08/28 23:14:01 patthoyts Exp $
 
 package require SOAP
 package require rpcvar
@@ -97,10 +97,10 @@ namespace eval http://soapinterop.org/ {
 	set headerNode [uplevel 2 set headerNode]
 
 	if {$headerNode != {}} {
-	    if {[set node [lindex [dom::element getElementsByTagName \
-				       $headerNode "echoMeStringRequest"] 0]] != {}} {
+	    if {[set node [lindex \
+		    [SOAP::selectNode $headerNode "echoMeStringRequest"]\
+		    0]] != {}} {
 		set actor [SOAP::getElementAttribute $node actor]
-		puts "echoVoid actor: $actor"
 		if {$actor == {} || \
 			[string match $actor "http://schemas.xmlsoap.org/soap/actor/next"] != 0} {
 		    if {[string match "http://soapinterop.org/echoheader/" [SOAP::namespaceURI $node]]} {

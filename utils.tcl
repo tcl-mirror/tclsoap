@@ -13,7 +13,7 @@ package provide SOAP::Utils 1.0
 
 namespace eval SOAP {
     namespace eval Utils {
-        variable rcsid {$Id: utils.tcl,v 1.4 2001/08/28 22:51:26 patthoyts Exp $}
+        variable rcsid {$Id: utils.tcl,v 1.5 2001/10/04 22:25:58 patthoyts Exp $}
         namespace export getElements \
                 getElementValue getElementName \
                 getElementValues getElementNames \
@@ -104,7 +104,7 @@ proc SOAP::Utils::decomposeSoap {domElement} {
 	    }
 	} else {
 	    foreach child $child_elements {
-		lappend result [getElementName $child] [decomposeSoap $child]
+		lappend result [nodeName $child] [decomposeSoap $child]
 	    }
 	}
     }
@@ -387,10 +387,12 @@ proc SOAP::Utils::getElementAttribute {node attrname} {
 # Notes:
 #  The TclDOM 2.0 package provides a -namespaceURI option. The C code module
 #  does not, so we have the second chunk of code.
+#  The hasFeature method doesn't seem to provide information about this
+#  but the versions that support 'query' seem to have the namespaceURI
+#  method so we'll use this test for now.
 #
 proc SOAP::Utils::namespaceURI {node} {
-    catch {package require dom} domVersion
-    if {$domVersion >= 2.0} {
+    if {[dom::DOMImplementation hasFeature query 1.0]} {
         return [dom::node cget $node -namespaceURI]
     } else {
         set nodeName [dom::node cget $node -nodeName]

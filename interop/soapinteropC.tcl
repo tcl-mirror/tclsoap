@@ -11,7 +11,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id$
+# @(#)$Id: soapinteropC.tcl,v 1.1 2001/08/28 22:43:20 patthoyts Exp $
 
 package require -exact soapinterop::base 1.0
 package provide soapinterop::C 1.0
@@ -21,7 +21,7 @@ namespace eval soapinterop {
 
 proc soapinterop::round2:proposalC {proxy} {
     validate.echoMeStringRequest $proxy
-    validate.echoMeStructrequest $proxy
+    validate.echoMeStructRequest $proxy
 }
 
 proc soapinterop::validate.echoMeStringRequest {proxy} {

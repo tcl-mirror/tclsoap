@@ -36,7 +36,7 @@ if {[catch {
 namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
-    variable rcs_version { $Id: SOAP.tcl,v 1.31 2001/08/29 00:08:01 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.32 2001/10/04 22:30:19 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -434,8 +434,8 @@ proc SOAP::Transport::http::xfer { procVarName url request } {
     if { $action != {} } { 
         set action [string trim $action "\""]
         set action "\"$action\""
+        lappend local_headers "SOAPAction" $action
     }
-    lappend local_headers "SOAPAction" $action
 
     # cleanup the last http request
     if { [set [subst $procVarName](http)] != {} } {
