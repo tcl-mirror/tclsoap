@@ -13,7 +13,7 @@ package provide SOAP::Utils 1.0
 
 namespace eval SOAP {
     namespace eval Utils {
-        variable rcsid {$Id: utils.tcl,v 1.3 2001/08/24 21:59:59 patthoyts Exp $}
+        variable rcsid {$Id: utils.tcl,v 1.4 2001/08/28 22:51:26 patthoyts Exp $}
         namespace export getElements \
                 getElementValue getElementName \
                 getElementValues getElementNames \
@@ -38,15 +38,14 @@ namespace eval SOAP {
 #   if no match.
 #
 proc SOAP::Utils::selectNode {node path} {
-    catch {package require dom} domVersion
-    if {$domVersion < 2.0} {
+    if {[dom::DOMImplementation hasFeature query 1.0]} {
+        return [dom::DOMImplementation selectNode $node $path]
+    } else {
 	package require SOAP::xpath
         if {[catch {SOAP::xpath::xpath -node $node $path} r]} {
             set r {}
         }
         return $r
-    } else {
-        return [dom::DOMImplementation selectNode $node $path]
     }
 }
 
@@ -87,6 +86,7 @@ proc SOAP::Utils::is_array {domElement} {
 
 # -------------------------------------------------------------------------
 
+# Break down a SOAP packet into a Tcl list of the data.
 proc SOAP::Utils::decomposeSoap {domElement} {
     set result {}
 
@@ -122,6 +122,8 @@ proc SOAP::Utils::decomposeXMLRPC {domElement} {
     }
     return $result
 }
+
+# -------------------------------------------------------------------------
 
 proc SOAP::Utils::getXMLRPCValue {value_elt} {
     set value {}
@@ -186,7 +188,6 @@ proc SOAP::Utils::getElements {domNode} {
 # Result:
 #   Returns a value or a list of values.
 #
-
 proc SOAP::Utils::getElementValues {domElement} {
     set result {}
     if {$domElement != {}} {
@@ -201,6 +202,8 @@ proc SOAP::Utils::getElementValues {domElement} {
     }
     return $result
 }
+
+# -------------------------------------------------------------------------
 
 proc SOAP::Utils::getElementValuesList {domElement} {
     set result {}
@@ -227,7 +230,7 @@ proc SOAP::Utils::getElementNames {domElement} {
             set result [getElementName $domElement]
         } else {
             foreach node $nodes {
-                lappend result [getElementNames $node]
+                lappend result [getElementName $node]
             }
         }
     }
@@ -280,9 +283,16 @@ proc SOAP::Utils::getElementValue {domElement} {
     return $r
 }
 
-# Get the name of the current proc
-# from http://purl.org/thecliff/tcl/wiki/526.html
-proc SOAP::Utils::proc:name {} {lindex [info level -1] 0} 
+# -------------------------------------------------------------------------
+
+# Description:
+#   Get the name of the current proc
+#   - from http://purl.org/thecliff/tcl/wiki/526.html
+proc SOAP::Utils::proc:name {} {
+    lindex [info level -1] 0
+} 
+
+# -------------------------------------------------------------------------
 
 proc SOAP::Utils::href {node} {
     set a [dom::node cget $node -attributes]
@@ -291,6 +301,8 @@ proc SOAP::Utils::href {node} {
     }
     return {}
 }
+
+# -------------------------------------------------------------------------
 
 proc SOAP::Utils::id {node} {
     set a [dom::node cget $node -attributes]
@@ -304,6 +316,8 @@ proc SOAP::Utils::id {node} {
 proc SOAP::Utils::getElementName {domElement} {
     return [dom::node cget $domElement -nodeName]
 }
+
+# -------------------------------------------------------------------------
 
 proc SOAP::Utils::getElementAttributes {domElement} {
     set attr [dom::node cget $domElement -attributes]
