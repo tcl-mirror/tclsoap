@@ -28,6 +28,10 @@ if {[catch {package require SOAP::dom 1.0} ::SOAP::domVersion]} {
         }
         package require SOAP::xpath;    # TclSOAP
     }
+    proc ::SOAP::createDocument {name} {
+        set doc [dom::DOMImplementation create]
+        return [dom::document createElement $doc $name]
+    }
 }
 
 # -------------------------------------------------------------------------
@@ -35,7 +39,7 @@ if {[catch {package require SOAP::dom 1.0} ::SOAP::domVersion]} {
 namespace eval ::SOAP {
     variable version 1.6.6
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.44.2.3 2003/01/26 01:14:06 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.44.2.4 2003/02/01 00:37:24 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.

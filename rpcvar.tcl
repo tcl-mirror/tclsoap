@@ -20,7 +20,7 @@ package provide rpcvar 1.2
 namespace eval rpcvar {
     variable version 1.2
     variable magic "rpcvar$version"
-    variable rcs_id {$Id: rpcvar.tcl,v 1.12 2002/09/23 23:49:04 patthoyts Exp $}
+    variable rcs_id {$Id: rpcvar.tcl,v 1.9.2.1 2002/10/01 22:36:26 patthoyts Exp $}
     variable typedefs
     variable typens
     variable enums
@@ -464,6 +464,109 @@ proc rpcvar::init_builtins {} {
 # have to be fully specified
 if {! [info exists rpcvar::typedefs]} {
     rpcvar::init_builtins
+}
+
+
+# -------------------------------------------------------------------------
+# -------------------------------------------------------------------------
+namespace eval types {
+    variable types
+    namespace export typedef
+}
+
+proc types::typedef {args} {
+    variable types
+    array set opts {namespace {}}
+    while {[string match -* [set option [lindex $args 0]]]} {
+        switch -glob -- $option {
+            -n* { set opts(namespace) [Pop args 1] }
+            -ex* {
+                set typename [lindex $args 1]
+                if {[string length $opts(namespace)] > 0} {
+                    set typename $opts(namespace):$typename
+                }
+                return [info exists types($typename)]
+            }
+            -i* {
+                set typename [lindex $args 1]
+                if {[string length $opts(namespace)] > 0} {
+                    set typename $opts(namespace):$typename
+                }
+                if {[catch {set types($typename)} typeinfo]} {
+                    set typeinfo {}
+                }
+                return $typeinfo
+            }
+            -- { Pop args ; break }
+            default {
+                set options [join [lsort [array names opts]] ", -"]
+                return -code error "bad option $option:\
+                    must be one of -$options"
+            }
+        }
+        Pop args
+    }
+    
+    if {[llength $args] != 2} {
+        return -code error "wrong # args: should be \
+                \"typedef ?-namespace uri? ?-enum? typelist typename\n\
+                \                     or \"typedef ?-exists? ?-info? typename\""
+    }
+
+    set typelist [lindex $args 0]
+    set typename [lindex $args 1]
+
+    set types($opts(namespace):$typename) $typelist
+}
+
+proc types::SetupBuiltins {} {
+    # The xsi types from http://www.w3.org/TR/xmlschema-2/ section 3.2 & 3.3
+    # the uri's for these are http://www.w3.org/2001/XMLSchema#int etc
+    set xsd2001 [list \
+            string normalizedString boolean decimal integer float double \
+            duration dateTime time date gYearMonth gYear gMonthDay gDay \
+            gMonth hexBinary base64Binary anyURI QName NOTATION \
+            token language NMTOKEN NMTOKENS Name NCName ID IDREF IDREFS \
+            ENTITY ENTITIES nonPositiveInteger negativeInteger long int \
+            short byte nonNegativeInteger unsignedLong unsignedInt \
+            unsignedShort unsignedByte positiveInteger anyType anySimpleType]
+    foreach type $xsd2001 {
+        typedef -namespace http://www.w3.org/2001/XMLSchema $type $type
+    }
+    
+    # The SOAP 1.1 encoding: uri = http://www.w3.org/1999/XMLSchema
+    set xsd1999 [list \
+            string boolean float double decimal timeDuration \
+            recurringDuration binary uriReference ID IDREF ENITY NOTATION \
+            QName language IDREFS ENTITIES NMTOKEN NMTOKENS Name NCName \
+            integer nonPositiveInteger negativeInteger long int short byte \
+            nonNegativeInteger unsignedLong unsignedInt unsignedShort \
+            unsignedByte positiveInteger timeInstant time timePeriod date \
+            month year century recurringDate recurringDay]
+    foreach type $xsd1999 {
+        typedef -namespace http://www.w3.org/1999/XMLSchema $type $type
+    }
+
+    # SOAP 1.1 encoding: uri = http://schemas.xmlsoap.org/soap/encoding/
+    set soapenc [list \
+            arrayCoordinate Array Struct base64 string boolean float double \
+            decimal timeDuration recurringDuration binary uriReference ID \
+            IDREF ENTITY NOTATION QName language IDREFS ENTITIES NMTOKEN \
+            NMTOKENS Name NCName integer nonPositiveInteger negativeInteger \
+            long int short byte nonNegativeInteger unsignedLong unsignedShort \
+            unsignedByte positiveInteger timeInstant time timePeriod date \
+            month year century recurringDate recurringDay ur-type]
+    foreach type $soapenc {
+        typedef -namespace http://schemas.xmlsoap.org/soap/encoding/ \
+            $type $type
+    }
+}
+
+proc types::Pop {varname {nth 0}} {
+    upvar $varname args
+    set r [lindex $args $nth]
+    set args [lreplace $args $nth $nth]
+    return $r
 }
 
 # -------------------------------------------------------------------------

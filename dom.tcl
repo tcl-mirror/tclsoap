@@ -12,8 +12,8 @@
 
 package require tdom
 
-namespace eval SOAP::dom {
-    variable rcsid {$Id: dom.tcl,v 1.1.2.1 2002/12/10 23:14:25 patthoyts Exp $}
+namespace eval ::SOAP::dom {
+    variable rcsid {$Id: dom.tcl,v 1.1.2.2 2003/02/01 00:37:24 patthoyts Exp $}
     variable version 1.0
 
     namespace export DOMImplementation document node element \
@@ -25,7 +25,13 @@ namespace eval SOAP::dom {
     }
 }
 
-proc SOAP::dom::DOMImplementation {method args} {
+# create a DOM document with a named root element.
+# Must return a document object
+proc ::SOAP::createDocument {name} {
+    return [dom createDocument $name]
+}
+
+proc ::SOAP::dom::DOMImplementation {method args} {
     switch -glob -- $method {
         hasFeature {
             # bool hasFeature(String feature, String version)
@@ -53,7 +59,7 @@ proc SOAP::dom::DOMImplementation {method args} {
     }
 }
 
-proc SOAP::dom::document {method token args} {
+proc ::SOAP::dom::document {method token args} {
     switch -glob -- $method {
         
         cget {
@@ -111,7 +117,7 @@ proc SOAP::dom::document {method token args} {
     }
 }
 
-proc SOAP::dom::node {method token args} {
+proc ::SOAP::dom::node {method token args} {
     switch -glob -- $method {
 	cg* {error "cget notimpl"}
 	co* {error "configure notimpl"}
@@ -130,7 +136,7 @@ proc SOAP::dom::node {method token args} {
     }
 }
 
-proc SOAP::dom::element {method token args} {
+proc ::SOAP::dom::element {method token args} {
     switch -glob -- $method {
 	default {
 	    return -code error "not implmented"
@@ -138,7 +144,7 @@ proc SOAP::dom::element {method token args} {
     }
 }
 
-proc SOAP::dom::processinginstruction {method token args} {
+proc ::SOAP::dom::processinginstruction {method token args} {
     switch -- $method {
         cget {
             set prop [lindex $args 0]
@@ -160,7 +166,9 @@ proc SOAP::dom::processinginstruction {method token args} {
     }
 }
 
-package provide SOAP::dom $SOAP::dom::version
+# -------------------------------------------------------------------------
+
+package provide ::SOAP::dom $SOAP::dom::version
 
 # -------------------------------------------------------------------------
 

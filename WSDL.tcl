@@ -14,10 +14,11 @@
 package require log;                    # tcllib 1.0
 package require uri;                    # tcllib 1.0
 package require SOAP::Utils;            # TclSOAP
+package require SOAP::Schema;           # TclSOAP 1.6.7
 
 namespace eval SOAP::WSDL {
     variable version 1.0
-    variable rcsid {$Id: WSDL.tcl,v 1.1.2.4 2003/01/24 01:03:05 patthoyts Exp $}
+    variable rcsid {$Id: WSDL.tcl,v 1.1.2.5 2003/02/01 00:34:36 patthoyts Exp $}
     variable logLevel debug #warning
     
     #namespace export 
@@ -67,7 +68,7 @@ proc SOAP::WSDL::parse_definitions {Node} {
 
     array set types {}
     foreach typeNode [getElementsByName $Node types] {
-        parse_types $Node $typeNode types
+        parse_types $Node $typeNode
     }
 
     array set messages {}
@@ -92,8 +93,14 @@ proc SOAP::WSDL::parse_definitions {Node} {
 
 # Parse a single service definition
 proc SOAP::WSDL::parse_service {defNode serviceNode} {
+    variable types
+
     set serviceName [getElementAttribute $serviceNode name]   
     output "namespace eval $serviceName {"
+
+    foreach type [array names types] {
+        output "typedef $types($type) $type"
+    }
 
     foreach portNode [getElementsByName $serviceNode port] {
         parse_port $defNode $portNode
@@ -217,48 +224,14 @@ proc SOAP::WSDL::parse_portType {definitionsNode portTypeNode arrayName} {
     return 0
 }
 
-proc SOAP::WSDL::parse_types {definitionsNode typesNode arrayName} {
-    upvar $arrayName types
+proc SOAP::WSDL::parse_types {definitionsNode typesNode} {
+    variable types
     foreach schemaNode [getElementsByName $typesNode schema] {
-        foreach typeNode [getElements $schemaNode] {
-            # now shift to XML schema parser...
-            switch -exact -- [set def [getElementName $typeNode]] {
-                complexType { parse_complexType $typeNode $arrayName}
-                simpleType { parse_simpleType $typeNode $arrayName }
-                default {
-                    log::log warning "unrecognised schema type:\
-                        \"$def\" not handled"
-                }
-            }
+        set t [::SOAP::Schema::parse $schemaNode]
+        foreach typedef $t {
+            foreach {typelist typename} $typedef {}
+            set types($typename) $typelist
         }
-    }
-    return 0
-}
-
-proc SOAP::WSDL::parse_simpleType {typeNode arrayName} {
-    set typeName [getElementAttribute $typeNode name]
-    log::log debug "simpleType $typeName"
-}
-
-proc SOAP::WSDL::parse_complexType {typeNode arrayName} {
-    set typeName [getElementAttribute $typeNode name]
-    log::log debug "complexType $typeName"
-
-    foreach contentNode [getElements $typeNode] {
-        switch -exact -- [set contentName [getElementName $contentNode]] {
-            all { xsd:content $contentNode arrayName }
-            sequence { log::log debug "content sequence" }
-            choice { log::log debug "content choice" }
-            complexContent {log::log debug "content complex" }
-            attribute { log::log debug "content attribute" }
-            default { log::log warning "unrecognised node \"$contentName\""}
-        }
-    }
-}
-
-proc SOAP::WSDL::xsd:content {contentNode arrayname} {
-    foreach elt [getElements $contentNode] {
-        # must recurse (could be all, sequence or choice again.)
     }
 }
 

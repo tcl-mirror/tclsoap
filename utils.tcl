@@ -13,14 +13,15 @@ package provide SOAP::Utils 1.0
 
 namespace eval SOAP {
     namespace eval Utils {
-        variable rcsid {$Id: utils.tcl,v 1.7.2.1 2002/11/08 00:35:12 patthoyts Exp $}
+        variable rcsid {$Id: utils.tcl,v 1.7.2.2 2002/11/20 01:13:42 patthoyts Exp $}
         namespace export getElements getElementsByName \
                 getElementValue getElementName \
                 getElementValues getElementNames \
                 getElementNamedValues \
                 getElementAttributes getElementAttribute \
                 decomposeSoap decomposeXMLRPC selectNode \
-                namespaceURI nodeName baseElementName
+                namespaceURI targetNamespaceURI \
+                nodeName baseElementName
     }
 }
 
