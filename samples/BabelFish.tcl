@@ -34,7 +34,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id$
+# @(#)$Id: BabelFish.tcl,v 1.1.2.1 2003/02/04 01:56:55 patthoyts Exp $
 
 package require SOAP
 package require http
@@ -78,8 +78,15 @@ if {[catch {package require SOAP::WSDL}]} {
     eval [set $impl]
     
     # Fixup the parameters (the rpcvar package needs to be enhanced for this)
-    SOAP::configure BabelFishService::BabelFish \
-        -params {translationmode string sourcedata string}
+    set schema {http://www.w3.org/2001/XMLSchema}
+    foreach cmd [info commands ::BabelFishService::*] {
+        set fixed {}
+        foreach {param type} [SOAP::cget $cmd -params] {
+            set type [regsub "${schema}:" $type {}]
+            lappend fixed $param $type
+        }
+        SOAP::configure $cmd -params $fixed -schemas [list xsd $schema]
+    }
 }
 
 
@@ -93,8 +100,7 @@ if {!$::tcl_interactive} {
         }
         
         set r [BabelFishService::BabelFish \
-                   [lindex $argv 0] \
-                   [concat [lrange $argv 1 end]]]
+                   [lindex $argv 0] [lindex $argv 1]]
         puts $r
     }
 }
