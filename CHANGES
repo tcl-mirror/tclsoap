@@ -3,11 +3,21 @@ TclSOAP 1.4
 
 Added XML-RPC support using the same interface as that for SOAP methods.
 
+Added XMLRPC::Domain package corresponding to the SOAP::Domain package
+to provide a framework for XML-RPC services under the tclhttpd web
+server.
+
+Added XMLRPC::TypedVariable package to enable service writers to
+provide type information back to the XML-RPC framework. This should be
+extended to the SOAP package soon.
+
 Added -replyProc and -postProc options the the SOAP::configure
 command.  These enable post-processing of the raw XML reply
 (-replyProc) or the parsed reply (-postProc) via a specified procedure.
 
 Added tests to soap.test for the post-processing feature.
+
+Added more extensive comments to the source code.
 
 TclSOAP 1.3
 -----------

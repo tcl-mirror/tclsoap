@@ -1,0 +1,111 @@
+<!doctype HTML public "-//W3O//DTD W3 HTML 2.0//EN">
+  <head>
+    <title>XML-RPC URL Domain Package for TclHTTPD</title>
+    <meta http-equiv="Description" name="Description"
+      content="XML-RPC package for Tcl. Provides remote procedure calls
+      using the XML-RPC protocol over HTTP." />
+    <meta http-equiv="Keywords" name="Keywords"
+      content="Tcl,XML-RPC,SOAP,Simple Object Access Protocol,XML,tclHTTPD" />
+  </head>
+
+  <body bgcolor="white" text="black">
+
+  <!-- ----------------------------------------------------------------- -->
+
+  <img src="tclsoap.gif" alt="TclSOAP Logo" align="bottom" border="0" />
+  <p><h1 align="center">Tcl XML-RPC Server Utility Package</h1></p>
+  <hr noshade="noshade" size="2" />
+
+  <!-- ----------------------------------------------------------------- -->
+
+      <p>The <tt>XMLRPC::Domain</tt> package provides a wrapper enabling the
+	simple use of Tcl procedures as XML-RPC methods. This package is
+	almost identical to the 
+	<a href="SOAPURLDomain.html"><tt>SOAP::Domain</tt></a>
+	package as can be seen by the following example of the
+	<tt>square</tt> method, here implemented over XML-RPC instead
+	of SOAP:</p>
+
+    <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
+           bgcolor="#c0c0c0"><tr><td align="left"><pre>
+package require XMLRPC::Domain
+XMLRPC::Domain::register -prefix /rpc -namespace zsplat::RPC
+
+proc zsplat::RPC::/square {num} {
+    if { [catch {expr $num + 0}] } {
+        error "parameter num must be a number"
+    }
+    return [expr $num * $num]
+}
+  </pre></td></tr></table>
+
+  <p>The only significant difference between the XMLRPC and the SOAP
+    Domain packages is that the XML-RPC version supports a method for
+    providing hints to the framework about the type of the result of
+    the users procedure. Here is an example of a procedure that
+    returns an XML-RPC dateTime.iso8601 result:
+
+  <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
+      bgcolor="#c0c0c0"><tr><td align="left"><pre>
+package require XMLRPC::TypedVariable
+
+proc zsplat::RPC::/time {} {
+    set result [clock format [clock seconds] -format {%Y%m%dT%H:%M:%S}]
+    set result [XMLRPC::TypedVariable::create dateTime.iso8601 $result]
+    return $result
+}
+  </pre></td></tr></table>
+
+    The result here is initially a string formatted in the iso8601
+    point in time format. As there is no real way for Tcl to distinguish
+    between this string and a non-date string we have to provide a
+    hint so that the XML-RPC reply has the correct type
+    information.</p>
+
+  <p>For simple types: int, double, string the framework can guess the 
+    correct type. For other types, you will need to return a
+    TypedVariable as the result.</p>
+
+  <p>A more significant example of this is a method returning an
+    array:
+  <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
+      bgcolor="#c0c0c0"><tr><td align="left"><pre>
+proc zsplat::RPC::/sort {args} {
+    eval set n $args
+    set result [lsort $n]
+    set result [XMLRPC::TypedVariable::create array $result]
+    return $result
+}
+  </pre></td></tr></table>
+ 
+    Here, we are returning an array of sorted elements. The type of
+    each element will have to be guessed by the framework as the
+    elements themselves are not TypedVariables.</p>
+
+  <p>XML-RPC supports <tt>struct</tt> results as well as arrays. This
+    is supported from Tcl as Tcl arrays. The struct element name is
+    set from the array element name.</p>
+
+  <p>For more details about writing services look at the
+    <a href="SOAPURLDomain.html"><tt>SOAP::Domain</tt></a>
+    documentation.</p>
+
+  <!-- ----------------------------------------------------------------- -->
+
+  <hr noshade="noshade" size="2" />
+
+  <p>This site is hosted by 
+    <a href="http://www.sourceforge.net/">SourceForge</a>
+  </p>
+
+  <font size="2">
+<!-- Created: Fri Jun  8 14:58:19 2001
+<!-- hhmts start -->
+Last modified: Fri Jun  8 22:33:25 BST 2001
+<!-- hhmts end -->
+
+  <br><tt>$Id$</tt>
+  </font>
+
+  </body>
+</html>

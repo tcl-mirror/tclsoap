@@ -30,7 +30,7 @@ if { [catch {package require dom 2.0}] } {
 
 namespace eval SOAP {
     variable version 1.4
-    variable rcs_version { $Id: SOAP.tcl,v 1.14 2001/05/29 00:27:23 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.15 2001/06/06 00:46:09 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig
 }
@@ -126,7 +126,7 @@ proc SOAP::dump {args} {
 proc SOAP::configure { procName args } {
     # The list of valid options
     set options { uri proxy params name transport action \
-                      replyProc parseProc postProc xmlrpc}
+                      wrapProc replyProc parseProc postProc xmlrpc }
 
     if { $procName == "-transport" } {
         return [eval "transport_configure $args"]
@@ -156,6 +156,7 @@ proc SOAP::configure { procName args } {
             -name      { set Commands::${procName}::name $value }
             -action    { set Commands::${procName}::action $value }
             -xmlrpc    { set Commands::${procName}::xmlrpc $value }
+            -wrapProc  { set Commands::${procName}::wrapProc $value }
             -replyProc { set Commands::${procName}::replyProc $value }
             -parseProc { set Commands::${procName}::parseProc $value }
             -postProc  { set Commands::${procName}::postProc $value }
@@ -185,13 +186,17 @@ proc SOAP::configure { procName args } {
     # Arrange for XML generation using either an XML-RPC or SOAP helper
     if { [get Commands::$procName xmlrpc] != {} } {
 
-        interp alias {} Commands::${procName}::xml \
-                {} [namespace current]::xmlrpc_request
+        if { [get Commands::$procName wrapProc] == {} } {
+            set Commands::${procName}::wrapProc \
+                [namespace current]::xmlrpc_request
+        }
 
     } else {
         
-        interp alias {} Commands::${procName}::xml \
-                {} [namespace current]::soap_request
+        if { [get Commands:$procName wrapProc] == {} } {
+            set Commands::${procName}::wrapProc \
+                [namespace current]::soap_request
+        }
 
     }
 
@@ -221,6 +226,7 @@ proc SOAP::create { args } {
         variable action    {} ;# Contents of the SOAPAction header
         variable xmlrpc    {} ;# if true this is an XMLRPC call - not SOAP
         variable http      {} ;# the http data variable (if used)
+        variable wrapProc  {} ;# encode the request into XML for sending
         variable replyProc {} ;# post process the raw XML result
         variable parseProc {} ;# parse the raw XML and extract the values
         variable postProc  {} ;# post process the parsed result
@@ -246,14 +252,8 @@ proc SOAP::invoke { procName args } {
         error "invalid command: \"$procName\" not defined"
     }
     
-    # Get the DOM object containing our request
-    # We have to strip out the DOCTYPE element though. It would be better to
-    # remove the DOM element, but that didn't work.
-    set doc [eval "Commands::${procName}::xml $procName $args"]
-    set prereq [dom::DOMImplementation serialize $doc]
-    set req {}
-    dom::DOMImplementation destroy $doc          ;# clean up
-    regsub {<!DOCTYPE[^>]*>\n} $prereq {} req    ;# hack
+    # Get the XML data containing our request
+    set req [eval "[get Commands::${procName} wrapProc] $procName $args"]
 
     # Send the SOAP packet (req) using the configured transport.
     set transport [ get Commands::$procName transport ]
@@ -483,12 +483,13 @@ proc SOAP::proxyconfig {} {
 
 # -------------------------------------------------------------------------
 
-# Procedure to generate the XML data for a configured SOAP procedure.
+# Description:
+#   Procedure to generate the XML data for a configured SOAP procedure.
 # Parameters:
 #   procName - the name of a configured SOAP method
 #   args     - the arguments for this SOAP method
-# Returns:
-#   A DOM document reference.
+# Result:
+#   XML data containing the SOAP method call.
 
 proc SOAP::soap_request {procName args} {
 
@@ -525,18 +526,27 @@ proc SOAP::soap_request {procName args} {
         dom::document createTextNode $par [lindex $args $param]
         incr param
     }
-    return $doc ;# return the DOM object
+
+    # We have to strip out the DOCTYPE element though. It would be better to
+    # remove the DOM element, but that didn't work.
+    set prereq [dom::DOMImplementation serialize $doc]
+    set req {}
+    dom::DOMImplementation destroy $doc          ;# clean up
+    regsub {<!DOCTYPE[^>]*>\n} $prereq {} req    ;# hack
+
+    return $req                                  ;# return the XML data
 }
 
 # -------------------------------------------------------------------------
 
-# Procedure to generate the XML data for a configured XML-RPC procedure.
+# Description:
+#   Procedure to generate the XML data for a configured XML-RPC procedure.
 # Parameters:
 #   procName - the name of a configured XML-RPC method
 #   args     - the arguments for this RPC method
-# Returns:
-#   A DOM document reference.
-
+# Result:
+#   XML data containing the XML-RPC method call.
+#
 proc SOAP::xmlrpc_request {procName args} {
 
     set params [get Commands::${procName} params]
@@ -580,7 +590,15 @@ proc SOAP::xmlrpc_request {procName args} {
         }
         incr param
     }
-    return $doc
+
+    # We have to strip out the DOCTYPE element though. It would be better to
+    # remove the DOM element, but that didn't work.
+    set prereq [dom::DOMImplementation serialize $doc]
+    set req {}
+    dom::DOMImplementation destroy $doc          ;# clean up
+    regsub {<!DOCTYPE[^>]*>\n} $prereq {} req    ;# hack
+
+    return $req                                  ;# return the XML data
 }
 
 # -------------------------------------------------------------------------

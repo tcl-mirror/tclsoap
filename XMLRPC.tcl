@@ -17,7 +17,7 @@ package require SOAP 1.4
 
 namespace eval XMLRPC {
     variable version 1.0
-    variable rcs_version { $Id$ }
+    variable rcs_version { $Id: XMLRPC.tcl,v 1.1 2001/06/06 00:46:09 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig
 }
@@ -29,6 +29,9 @@ namespace eval XMLRPC {
 # during creation.
 
 proc XMLRPC::create {args } {
+    #lappend args \
+        -wrapProc [namespace current]::xmlrpc_request \
+        -parseProc [namespace current]::parse_xmlrpc_response
     lappend args -xmlrpc 1
     return [uplevel 1 "SOAP::create $args"]
 }

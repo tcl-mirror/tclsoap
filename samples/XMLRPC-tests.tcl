@@ -14,28 +14,11 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id$
+# @(#)$Id: XMLRPC-tests.tcl,v 1.1 2001/06/06 00:46:09 patthoyts Exp $
 
 package require XMLRPC
 
 set methods {}
-
-# -------------------------------------------------------------------------
-
-# Local test services (fromXMLRPC-domain.tcl)
-
-lappend methods [ \
-    XMLRPC::create rand \
-        -name "zsplat.rand" \
-        -proxy "http://localhost:8015/xmlrpc/rand" \
-        -params {} ]
-
-lappend methods [ \
-    XMLRPC::create xtest \
-        -name "zsplat.xtest" \
-        -proxy "http://localhost:8015/xmlrpc/xtest" \
-        -params { names array(string) } ]
-        
 
 # -------------------------------------------------------------------------
 

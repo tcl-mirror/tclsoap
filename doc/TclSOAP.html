@@ -1,12 +1,13 @@
 <!doctype HTML public "-//W3O//DTD W3 HTML 2.0//EN">
   <head>
-    <title>SOAP 1.3 Package for Tcl 8.3</title>
+    <title>SOAP 1.4 Package for Tcl 8.3</title>
     <meta http-equiv="Description" name="Description"
       content="SOAP package for Tcl. Provides remote procedure calls
       using the SOAP protocol over HTTP and utilities to provide Tcl
       procedures as SOAP methods via the tclhttpd server." />
     <meta http-equiv="Keywords" name="Keywords"
-      content="Tcl,SOAP,Simple Object Access Protocol,XML" />
+      content="Tcl,SOAP,Simple Object Access Protocol,XML,XML-RPC,
+      Remote Procedure Call, RPC" />
   </head>
 
   <body bgcolor="white" text="black">
@@ -23,7 +24,8 @@
   <ol>
   <li><a href="#introduction">Introduction to TclSOAP</a></li>
   <li><a href="#methods">SOAP Package Commands</a></li>
-  <li><a href="SOAPURLDomain.html">TclHTTPD Server Utilities</a></li>
+  <li><a href="SOAPURLDomain.html">TclHTTPD SOAP Server Utilities</a></li>
+  <li><a href="XMLRPCDomain.html">TclHTTPD XML-RPC Server Utilities</a></li>
   <li><a href="#download">Download Information</a></li>
   </ol>
 
@@ -50,7 +52,7 @@
     <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
            bgcolor="#c0c0c0"><tr><td align="left"><pre>
 % package require SOAP
-1.3
+1.4
 % SOAP::create getTemp \
 	-uri "urn:xmethods-Temperature" \
 	-proxy "http://services.xmethods.net/soap/servlet/rpcrouter" \
@@ -75,7 +77,7 @@
     <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
            bgcolor="#c0c0c0"><tr><td align="left"><pre>
 % package require SOAP
-1.3
+1.4
 % SOAP::create C2F \
 	-uri "http://www.soaplite.com/Temperatures" \
 	-proxy "http://services.soaplite.com/temper.cgi" \
@@ -102,7 +104,7 @@
     <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
            bgcolor="#c0c0c0"><tr><td align="left"><pre>
 % package require SOAP
-1.3
+1.4
 % SOAP::configure -transport http -proxy proxyhost:8080 \
 	-headers { "Proxy-Authorization" "Basic dXNlcm5hbWUgOiBwYXNzd29yZA==" }
 % SOAP::create languages \
@@ -214,11 +216,11 @@ SOAP::configure hi -params {}
        answer.</dd>
 
     <dt>-name <i>methodName</i></dt>
-       <dd>By default a Tcl command is created in the current
-       namespace with the same name as the SOAP method. If the Tcl procedure is
-       created with a different name then the <i>-name</i> configuration
-       option must be used to set the SOAP method name explicitly.
-       </dd>
+       <dd>By default a Tcl command is
+       created in the current namespace with the same name as the SOAP
+       method. If the Tcl procedure is created with a different name then
+       the <i>-name</i> configuration option must be used to set the SOAP
+       method name explicitly.</dd>
 
     <dt>-action <i>SOAPActionValue</i></dt>
        <dd>The SOAP 1.1 specification requires SOAP POST requests to
@@ -226,10 +228,63 @@ SOAP::configure hi -params {}
        not required (which is the default) or it may be required to be
        set to a specific value to pass though firewalls.</dd>
 
-    <dt>-reply</dt>
-       <dd>currently unused. will be a hook procedure to post-process
-       the reply.</dd>
-    </dl></dd>
+    <dt>-xmlrpc <i>boolean</i></dt>
+       <dd>If this option is set to true then the method is configured
+       to use the XML-RPC protocol instead of the SOAP protocol. This
+       defaults to false for the SOAP package and to true for the
+       XMLRPC package. This is the only configuration option required
+       to convert a method from SOAP to XML-RPC. The effect of setting
+       this flag is to select an alternative XML packaging procedure
+       and an alternative XML parsing procedure (via the <i>-parseProc</i>
+       option). The SOAP package defines one for SOAP replies and
+       another for XML-RPC replies.
+       </dd>
+
+    <dt>-wrapProc <i>procedureName</i></dt>
+       <dd>Set the procedure used to wrap up the method parameters for
+       transport to the server. This procedure takes the SOAP
+       methodName followed by all the parameters required for the
+       method call and returns the generated XML data for the RPC
+       call. By default for SOAP requests this is set to
+       <tt>SOAP::soap_request</tt> and for XML-RPC methods to
+       <tt>SOAP::xmlrpc_request</tt>. This option is only likely to be 
+       used if you are implementing a new RPC protocol.
+       </dd>
+
+    <dt>-replyProc <i>procedureName</i></dt>
+       <dd>A hook procedure can be defined to be called once the
+       response packet has been received but before the XML is
+       parsed. Provided the server returned an HTTP 200 response then
+       this procedure is guarunteed to be called even if the reply
+       contains an error response. The procedure is called with two
+       parameters, the first being the SOAP method name and the second
+       being the XML text of the reply. The hook procedure should
+       return the new XML text suitable for processing by the
+       <i>-parseProc</i> procedure. For example:
+      <pre>proc my_reply_hook { methodName xml } {
+   puts "$xml"
+   return $xml
+}</pre>
+       </dd>
+
+    <dt>-parseProc <i>procedureName</i></dt>
+       <dd>Specify the procedure used to parse the XML of the reply
+       and to extract the result value. The default depends upon the
+       setting of the <i>-xmlrpc</i> configuration option and is either
+       <tt>SOAP::parse_soap_response</tt> or 
+       <tt>SOAP::parse_xmlrpc_response</tt>. The procedure takes two
+       parameters as for the <i>-replyProc</i> option but should return the
+       result value from the XML packet.</dd>
+
+    <dt>-postProc <i>procedureName</i></dt>
+       <dd>An optional hook procedure may be specified here that will
+       be called once the result value has been obtained from the XML
+       packet. This procedure will take two parameters, the first is
+       the SOAP method name and the second the result value extracted
+       from the XML. The procedure should return the new result value.
+       By default no procedure is defined.</dd>
+
+    </dl></dd><br>
 
 <!-- SOAP::cget -->
     <dt>SOAP::cget <i>methodName option</i></dt>
@@ -269,12 +324,12 @@ SOAP::configure hi -params {}
 <!-- SOAP::proxyconfig -->
     <dt>SOAP::proxyconfig</dt>
       <dd><p>This command presents a dialog box used to configure the
-    SOAP package to work with a proxy server. The fields are used to
-    call <tt>SOAP::configure -transport http</tt> with the relevant
-    options. The first entry field takes the name and port of the
-    proxy server (eg: webproxy:8080) and the second two fields are
-    used to configure a Basic Authentication HTTP header allow
-    operation with an authenticating proxy. (ie: an NT IIS server).
+      SOAP package to work with a proxy server. The fields are used to
+      call <tt>SOAP::configure -transport http</tt> with the relevant
+      options. The first entry field takes the name and port of the
+      proxy server (eg: webproxy:8080) and the second two fields are
+      used to configure a Basic Authentication HTTP header allow
+      operation with an authenticating proxy. (ie: an NT IIS server).
       </p></dd>
 
 <!-- end of SOAP commands list -->
@@ -285,13 +340,15 @@ SOAP::configure hi -params {}
 
   <h1><a name="download">Download</a></h1>
 
-  <p>The package can be downloaded from 
-  <a href="TclSOAP-1.3.tar.gz">
-     ftp://tclsoap.sourceforge.net/pub/tclsoap/TclSOAP-1.3.tar.gz
-  </a>.
-  This file should be unpacked somewhere handy and you should set
-  your TCLLIBPATH environment variable to suit. For windows users,
-  you may as well unpack it to <tt>Program Files\Tcl\lib\tcl8.3</tt>
+  <p>The package can be downloaded from the SourceForge project site
+    at <a href="http://sourceforge.net/projects/tclsoap">SourceForge</a>
+    or from the SourceForge anonymous FTP site at
+    <a href="TclSOAP-1.4.tar.gz">
+       ftp://tclsoap.sourceforge.net/pub/tclsoap/TclSOAP-1.4.tar.gz
+    </a>.
+    This file should be unpacked somewhere handy and you should set
+    your TCLLIBPATH environment variable to suit. For windows users,
+    you may as well unpack it to <tt>Program Files\Tcl\lib\tcl8.3</tt>
   </p>
 
   <p>The source is spread over the following files. These files have
@@ -325,10 +382,10 @@ SOAP::configure hi -params {}
   <font size="2">
 <!-- Created: Wed Mar 14 00:26:30 GMT 2001 -->
 <!-- hhmts start -->
-Last modified: Thu Apr 26 22:35:27 2001
+Last modified: Sat Jun  9 00:46:37 BST 2001
 <!-- hhmts end -->
 
-  <br><tt>$Id: TclSOAP.html,v 1.5 2001/04/26 21:56:00 pat Exp $</tt>
+  <br><tt>$Id: TclSOAP.html,v 1.6 2001/04/26 22:45:32 pat Exp $</tt>
   </font>
 
   </body>

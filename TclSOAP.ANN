@@ -1,13 +1,16 @@
-Announcing a SOAP binding for Tcl 8.3
+Announcing a SOAP and XML-RPC binding for Tcl 8.3
 
 I recently got interested in SOAP and was using Tcl to try out some of
 the SOAP servers listed by www.xmethods.net. After looking around I
 have failed to spot any Tcl implementations of SOAP so I am providing
 this one.
 
+As from version 1.4 the SOAP package has been extended slightly so that
+it can support XML-RPC methods as well as SOAP methods.
+
 The Tcl SOAP package is written entirely in Tcl and uses the xml and
-dom packages by Steve Ball of www.zveno.com. The package provides a
-fairly simple binding of a Tcl command procedure to a SOAP method
+dom packages written by Steve Ball of www.zveno.com. The package provides
+a fairly simple binding of a Tcl command procedure to a SOAP method
 call. For instance, the XMethods getTemp method can be called from Tcl
 using:
 
@@ -15,9 +18,11 @@ using:
 41.0
 
 For more information go to 
-http://www.zsplat.freeserve.co.uk/soap/doc/TclSOAP.html
+http://tclsoap.sourceforge.net/
 and the package is at
-http://www.zsplat.freeserve.co.uk/TclSOAP-1.3.tar.gz
+http://sourceforge.net/projects/tclsoap
+or you can examine the CVS repository at
+http://cvs.tclsoap.sourceforge.net/tclsoap/cvsroot
 
 This Tcl SOAP package has been tested with Tcl 8.3 on Linux and
 Windows (98 and 2000) using xml 1.2 and dom 1.6 and xml 2.0 and dom

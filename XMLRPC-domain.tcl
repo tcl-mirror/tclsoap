@@ -1,13 +1,7 @@
 # XMLRPC-domain.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
 #
 # XML-RPC Domain Service module for the tclhttpd web server.
-#
-# Usage:
-#   Get the server to require the XMLRPC::Domain package and call 
-#   XMLRPC::Domain::register to register the domain handler with the server.
-#   ie: put the following in a file in tclhttpd/custom
-#      package require XMLRPC::Domain
-#      XMLRPC::Domain::register /rpc
+# See samples/xmlrpc-methods-server.tcl for a usage example.
 #
 # -------------------------------------------------------------------------
 # This software is distributed in the hope that it will be useful, but
@@ -16,7 +10,9 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-# Valid Types:
+# XML-RPC Valid Types:
+#  (from the specification document http://www.xmlrpc.com/)
+#
 #  <i4> or <int>       four-byte signed integer -12
 #  <boolean>           0 (false) or 1 (true) 1
 #  <string>            ASCII string hello world 
@@ -55,13 +51,27 @@ package require SOAP::xpath
 namespace eval XMLRPC::Domain {
     variable version 1.0   ;# package version number
     variable debug 1       ;# debugging flag
-    variable rcs_id {$Id$}
+    variable rcs_id {$Id: XMLRPC-domain.tcl,v 1.1 2001/06/06 00:46:09 patthoyts Exp $}
 
     namespace export fault
 }
 
 # -------------------------------------------------------------------------
 
+# Description:
+#   Register this package with tclhttpd.
+#     e.g.: register -prefix /rpc ?-namespace ::RPC? ?-interp slave?
+# Parameters:
+#   -prefix    - the URL prefix for the SOAP methods to be implemented under
+#   -interp    - the Tcl slave interpreter to use ( {} for the current interp)
+#   -namespace - the Tcl namespace look for the implementations under
+#                (default is global)
+#   -uri       - the XML namespace for these methods. Defaults to the Tcl 
+#                interpreter and namespace name.
+# Result:
+#   Registers the relevant handlers with the tclhttpd package and returns
+#   the URL prefix selected.
+#
 proc XMLRPC::Domain::register {args} {
 
     if { [llength $args] < 1 } {
@@ -133,9 +143,20 @@ proc XMLRPC::Domain::register {args} {
 
 # -------------------------------------------------------------------------
 
-# Basic XMLRPC server.
-# Ignores any input and always returns a random number
-# args - the final part of the URL used
+# Description:
+#   XMLRPC URL Domain handler
+#   Called from the namespace or interpreter domain_handler to perform the
+#   work.
+# Parameters:
+#   optsname - qualified name of the options array set up during registration.
+#   sock     - socket back to the client
+#   suffix   - the remainder of the url once the prefix was stripped.
+# Result:
+#   Processes the request and calles the implementing procedure if it can
+#   be found. If an error is produced a fault reply is generated otherwise
+#   a properly structured XML-RPC reply is built and returned to the client.
+#   Returns 1 for a failed reply or 0 if everything went smoothly.
+#
 proc XMLRPC::Domain::domain_handler {optsname sock args} {
     variable debug
     upvar \#0 Httpd$sock data
