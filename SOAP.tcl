@@ -9,7 +9,7 @@
 # - Clean up the http connections. Keep the last one for state and error 
 #   info but delete during the next call.
 
-package provide SOAP 1.0
+package provide SOAP 1.1
 
 # -------------------------------------------------------------------------
 
@@ -18,7 +18,7 @@ package require dom 1.6
 
 namespace eval SOAP {
     variable version 1.0
-    variable rcs_version { $Id: SOAP.tcl,v 1.2 2001/02/19 00:44:46 pat Exp pt111992 $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.3 2001/02/19 23:49:39 pat Exp pt111992 $ }
 }
 
 # -------------------------------------------------------------------------
@@ -41,6 +41,10 @@ proc SOAP::get2 { nameSpace varName } {
 # -------------------------------------------------------------------------
 
 # Configure a SOAP method
+
+# Should change this to work from the alias name too.
+# Currently the id used in the commands namespace isn't unique. Should use
+# qualified alias name as the id.
 
 proc SOAP::configure { methodName args } {
 
@@ -120,11 +124,10 @@ proc SOAP::configure { methodName args } {
         return $doc ;# return the DOM object
     }
 
-    # create a command in the callers namespace.
-    uplevel 2 "proc [get Commands::$methodName alias] { args } {eval [namespace current]::invoke $methodName \$args}"
+    uplevel 1 "proc [get Commands::$methodName alias] { args } {eval [namespace current]::invoke $methodName \$args}"
 
     # return the fully qualified command created.
-    return [uplevel 2 "namespace which [get Commands::$methodName alias]"]
+    return [uplevel 1 "namespace which [get Commands::$methodName alias]"]
 }
 
 # -------------------------------------------------------------------------
@@ -147,9 +150,11 @@ proc SOAP::create { args } {
         variable transport {} ;# the transport procedure for this method
         variable alias     {} ;# Tcl command name for this method
         variable action    {} ;# Contents of the SOAPAction header
+        variable http      {} ;# the http data variable (if used)
     }
 
-    return [eval "configure $methodName $args"]
+    # call configure from the callers level so it can get the namespace.
+    return [uplevel 1 "[namespace current]::configure $methodName $args"]
 }
 
 # -------------------------------------------------------------------------
@@ -168,8 +173,8 @@ proc SOAP::invoke { methodName args } {
     set doc [eval "Commands::${methodName}::xml $methodName $args"]
     set prereq [dom::DOMImplementation serialize $doc]
     set req {}
-    dom::DOMImplementation destroy $doc
-    regsub {<!DOCTYPE[^>]*>\n} $prereq {} req
+    dom::DOMImplementation destroy $doc          ;# clean up
+    regsub {<!DOCTYPE[^>]*>\n} $prereq {} req    ;# hack
 
     # Send the SOAP packet using the configured transport.
     set transport [ get Commands::$methodName transport ]
@@ -209,7 +214,6 @@ proc SOAP::transport_http { methodName url request } {
 
     # If a proxy was configured, use it.
     set proxy [get Transport::http proxy]
-
     if { $proxy != {} } {
         set proxy [split $proxy ":"]
         ::http::config -proxyhost [lindex $proxy 0]\
@@ -224,17 +228,24 @@ proc SOAP::transport_http { methodName url request } {
     # Add mandatory SOAPAction header (SOAP 1.1). This may be empty
     lappend headers "SOAPAction" [get Commands::$methodName action]
 
+    # cleanup the last http request
+    if { [get Commands::${methodName} http] != {} } {
+        catch { eval "::http::cleanup \$Commands::${methodName}::http" }
+    }
+
     # POST and get the reply.
     set reply [ ::http::geturl $url -headers $headers \
             -type text/xml -query $request ]
 
+    # store the http structure for possible access later.
+    set Commands::${methodName}::http $reply
+
     if { [::http::status $reply] != "ok" || [::http::ncode $reply ] != 200 } {
         return -code error \
-                "SOAP transport error: \"[::http::code $reply] ($reply)\""
+                "SOAP transport error: \"[::http::code $reply]\""
     }
 
     set r [::http::data $reply]
-    ::http::cleanup $reply
     return $r
 }
 
