@@ -1,6 +1,7 @@
 # validator.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
 #
-# Implement the http://vaalidator.soapware.org/ interoperability suite.
+# Implement the http://validator.soapware.org/ interoperability suite and
+# the http://validator1.xmlrpc.org/ XML-RPC interop suite.
 #
 # -------------------------------------------------------------------------
 # This software is distributed in the hope that it will be useful, but
@@ -9,16 +10,35 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id$
+# @(#)$Id: validator.tcl,v 1.1 2001/07/16 23:42:13 patthoyts Exp $
 
-package require XMLRPC::TypedVariable
+package require SOAP
+package require XMLRPC
+package require rpcvar
+namespace import -force rpcvar::*
+
+# -------------------------------------------------------------------------
+
+# Export the SOAP webservices
+
+SOAP::export whichToolkit countTheEntities easyStructTest echoStructTest \
+	manyTypesTest moderateSizeArrayCheck simpleStructReturnTest \
+	nestedStructTest
+
+# Export the XML-RPC webservices.
+
+XMLRPC::export validator1.whichToolkit validator1.countTheEntities \
+	validator1.easyStructTest validator1.echoStructTest \
+	validator1.manyTypesTest validator1.moderateSizeArrayCheck \
+	validator1.simpleStructReturnTest validator1.nestedStructTest \
+	validator1.arrayOfStructsTest
 
 # -------------------------------------------------------------------------
 
 # Optional feature used by the validator at http://validator.soapware.org/
 # Helps them to work out what SOAP toolkit is providing the service.
 #
-proc whichToolkit {} {
+proc validator1.whichToolkit {} {
     if {[catch {package require SOAP} soapVersion]} {
 	set soapVersion {unknown}
     }
@@ -26,7 +46,7 @@ proc whichToolkit {} {
     set r(toolkitName)            "TclSOAP"
     set r(toolkitVersion)         $soapVersion
     set r(toolkitOperatingSystem) "System Independent"
-    return [XMLRPC::TypedVariable::create "struct" [array get r]]
+    return [rpcvar struct r]
 }
 
 # -------------------------------------------------------------------------
@@ -42,7 +62,7 @@ proc whichToolkit {} {
 #
 # To validate, the numbers must be correct.
 #
-proc countTheEntities {s} {
+proc validator1.countTheEntities {s} {
     array set a {< 0 > 0 & 0 ' 0 \" 0}
     foreach c [split $s {}] {
 	if {[catch {incr a($c)}]} {
@@ -54,7 +74,7 @@ proc countTheEntities {s} {
     set r(ctAmpersands) $a(&)
     set r(ctApostrophes) $a(\')
     set r(ctQuotes) $a(\")
-    return [XMLRPC::TypedVariable::create "struct" [array get r]]
+    return [rpcvar struct r]
 }
 
 # -------------------------------------------------------------------------
@@ -65,7 +85,7 @@ proc countTheEntities {s} {
 # containing at least three elements named moe, larry and curly, all
 # ints. Your handler must add the three numbers and return the result.    
 #
-proc easyStructTest {stooges} {
+proc validator1.easyStructTest {stooges} {
     array set stooge $stooges
     set r [expr $stooge(larry) + $stooge(curly) + $stooge(moe)]
     return $r
@@ -81,13 +101,13 @@ proc easyStructTest {stooges} {
 # This is a struct of structs (actually an array but with different names
 # for each item).
 #
-proc echoStructTest {myStruct} {
+proc validator1.echoStructTest {myStruct} {
     set r {}
     foreach {name value} $myStruct {
-	lappend r $name [XMLRPC::TypedVariable::create "struct" $value]
+	lappend r $name [rpcvar struct $value]
     }
 	
-    return [XMLRPC::TypedVariable::create "struct" $r]
+    return [rpcvar struct $r]
 }
 
 # -------------------------------------------------------------------------
@@ -97,12 +117,12 @@ proc echoStructTest {myStruct} {
 # This handler takes six parameters and returns an array containing
 # all the parameters.
 #
-proc manyTypesTest {num bool state doub dat bin} {
+proc validator1.manyTypesTest {num bool state doub dat bin} {
     set r {}
     if {$bool} {set bool true} else {set bool false}
-    set dat [XMLRPC::TypedVariable::create "timeInstant" $dat]
+    set dat [rpcvar "timeInstant" $dat]
     lappend r $num $bool $state $doub $dat $bin
-    return [XMLRPC::TypedVariable::create "array" $r]
+    return [rpcvar array $r]
 }
 
 # -------------------------------------------------------------------------
@@ -114,7 +134,7 @@ proc manyTypesTest {num bool state doub dat bin} {
 # a string, your handler must return a string containing the
 # concatenated text of the first and last elements.
 
-proc moderateSizeArrayCheck {myArray} {
+proc validator1.moderateSizeArrayCheck {myArray} {
     return "[lindex $myArray 0][lindex $myArray end]"
 }
 
@@ -126,11 +146,29 @@ proc moderateSizeArrayCheck {myArray} {
 # a struct containing three elements, times10, times100 and times1000,
 # the result of multiplying the number by 10, 100 and 1000
 #
-proc simpleStructReturnTest {myNumber} {
+proc validator1.simpleStructReturnTest {myNumber} {
     set r(times10) [expr $myNumber * 10]
     set r(times100) [expr $myNumber * 100]
     set r(times1000) [expr $myNumber * 1000]
-    return [XMLRPC::TypedVariable::create "struct" [array get r]]
+    return [rpcvar struct r]
+}
+
+# -------------------------------------------------------------------------
+
+# validator1.arrayOfStructsTest (array) returns number
+
+# This handler takes a single parameter, an array of structs, each of
+# which contains at least three elemenets names noe, larry and curly,
+# all <i4>'s. Your handler must add all the struct elements named curly
+# and return the result.
+#
+proc validator1.arrayOfStructsTest {myArray} {
+    set r 0
+    foreach itemdata $myArray {
+	array set item $itemdata
+	incr r $item(curly)
+    }
+    return $r
 }
 
 # -------------------------------------------------------------------------
@@ -146,30 +184,22 @@ proc simpleStructReturnTest {myNumber} {
 # and return the result.
 # NB: month and day are two-digits with leading 0s, and January is 01
 #
-proc nestedStructTest {myStruct} {
-    set result 0
-    foreach {year months} $myStruct {
-	if {[string match "year2000" $year]} {
-	    foreach {month days} $months {
-		if {[string match "month04" $month]} {
-		    foreach {day stooges} $days {
-			if {[string match "day01" $day]} {
-			    foreach {stooge value} $stooges {
-				switch -- $stooge {
-				    curly {incr result $value}
-				    larry {incr result $value}
-				    moe   {incr result $value}
-				}
-			    }
-			}
-		    }
-		}
-	    }
-	}
-    }
-    return $result
+# First, the XML-RPC implementation.
+proc validator1.nestedStructTest {myStruct} {
+    array set ms $myStruct
+    array set y2k $ms(2000)
+    array set m4 $y2k(04)
+    array set d1 $m4(01)
+    return [expr $d1(larry) + $d1(moe) + $d1(curly)]
 }
-				    
+# The SOAP implementation receives different member names.
+proc soapvalidator.nestedStructTest {myStruct} {
+    array set ms $myStruct
+    array set y2k $ms(year2000)
+    array set m4 $y2k(month04)
+    array set d1 $m4(day01)
+    return [expr $d1(larry) + $d1(moe) + $d1(curly)]
+}
 
 # -------------------------------------------------------------------------
 
@@ -182,13 +212,13 @@ proc nestedStructTest {myStruct} {
 #   works now. However, this implementation will not ensure that the structure
 #   members are returned in the same order that they were provided.
 #
-proc echoNestedStructTest {myStruct} {
+proc validator1.echoNestedStructTest {myStruct} {
     global years
     array set years {}
     foreach {name value} $myStruct {
 	set years($name) [year $value]
     }
-    return [XMLRPC::TypedVariable::create struct [array get years]]
+    return [rpcvar struct years]
 }
 
 proc year {yearValue} {
@@ -196,7 +226,7 @@ proc year {yearValue} {
     foreach {name value} $yearValue {
 	set months($name) [month $value]
     }
-    return [XMLRPC::TypedVariable::create struct [array get months]]
+    return [rpcvar struct months]
 }
 
 proc month {monthValue} {
@@ -204,7 +234,7 @@ proc month {monthValue} {
     foreach {name value} $monthValue {
 	set days($name) [day $value]
     }
-    return [XMLRPC::TypedVariable::create struct [array get days]]
+    return [rpcvar struct days]
 }
 
 proc day {dayValue} {
@@ -212,7 +242,30 @@ proc day {dayValue} {
     foreach {name value} $dayValue {
 	set stooges($name) $value
     }
-    return [XMLRPC::TypedVariable::create struct [array get stooges]]
+    return [rpcvar struct stooges]
+}
+
+# -------------------------------------------------------------------------
+
+# Link the XMLRPC names to global names suitable for use with SOAP.
+#
+# XMLRPC expects to see the method names as defined in this file, but SOAP
+# expects methods to be in an XML namespace. For the validator test suite 
+# here, that namespace is global, thus:
+#
+foreach procname [info proc validator1.*] {
+    set soapname [lindex [split $procname .] end]
+    if {[string match "nestedStructTest" $soapname]} {
+	set procname soapvalidator.nestedStructTest ;# redirect for SOAP
+    }
+    interp alias {} $soapname {} $procname
+}
+
+# The whichToolkit method is called from http://www.soapware.org/ namespace
+# So expose it.
+namespace eval http://www.soapware.org/ {
+    SOAP::export whichToolkit
+    interp alias {} whichToolkit {} ::validator1.whichToolkit
 }
 
 # -------------------------------------------------------------------------
