@@ -40,7 +40,7 @@ if {[catch {package require SOAP::dom 1.0} ::SOAP::domVersion]} {
 namespace eval ::SOAP {
     variable version 1.6.8
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.44.2.8 2003/09/08 22:04:24 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.44.2.9 2004/03/04 00:40:39 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -769,8 +769,13 @@ proc ::SOAP::reply_envelope { doc } {
 #
 proc ::SOAP::reply { doc uri methodName result } {
     set bod [reply_envelope $doc]
-    set cmd [dom::document createElement $bod "ns:$methodName"]
-    dom::element setAttribute $cmd "xmlns:ns" $uri
+    # Don't add a namespace if uri is empty.
+    if {$uri == {}} {
+        set cmd [dom::document createElement $bod "$methodName"]
+    } else {
+        set cmd [dom::document createElement $bod "ns:$methodName"]
+        dom::element setAttribute $cmd "xmlns:ns" $uri
+    }
     dom::element setAttribute $cmd \
             "SOAP-ENV:encodingStyle" \
             "http://schemas.xmlsoap.org/soap/encoding/"

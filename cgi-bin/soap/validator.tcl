@@ -10,7 +10,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: validator.tcl,v 1.2 2001/08/03 21:33:17 patthoyts Exp $
+# @(#)$Id: validator.tcl,v 1.3 2001/08/07 12:07:06 patthoyts Exp $
 
 package require SOAP
 package require XMLRPC
@@ -133,7 +133,7 @@ proc soapvalidator.manyTypesTest {num bool state doub dat bin} {
     if {$bool} {set bool true} else {set bool false}
     set dat [rpcvar "timeInstant" $dat]
     lappend r $num $bool $state $doub $dat $bin
-    return [rpcvar array $r]
+    return [rpcvar -namespace xsd ur-type() $r]
 }
 
 # -------------------------------------------------------------------------
