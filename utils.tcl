@@ -13,12 +13,13 @@ package provide SOAP::Utils 1.0
 
 namespace eval SOAP {
     namespace eval Utils {
-        variable rcsid {$Id: utils.tcl,v 1.1 2001/07/16 23:37:39 patthoyts Exp $}
+        variable rcsid {$Id: utils.tcl,v 1.2 2001/08/01 23:34:54 patthoyts Exp $}
         namespace export getElements \
                 getElementValue getElementName \
                 getElementValues getElementNames \
                 getElementNamedValues \
-                decomposeSoap decomposeXMLRPC selectNode
+                decomposeSoap decomposeXMLRPC selectNode \
+                namespaceURI nodeName
     }
 }
 
@@ -59,26 +60,25 @@ proc SOAP::Utils::selectNode {node path} {
 
 proc SOAP::Utils::is_array {domElement} {
     # Look for "xsi:type"="SOAP-ENC:Array"
-    if {[catch {
-	set [subst [dom::node cget $domElement -attributes](xsi:type)]
-    } a]} { set a {} }
-    if {[string match -nocase {*:Array} $a] == 1} {
-	return 1
+    # FIX ME
+    # This code should check the namespace using namespaceURI code (CGI)
+    #
+    set attr [dom::node cget $domElement -attributes]
+    if {[info exists [subst $attr](SOAP-ENC:arrayType)]} {
+        return 1
+    }
+    if {[info exists [subst $attr](xsi:type)]} {
+        set type [set [subst $attr](xsi:type)]
+        if {[string match -nocase {*:Array} $type]} {
+            return 1
+        }
     }
 
     # If all the child element names are the same, it's an array
     # but of there is only one element???
-    set names {}
-    set elements [getElements $domElement]
-    if {[llength elements] > 1} {
-        foreach elt [getElements $domElement] {
-            lappend names [getElementName $elt]
-        }
-        set names [lsort -unique $names]
-        
-        if {[llength $names] == 1} {
-            return 1
-        }
+    set names [getElementNames $domElement]
+    if {[llength $names] > 1 && [llength [lsort -unique $names]] == 1} {
+        return 1
     }
 
     return 0
@@ -245,6 +245,9 @@ proc SOAP::Utils::getElementNamedValues {domElement} {
 
 # Description:
 #   Merge together all the child node values under a given dom element
+#   This procedure will also cope with elements whose data is elsewhere
+#   using the href attribute. We currently expect the data to be a local
+#   reference.
 # Params:
 #   domElement  - a reference to an element node in a dom tree
 # Result:
@@ -253,10 +256,39 @@ proc SOAP::Utils::getElementNamedValues {domElement} {
 proc SOAP::Utils::getElementValue {domElement} {
     set r {}
     set dataNodes [dom::node children $domElement]
+    if {[set href [href $domElement]] != {}} {
+        if {[string match "\#*" $href]} {
+            set href [string trimleft $href "\#"]
+        } else {
+            error "cannot follow non-local href"
+        }
+        set r [[uplevel proc:name] [getNodeById \
+                [getDocumentElement $domElement] $href]]
+    }
     foreach dataNode $dataNodes {
         append r [dom::node cget $dataNode -nodeValue]
     }
     return $r
+}
+
+# Get the name of the current proc
+# from http://purl.org/thecliff/tcl/wiki/526.html
+proc SOAP::Utils::proc:name {} {lindex [info level -1] 0} 
+
+proc SOAP::Utils::href {node} {
+    set a [dom::node cget $node -attributes]
+    if {[info exists [subst $a](href)]} {
+        return [set [subst $a](href)]
+    }
+    return {}
+}
+
+proc SOAP::Utils::id {node} {
+    set a [dom::node cget $node -attributes]
+    if {[info exists [subst $a](id)]} {
+        return [set [subst $a](id)]
+    }
+    return {}
 }
 # -------------------------------------------------------------------------
 
@@ -272,6 +304,98 @@ proc SOAP::Utils::getElementAttributes {domElement} {
 
 # -------------------------------------------------------------------------
 
+# Find a node by id (sort of the xpath id() function)
+proc SOAP::Utils::getNodeById {base id} {
+    if {[string match $id [id $base]]} {
+        return $base
+    }
+    set r {}
+    set children [dom::node children $base]
+    foreach child $children {
+        set r [getNodeById $child $id]
+        if {$r != {}} { return $r }
+    }
+    return {}
+}
+
+# -------------------------------------------------------------------------
+
+# Walk up the DOM until you get to the top.
+proc SOAP::Utils::getDocumentElement {node} {
+    set parent [dom::node parent $node]
+    if {$parent == {}} {
+        return $node
+    } else {
+        return [getDocumentElement $parent]
+    }
+}
+# -------------------------------------------------------------------------
+
+# Description:
+#  Get the namespace of the given node. This code will examine the nodes 
+#  attributes and if necessary the parent nodes attributes until it finds
+#  a relevant namespace declaration.
+# Parameters:
+#  node - the node for which to return a namespace
+# Result:
+#  returns either the namespace uri or an empty string.
+#
+proc SOAP::Utils::namespaceURI {node} {
+    set nodeName [dom::node cget $node -nodeName]
+    set ndx [string last : $nodeName]
+    set nodeNS [string range $nodeName 0 $ndx]
+    set nodeNS [string trimright $nodeNS :]
+
+    return [find_namespaceURI $node $nodeNS]
+}
+
+# -------------------------------------------------------------------------
+
+# Description:
+#   Obtain the unqualified part of a node name.
+# Parameters:
+#   node - a DOM node
+# Result:
+#   the node name without any namespace prefix.
+#
+proc SOAP::Utils::nodeName {node} {
+    set nodeName [dom::node cget $node -nodeName]
+    set nodeName [string range $nodeName [string last : $nodeName] end]
+    return [string trimleft $nodeName :]
+}
+
+# -------------------------------------------------------------------------
+
+# Description:
+#   Obtain the uri for the nsname namespace name working up the DOM tree
+#   from the given node.
+# Parameters:
+#   node - the starting point in the tree.
+#   nsname - the namespace name. May be an null string.
+# Result:
+#   Returns the namespace uri or an empty string.
+#
+proc SOAP::Utils::find_namespaceURI {node nsname} {
+    if {$node == {}} { return {} }
+    set atts [dom::node cget $node -attributes]
+
+    # check for the default namespace
+    if {$nsname == {} && [info exists [subst $atts](xmlns)]} {
+	return [set [subst $atts](xmlns)]
+    }
+    
+    # check the defined namespace names.
+    foreach {attname attvalue} [array get $atts] {
+	if {[string match "xmlns:$nsname" $attname]} {
+	    return $attvalue
+	}
+    }
+    
+    # recurse through the parents.
+    return [find_namespaceURI [dom::node cget $node -parent] $nsname]
+}
+
+# -------------------------------------------------------------------------       
 # Local variables:
 #    indent-tabs-mode: nil
 # End:
