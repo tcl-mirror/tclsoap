@@ -15,7 +15,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package provide SOAP::Domain 0.1
+package provide SOAP::Domain 0.2
 
 if { [catch {package require dom 2.0}] } {
     if { [catch {package require dom 1.6}] } {
@@ -26,8 +26,12 @@ if { [catch {package require dom 2.0}] } {
 package require SOAP::xpath
 
 namespace eval SOAP::Domain {
-    variable version 0.1
-    variable rcs_id {$Id$}
+    variable version 0.2  ;# package version number
+    variable debug 1      ;# flag to toggle debug output
+    variable soapspaces   ;# list of registered namespaces
+    variable rcs_id {$Id: SOAP-domain.tcl,v 1.1 2001/04/10 00:21:55 pat Exp pat $}
+
+    namespace import -force [namespace parent]::xpath::*
 
     namespace export fault reply_envelope reply_simple
 }
@@ -36,11 +40,14 @@ namespace eval SOAP::Domain {
 
 # Register this package with tclhttpd.
 #
-#  virtual  url prefix to use (ie: /soap)
-#  args     any other options
+#  virtual   url prefix to use (ie: /soap)
+#  soapspace namespace to search for the soap method implementation
+#  args      any other options
 #
-proc SOAP::Domain::register {virtual args} {
+proc SOAP::Domain::register {virtual soapspace args} {
+    variable soapspaces
     Url_PrefixInstall $virtual [list SOAP::Domain::domain_handler] $args
+    lappend soapspaces $soapspace
 }
 
 # -------------------------------------------------------------------------
@@ -51,6 +58,8 @@ proc SOAP::Domain::register {virtual args} {
 # suffix  the remainder of the url
 #
 proc SOAP::Domain::domain_handler {sock suffix} {
+    variable debug
+    variable soapspaces
     upvar \#0 Httpd$sock data
     
     set failed 0
@@ -73,17 +82,53 @@ proc SOAP::Domain::domain_handler {sock suffix} {
         return $failed
     }
     
-    # now branch on $suffix (eg: /base64)
-    set failed [catch "eval [namespace current]::$suffix [list \$query]" msg]
-    if { $failed } {
-        Httpd_ReturnData $sock text/html \
+    # Get the method name and parameters from the XML request. 
+    set doc [dom::DOMImplementation parse $query]
+    if { $debug } { set ::doc $doc }
+
+    # methodNamespace should get set to the xmlns namespace in use.
+    # However, parse strips the xmlns attributes.
+    set methodName [xpath -name $doc "/Envelope/Body/*"]
+    set methodNamespace [lindex [xmlnsSplit $methodName] 0]
+    set methodName [lindex [xmlnsSplit $methodName] 1]
+    if { [catch {xpath $doc "/Envelope/Body/${methodName}/*"} argValues] } {
+        set argValues {}
+    }
+    if { ! $debug } {catch {dom::DOMImplementation destroy $doc}}
+
+    # Check the procedure exists (so we can raise a fault with no details
+    # as per SOAP-1.1 spec for fault in the header processing.
+    set soapspace {}
+    foreach ss $soapspaces {
+        if { [catch {info args ::${ss}::${suffix}} ] == 0 } {
+            set soapspace ::${ss}
+            break
+        }
+    }
+    if { $soapspace == {} } {
+        Httpd_ReturnData $sock text/xml \
                 [fault SOAP-ENV:Client \
-                     "Invalid method name: $suffix not found $msg"] \
-                     500
+                  "Invalid SOAP request: method \"$methodName\" not found" \
+                ] 500
+        return $failed
+    }
+
+    # Call the procedure and convert errors into SOAP Faults and the return
+    # data into a SOAP return packet.
+    set failed [catch "eval ${soapspace}::$suffix \$argValues" msg]
+    if { $failed } {
+        set detail [list "errorCode" $::errorCode "stackTrace" $::errorInfo]
+        Httpd_ReturnData $sock text/xml \
+                [fault SOAP-ENV:Client "$msg" $detail] 500
     } else {
-        set code [lindex $msg 0]
-        set xml  [lindex $msg 1]
-        Httpd_ReturnData $sock text/html $xml $code
+        # FIX ME - $methodName should be the URI for this method.
+        set reply [reply_simple [dom::DOMImplementation create] \
+                $methodName "return" string $msg]
+        
+        # serialize and fix the DOM - doctype is not allowed (SOAP-1.1 spec)
+        regsub {<!DOCTYPE[^>]*>\n} \
+                [dom::DOMImplementation serialize $reply] {} xml
+        Httpd_ReturnData $sock text/xml $xml 200
     }
 
     return $failed
@@ -95,7 +140,7 @@ proc SOAP::Domain::domain_handler {sock suffix} {
 #
 # faultcode   the SOAP faultcode e.g: SOAP-ENV:Client
 # faultstring summary of the fault
-# detail      list of detail {}
+# detail      list of {detailName detailInfo}
 #
 # returns the XML text of the SOAP Fault packet.
 # 
@@ -108,9 +153,17 @@ proc SOAP::Domain::fault {faultcode faultstring {detail {}}} {
     set fst [dom::document createElement $flt "faultstring"]
     dom::document createTextNode $fst $faultstring
 
-    # FIX ME
-    #set dtl [dom::document createElement $flt "detail"]
-
+    if { $detail != {} } {
+        set dtl0 [dom::document createElement $flt "detail"]
+        set dtl  [dom::document createElement $dtl0 "e:errorInfo"]
+        dom::element setAttribute $dtl "xmlns:e" "urn:TclSOAP-ErrorInfo"
+        
+        foreach {detailName detailInfo} $detail {
+            set err [dom::document createElement $dtl $detailName]
+            dom::document createTextNode $err $detailInfo
+        }
+    }
+    
     # serialize the DOM document and return the XML text
     regsub {<!DOCTYPE[^>]*>\n} [dom::DOMImplementation serialize $doc] {} r
     dom::DOMImplementation destroy $doc
@@ -158,122 +211,6 @@ proc SOAP::Domain::reply_simple { doc uri methodName type result } {
     dom::element setAttribute $par "xsi:type" "xsd:$type"
     dom::document createTextNode $par $result
     return $doc
-}
-
-# -------------------------------------------------------------------------
-# Examples of SOAP methods
-# -------------------------------------------------------------------------
-#
-# All of these procedures are called by the domain_handler procedure with
-# the following parameters:
-#   query   XML text of the SOAP query
-#   args    anything else
-# They all return the XML text of the reply
-#
-# -------------------------------------------------------------------------
-
-# FIX ME
-#
-# All these could do with more validation of namespace specs.
-#
-# Could probably use a proc to convert the SOAP parameters from the XML 
-# into an array as [array set params { param1 value param2 value ... }]
-# would make the method code simpler.
-
-
-# base64 - convert the input string parameter to a base64 encoded string
-#
-# parameters: 
-#  message as string
-# returns:
-#
-proc SOAP::Domain::/base64 {query args} {
-    # parse into a DOM document
-    set doc [dom::DOMImplementation parse $query]
-
-    set failed [catch {SOAP::xpath::xpath $doc "Envelope/Body/base64"} text]
-    if { $failed } {
-        set reply [fault SOAP-ENV:Client "Incorrect method name: should be \"base64\""]
-    }
-
-    if { ! $failed } {
-        set failed [catch {SOAP::xpath::xpath $doc "Envelope/Body/base64/*"} text]
-        if { $failed } {
-            set reply [fault SOAP-ENV:Client \
-                "Missing parameter: should be \"base64 string\""]
-        } else {
-            set reply [reply_simple [dom::DOMImplementation create] \
-                    zsplat-Base64 base64 string [base64::encode $text]]
-        }
-    }
-
-    # serialize and fix the DOM.
-    regsub {<!DOCTYPE[^>]*>\n} [dom::DOMImplementation serialize $reply] {} r
-
-    # clean up the DOM structures
-    dom::DOMImplementation destroy $doc
-    dom::DOMImplementation destroy $reply
-
-    if { $failed } { set code 500 } else { set code 200 }
-    return [list $code $r]
-}
-
-# -------------------------------------------------------------------------
-
-# time - return the servers idea of the time
-#
-# parameters:
-#   none
-# returns:
-#   time as string
-#
-proc SOAP::Domain::/time {query args} {
-    set doc [dom::DOMImplementation parse $query]
-    
-    set reply [reply_simple [dom::DOMImplementation create] \
-            zsplat-Time time string [clock format [clock seconds]]]
-
-    # serialize and fix the DOM.
-    regsub {<!DOCTYPE[^>]*>\n} [dom::DOMImplementation serialize $reply] {} r
-
-    # clean up the DOM structures
-    dom::DOMImplementation destroy $doc
-    dom::DOMImplementation destroy $reply
-
-    return [list 200 $r]
-}
-
-# rcsid - return the RCS version string for this package
-# parameters - none
-# returns: a string
-#
-proc SOAP::Domain::/rcsid {query args} {
-    variable rcs_id
-    set reply [reply_simple [dom::DOMImplementation create] \
-            zsplat-rcsid rcsid string $rcs_id]
-
-    # serialize and fix the DOM.
-    regsub {<!DOCTYPE[^>]*>\n} [dom::DOMImplementation serialize $reply] {} r
-
-    # clean up the DOM structures
-    dom::DOMImplementation destroy $reply
-
-    return [list 200 $r]
-}
-
-proc SOAP::Domain::/WiRECameras/get_Count {query args} {
-    package require Renicam
-    set ncameras [renicam count]
-    set reply [reply_simple [dom::DOMImplementation create] \
-           zsplat-WiRECameras get_Count integer $ncameras]
-
-    # serialize and fix the DOM.
-    regsub {<!DOCTYPE[^>]*>\n} [dom::DOMImplementation serialize $reply] {} r
-
-    # clean up the DOM structures
-    dom::DOMImplementation destroy $reply
-
-    return [list 200 $r]
 }
 
 # -------------------------------------------------------------------------
