@@ -28,7 +28,7 @@ package require SOAP::xpath
 namespace eval SOAP::Domain {
     variable version 1.0  ;# package version number
     variable debug 0      ;# flag to toggle debug output
-    variable rcs_id {$Id: SOAP-domain.tcl,v 1.3 2001/04/19 00:11:42 pat Exp $}
+    variable rcs_id {$Id: SOAP-domain.tcl,v 1.4 2001/06/06 00:46:09 patthoyts Exp $}
 
     namespace export fault reply_envelope reply_simple
 }
@@ -209,7 +209,7 @@ proc SOAP::Domain::domain_handler {optsname sock args} {
                 $xmluri "return" string $msg]
         
         # serialize and fix the DOM - doctype is not allowed (SOAP-1.1 spec)
-        regsub {<!DOCTYPE[^>]*>\n} \
+        regsub "<!DOCTYPE\[^>\]*>\n" \
                 [dom::DOMImplementation serialize $reply] {} xml
         catch {dom::DOMImplementation destroy $reply}
         Httpd_ReturnData $sock text/xml $xml 200
@@ -249,7 +249,7 @@ proc SOAP::Domain::fault {faultcode faultstring {detail {}}} {
     }
     
     # serialize the DOM document and return the XML text
-    regsub {<!DOCTYPE[^>]*>\n} [dom::DOMImplementation serialize $doc] {} r
+    regsub "<!DOCTYPE\[^>\]*>\n" [dom::DOMImplementation serialize $doc] {} r
     dom::DOMImplementation destroy $doc
     return $r
 }

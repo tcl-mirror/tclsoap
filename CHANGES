@@ -1,3 +1,10 @@
+TclSOAP 1.4.1
+-------------
+
+Fixed bug in SOAP::configure from old -xmlrpc option.
+
+Made the http transport somewhat more backwardly compatible.
+
 TclSOAP 1.4
 -----------
 
@@ -14,6 +21,9 @@ extended to the SOAP package soon.
 Added -replyProc and -postProc options the the SOAP::configure
 command.  These enable post-processing of the raw XML reply
 (-replyProc) or the parsed reply (-postProc) via a specified procedure.
+
+Re-arranged the internals to permit methods with the same name but in
+different tcl namespaces to be defined.
 
 Added tests to soap.test for the post-processing feature.
 

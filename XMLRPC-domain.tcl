@@ -51,7 +51,7 @@ package require SOAP::xpath
 namespace eval XMLRPC::Domain {
     variable version 1.0   ;# package version number
     variable debug 1       ;# debugging flag
-    variable rcs_id {$Id: XMLRPC-domain.tcl,v 1.2 2001/06/09 12:52:21 patthoyts Exp $}
+    variable rcs_id {$Id: XMLRPC-domain.tcl,v 1.3 2001/06/10 23:25:26 patthoyts Exp $}
 
     namespace export fault
 }
@@ -241,7 +241,7 @@ proc XMLRPC::Domain::domain_handler {optsname sock args} {
                 $xmluri "return" string $msg]
         
         # serialize and fix the DOM - doctype is not allowed (SOAP-1.1 spec)
-        regsub {<!DOCTYPE[^>]*>\n} \
+        regsub "<!DOCTYPE\[^>\]*>\n" \
                 [dom::DOMImplementation serialize $reply] {} xml
         catch {dom::DOMImplementation destroy $reply}
         Httpd_ReturnData $sock text/xml $xml 200

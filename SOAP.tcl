@@ -15,7 +15,7 @@ package provide SOAP 1.4
 
 # -------------------------------------------------------------------------
 
-package require http 2.3
+package require http 2.0
 package require SOAP::Parse
 
 if { [catch {package require dom 2.0} domVer]} {
@@ -28,7 +28,7 @@ if { [catch {package require dom 2.0} domVer]} {
 namespace eval SOAP {
     variable version 1.4
     variable domVersion $domVer
-    variable rcs_version { $Id: SOAP.tcl,v 1.16 2001/06/09 12:52:21 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.17 2001/06/15 00:49:37 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig
 }
@@ -175,26 +175,27 @@ proc SOAP::dump {args} {
 proc SOAP::configure { procName args } {
     # The list of valid options
     set options { uri proxy params name transport action \
-                      wrapProc replyProc parseProc postProc xmlrpc }
+                      wrapProc replyProc parseProc postProc }
 
     if { $procName == "-transport" } {
         return [eval "transport_configure $args"]
     }
 
+    # construct the name of the options array from the procName.
     set procVarName "[uplevel namespace current]::$procName"
     regsub -all {::+} $procVarName {_} procVarName
     set procVarName [namespace current]::$procVarName
 
-    if {[catch { set [subst $procVarName](proxy) } msg]} {
+    # Check that the named method has actually been defined
+    if {! [array exists $procVarName]} {
         error "invalid command: \"$procName\" not defined"
     }
 
     # if no args - print out the current settings.
     if { [llength $args] == 0 } {
         set r {}
-        foreach item $options {
-            set val [set [subst $procVarName]($item)]
-            lappend r "-$item" $val
+        foreach {opt value} [array get $procVarName] {
+            lappend r -$opt $value
         }
         return $r
     }
@@ -366,24 +367,39 @@ proc SOAP::transport_http { procVarName url request } {
     }
 
     # POST and get the reply.
-    set reply [ ::http::geturl $url -headers $headers \
-            -type text/xml -query $request ]
-
+    catch {package require http} http_version
+    if {$http_version < 2.3} {
+        lappend headers "Content-Type" "text/xml"
+        set token [ ::http::geturl $url -headers $headers \
+                -query $request ]
+    } else {
+        set token [ ::http::geturl $url -headers $headers \
+                -type text/xml -query $request ]
+    }
+    
     # store the http structure for possible access later.
-    set [subst $procVarName](http) $reply
+    set [subst $procVarName](http) $token
 
+    # Provide missing code for http < 2.3
+    if {[info proc ::http::ncode] == {}} {
+        proc ::http::ncode {token} {
+            upvar \#0 $token state
+            return [lindex [split [code $token]] 1]
+        }
+    }
+    
     # If it's a fault then add any <detail> elements to the error stack.
-    if { [::http::ncode $reply ] == 500 } {
-        set fault [SOAP::Parse::parse [::http::data $reply]]
+    if { [::http::ncode $token ] == 500 } {
+        set fault [SOAP::Parse::parse [::http::data $token]]
         error [lrange $fault 0 1] [lrange $fault 2 end]
     }
 
     # Some other sort of error ...
-    if { [::http::status $reply] != "ok" || [::http::ncode $reply ] != 200 } {
-         error "SOAP transport error: \"[::http::code $reply]\""
+    if { [::http::status $token] != "ok" || [::http::ncode $token ] != 200 } {
+         error "SOAP transport error: \"[::http::code $token]\""
     }
 
-    set r [::http::data $reply]
+    set r [::http::data $token]
     return $r
 }
 
@@ -466,7 +482,8 @@ proc SOAP::transport_configure { transport args } {
             return "no configuration required"
         }
         default {
-            error "SOAP transport \"$transport\" is undefined."
+            error "SOAP transport \"$transport\" is undefined: \
+                    must be one of \"http\" or \"print\"."
         }
     }
 }
@@ -578,7 +595,7 @@ proc SOAP::soap_request {procVarName args} {
     set prereq [dom::DOMImplementation serialize $doc]
     set req {}
     dom::DOMImplementation destroy $doc          ;# clean up
-    regsub {<!DOCTYPE[^>]*>\n} $prereq {} req    ;# hack
+    regsub "<!DOCTYPE\[^>\]*>\n" $prereq {} req  ;# hack
 
     return $req                                  ;# return the XML data
 }
@@ -660,7 +677,7 @@ proc SOAP::xmlrpc_request {procVarName args} {
     set prereq [dom::DOMImplementation serialize $doc]
     set req {}
     dom::DOMImplementation destroy $doc          ;# clean up
-    regsub {<!DOCTYPE[^>]*>\n} $prereq {} req    ;# hack
+    regsub "<!DOCTYPE\[^>\]*>\n" $prereq {} req  ;# hack
 
     return $req                                  ;# return the XML data
 }
