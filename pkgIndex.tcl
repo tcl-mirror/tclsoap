@@ -8,7 +8,7 @@
 # script is sourced, the variable $dir must contain the
 # full path name of this file's directory.
 
-package ifneeded SOAP 1.4 [list source [file join $dir SOAP.tcl]]
+package ifneeded SOAP 1.5 [list source [file join $dir SOAP.tcl]]
 package ifneeded SOAP::Domain 1.0 [list source [file join $dir SOAP-domain.tcl]]
 package ifneeded SOAP::Parse 1.0 [list source [file join $dir SOAP-parse.tcl]]
 package ifneeded SOAP::Service 0.4 [list source [file join $dir SOAP-service.tcl]]
