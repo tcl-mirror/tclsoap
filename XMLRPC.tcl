@@ -14,10 +14,11 @@
 package provide XMLRPC 1.0
 
 package require SOAP 1.4
+package require XMLRPC::TypedVariable
 
 namespace eval XMLRPC {
     variable version 1.0
-    variable rcs_version { $Id: XMLRPC.tcl,v 1.1 2001/06/06 00:46:09 patthoyts Exp $ }
+    variable rcs_version { $Id: XMLRPC.tcl,v 1.2 2001/06/09 12:52:21 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig
 }
@@ -25,14 +26,14 @@ namespace eval XMLRPC {
 # -------------------------------------------------------------------------
 
 # Delegate all these methods to the SOAP package. The only difference between
-# a SOAP and XML-RPC call is the -xmlrpc flag set on the method variables
-# during creation.
+# a SOAP and XML-RPC call are the method call wrapper and unwrapper.
 
-proc XMLRPC::create {args } {
-    #lappend args \
-        -wrapProc [namespace current]::xmlrpc_request \
-        -parseProc [namespace current]::parse_xmlrpc_response
-    lappend args -xmlrpc 1
+proc XMLRPC::create {args} {
+    set args [linsert $args 1 \
+            -wrapProc [namespace origin \
+                [namespace parent]::SOAP::xmlrpc_request] \
+            -parseProc [namespace origin \
+                [namespace parent]::SOAP::parse_xmlrpc_response]]
     return [uplevel 1 "SOAP::create $args"]
 }
 
