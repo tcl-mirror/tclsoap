@@ -1,0 +1,38 @@
+Announcing a SOAP binding for Tcl 8.3
+
+I recently got interested in SOAP and was using Tcl to try out some of
+the SOAP servers listed by www.xmethods.net. After looking around I
+have failed to spot any Tcl implementations of SOAP so I am providing
+this one.
+
+The Tcl SOAP package is written entirely in Tcl and uses the xml and
+dom packages by Steve Ball of www.zveno.com. The package provides a
+fairly simple binding of a Tcl command procedure to a SOAP method
+call. For instance, the XMethods getTemp method can be called from Tcl
+using:
+
+% set temp [getTemp 90810]
+41.0
+
+For more information go to 
+http://www.zsplat.freeserve.co.uk/soap1.0/doc/TclSOAP.html
+and the package is at
+http://www.zsplat.freeserve.co.uk/TclSOAP-1.0.tar.gz
+
+This Tcl SOAP package has been tested only with Tcl 8.3, xml 1.2 and
+dom 1.6 on Linux and on Windows (98 and 2000).
+
+Links
+-----
+
+TclXML   -  ftp://ftp.zveno.com/TclXML/TclXML-1.2.tar.gz 
+TclDOM   -  ftp://ftp.zveno.com/TclDOM/TclDOM-1.6.tar.gz
+XMethods -  http://www.xmethods.net/
+
+License
+-------
+
+This software is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.  See the accompanying file `LICENSE'
+for more details.
