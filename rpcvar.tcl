@@ -20,7 +20,7 @@ package provide rpcvar 1.1
 namespace eval rpcvar {
     variable version 1.1
     variable magic "rpcvar$version"
-    variable rcs_id {$Id: rpcvar.tcl,v 1.2 2001/08/01 23:34:54 patthoyts Exp $}
+    variable rcs_id {$Id: rpcvar.tcl,v 1.3 2001/08/13 21:03:29 patthoyts Exp $}
     variable typedefs
     variable typens
     variable enums
@@ -32,8 +32,12 @@ namespace eval rpcvar {
         set typens($typename) $xmlns    ;# set the namespace for this type
     }
 
+    # Initialize the core SOAP types. xsd and SOAP-ENC namespace names are
+    # pre-defined within the TclSOAP framework. All other namespaces will
+    # have to be fully specified.
     if {! [info exists typedefs]} {
         _init xsd string
+        _init xsd boolean
         _init xsd int
         _init xsd integer
         _init xsd float
