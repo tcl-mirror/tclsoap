@@ -1,11 +1,11 @@
-# soap-parse.tcl - Copyright (C) 2001 Pat Thoyts <pat@zsplat.freeserve.co.uk>
+# soap-parse.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
 #
 # Parse a SOAP reply packet. Returns a list of XPath(ish) style element paths
 # and the value (if there was a value).
 #
 # Used by SOAP until I work out how to read the packets using DOM.
 #
-# @(#)$Id: SOAP-parse.tcl,v 1.4 2001/03/26 23:35:41 pat Exp pat $
+# @(#)$Id: SOAP-parse.tcl,v 1.5 2001/03/26 23:41:47 pat Exp pat $
 
 package provide SOAP::Parse 1.0
 
@@ -39,7 +39,7 @@ proc SOAP::Parse::parse { data } {
     
     set r {}
     foreach { key val } [array get elt_data] {
-	lappend r $val 
+	append r $val 
     }
 
     return $r
@@ -67,7 +67,7 @@ proc SOAP::Parse::elt_data data {
     if { ! [regexp {^[ \t\n]*$} $data] } {
 	set path [join $elt_path {/}]
 	catch { set d $elt_data($path) } msg
-	lappend d $data
+	append d $data
 	set elt_data($path) $d
     }
 }
