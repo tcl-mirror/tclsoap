@@ -1,4 +1,7 @@
---------------------------------------------------------------------------
+* TODO List
+
+** base64 encoding
+
 > I do expect the SOAP method to always return the same type of result.
 > Looks like I was wrong. If this is a standard mechanism (and I suspect
 > it is) then it'll need to be fitted into the default parser which in
@@ -16,4 +19,18 @@
 >
 > Before I stick that into the package I'll check the specs to see if
 > this is normal or expected though...
-----------------------------------------------------------------------
+
+** SOAP with Attachments
+
+Marshal Rose is after getting general SOAP-with-attachments done.
+
+** tDOM Support
+
+de? was after tDOM shim. I seem to have lost the file though. :(
+
+
+
+
+Local variables:
+  mode: outline
+End:
