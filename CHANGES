@@ -1,6 +1,10 @@
 * TclSOAP 1.6.8
 ---------------
 
+** Added xmlHook option
+   This hook is called after the xml is generated and before it is
+   passed to the transport procedure.
+
 ** Set useragent option for http and https
    Permit changing the useragent header for HTTP
    protocols. SOAP::configure -transport http -useragent $newstring

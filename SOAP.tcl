@@ -39,7 +39,7 @@ if {[catch {package require SOAP::dom 1.0} ::SOAP::domVersion]} {
 namespace eval ::SOAP {
     variable version 1.6.7
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.44.2.6 2003/02/07 01:31:17 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.44.2.7 2003/06/12 22:51:07 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -234,7 +234,7 @@ proc ::SOAP::configure { procName args } {
 
     # The list of valid options, used in the error messsage
     set options { uri proxy params name transport action \
-                  wrapProc replyProc parseProc postProc \
+                  wrapProc xmlHook replyProc parseProc postProc \
                   command errorCommand schemas version \
                   encoding }
 
@@ -306,6 +306,7 @@ proc ::SOAP::configure { procName args } {
             -rep*      { set procvar(replyProc) [qualifyNamespace $value] }
             -parse*    { set procvar(parseProc) [qualifyNamespace $value] }
             -post*     { set procvar(postProc) [qualifyNamespace $value] }
+            -xml[Hh]*  { set procvar(xmlHook) [qualifyNamespace $value] }
             -com*      { set procvar(command) [qualifyNamespace $value] }
             -err*      { 
                 set procvar(errorCommand) [qualifyNamespace $value] 
@@ -416,6 +417,7 @@ proc ::SOAP::create { args } {
     array set $varName {name      {}} ;# SOAP method name
     array set $varName {action    {}} ;# Contents of the SOAPAction header
     array set $varName {wrapProc  {}} ;# encode request into XML for sending
+    array set $varName {xmlHook   {}} ;# post process the generated XML
     array set $varName {replyProc {}} ;# post process the raw XML result
     array set $varName {parseProc {}} ;# parse raw XML and extract the values
     array set $varName {postProc  {}} ;# post process the parsed result
@@ -551,6 +553,11 @@ proc ::SOAP::invoke { procVarName args } {
     # Get the XML data containing our request by calling the -wrapProc 
     # procedure
     set req [eval "$procvar(wrapProc) $procVarName $args"]
+
+    # Call the xmlHook to manipulate the generated xml before sending.
+    if { [info exists procvar(xmlHook)] && $procvar(xmlHook) != {} } {
+        set req [$procvar(xmlHook) $procVarName $req]
+    }
 
     # Send the SOAP packet (req) using the configured transport procedure
     set transport $procvar(transport)

@@ -13,7 +13,7 @@ package require http 2;                 # tcl
 
 namespace eval ::SOAP::Transport::http {
     variable version 1.0
-    variable rcsid {$Id: http.tcl,v 1.6 2003/09/06 17:08:46 patthoyts Exp $}
+    variable rcsid {$Id: http.tcl,v 1.5.2.3 2003/09/08 15:23:13 patthoyts Exp $}
     variable options
 
     SOAP::register http [namespace current]
@@ -59,7 +59,7 @@ namespace eval ::SOAP::Transport::http {
 #  -httpheaders - additional HTTP headers may be defined for specific
 #       SOAP methods. Argument should be a two element list made of
 #       the header name and value eg: [list Cookie $cookiedata]
-# -timeout - the method can override the transport defined http timeout.
+#  -timeout - the method can override the transport defined http timeout.
 #       Set to {} to use the transport timeout, 0 for infinity.
 proc ::SOAP::Transport::http::method:configure {procVarName opt value} {
     upvar $procVarName procvar
