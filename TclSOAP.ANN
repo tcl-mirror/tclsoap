@@ -15,18 +15,20 @@ using:
 41.0
 
 For more information go to 
-http://www.zsplat.freeserve.co.uk/soap1.0/doc/TclSOAP.html
+http://www.zsplat.freeserve.co.uk/soap/doc/TclSOAP.html
 and the package is at
-http://www.zsplat.freeserve.co.uk/TclSOAP-1.0.tar.gz
+http://www.zsplat.freeserve.co.uk/TclSOAP-1.3.tar.gz
 
-This Tcl SOAP package has been tested only with Tcl 8.3, xml 1.2 and
-dom 1.6 on Linux and on Windows (98 and 2000).
+This Tcl SOAP package has been tested with Tcl 8.3 on Linux and
+Windows (98 and 2000) using xml 1.2 and dom 1.6 and xml 2.0 and dom
+2.0.
 
 Links
 -----
 
 TclXML   -  ftp://ftp.zveno.com/TclXML/TclXML-1.2.tar.gz 
 TclDOM   -  ftp://ftp.zveno.com/TclDOM/TclDOM-1.6.tar.gz
+also        http://tclxml.sourceforge.net/
 XMethods -  http://www.xmethods.net/
 
 License
