@@ -18,13 +18,16 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id$
+# @(#)$Id: webservice.tcl,v 1.1 2001/08/01 23:45:44 patthoyts Exp $
+
+package require SOAP
 
 namespace eval webservices {
 
     variable uri    urn:tclsoap:webservices
     variable action urn:tclsoap:webservices
-    variable proxy  http://tclsoap.sourceforge.net/cgi-bin/rpc
+    #variable proxy  http://tclsoap.sourceforge.net/cgi-bin/rpc
+    variable proxy  http://localhost/cgi-bin/rpc
 
     SOAP::create register \
 	    -uri $uri \
