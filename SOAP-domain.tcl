@@ -1,4 +1,4 @@
-# SOAP-domain.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+# SOAP-domain.tcl - Copyright (C) 2001 Pat Thoyts <patthoyts@users.sf.net>
 #
 # SOAP Domain Service module for the tclhttpd web server.
 #
@@ -19,10 +19,10 @@ package require SOAP::CGI;              # TclSOAP 1.6
 package require rpcvar;                 # TclSOAP 1.6
 package require log;                    # tcllib 1.0
 
-namespace eval SOAP::Domain {
+namespace eval ::SOAP::Domain {
     variable version 1.4  ;# package version number
     variable debug 0      ;# flag to toggle debug output
-    variable rcs_id {$Id: SOAP-domain.tcl,v 1.12 2002/02/26 22:58:46 patthoyts Exp $}
+    variable rcs_id {$Id: SOAP-domain.tcl,v 1.13.2.1 2003/02/07 01:31:17 patthoyts Exp $}
 
     namespace export register
 
@@ -43,7 +43,7 @@ namespace eval SOAP::Domain {
 # -uri    the XML namespace for these methods. Defaults to the Tcl interpreter
 #         and namespace name.
 #
-proc SOAP::Domain::register {args} {
+proc ::SOAP::Domain::register {args} {
 
     if { [llength $args] < 1 } {
         return -code error "invalid # args:\
@@ -124,7 +124,7 @@ proc SOAP::Domain::register {args} {
 # sock     socket back to the client
 # suffix   the remainder of the url once the prefix was stripped.
 #
-proc SOAP::Domain::domain_handler {optsname sock args} {
+proc ::SOAP::Domain::domain_handler {optsname sock args} {
     variable debug
     upvar \#0 Httpd$sock data
     upvar \#0 $optsname options
@@ -174,7 +174,7 @@ proc SOAP::Domain::domain_handler {optsname sock args} {
 
 # -------------------------------------------------------------------------
 
-package provide SOAP::Domain $SOAP::Domain::version
+package provide SOAP::Domain $::SOAP::Domain::version
 
 # -------------------------------------------------------------------------
 

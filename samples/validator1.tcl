@@ -318,5 +318,7 @@ proc validate.xnestedStructTest {} {
 
 # -------------------------------------------------------------------------
     
-puts $help
+if {$tcl_interactive} {
+    puts $help
+}
 

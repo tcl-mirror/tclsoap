@@ -1,4 +1,4 @@
-# xpath.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+# xpath.tcl - Copyright (C) 2001 Pat Thoyts <patthoyts@users.sourceforge.net>
 #
 # Provide a _SIGNIFICANTLY_ simplified version of XPath querying for DOM
 # document objects. This might get expanded to eventually conform to the
@@ -14,8 +14,6 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package provide SOAP::xpath 0.2
-
 if { [catch {package require dom 2.0}] } {
     if { [catch {package require dom 1.6}] } {
         error "require dom package greater than 1.6"
@@ -24,7 +22,7 @@ if { [catch {package require dom 2.0}] } {
 
 namespace eval SOAP::xpath {
     variable version 0.2
-    variable rcsid { $Id: xpath.tcl,v 1.7 2001/04/18 23:57:25 pat Exp $ }
+    variable rcsid { $Id: xpath.tcl,v 1.8.2.1 2003/02/07 01:31:18 patthoyts Exp $ }
     namespace export xpath xmlnsSplit
 }
 
@@ -35,9 +33,10 @@ namespace eval SOAP::xpath {
 
 # TODO: Paths including attribute selection etc.
 
-proc SOAP::xpath::xpath { args } {
+proc ::SOAP::xpath::xpath { args } {
     if { [llength $args] < 2 || [llength $args] > 3 } {
-        error "wrong # args: should be \"xpath ?option? rootNode path\""
+        return -code error "wrong # args:\
+            should be \"xpath ?option? rootNode path\""
     }
 
     array set opts {
@@ -53,7 +52,8 @@ proc SOAP::xpath::xpath { args } {
             -nam*   { set opts(-name) 1 }
             -att*   { set opts(-attributes) 1 }
             default {
-                error "bad option \"$opt\": must be [array names opts]"
+                return -code error "bad option \"$opt\":\
+                    must be [array names opts]"
             }
         }
         set args [lrange $args 1 end]
@@ -100,7 +100,7 @@ proc SOAP::xpath::xpath { args } {
 
 # check for an element (called $target) that is a child of root. Returns
 # the node(s) or {}
-proc SOAP::xpath::find_node { root pathlist } {
+proc ::SOAP::xpath::find_node { root pathlist } {
     set r {}
     set kids ""
 
@@ -146,7 +146,7 @@ proc SOAP::xpath::find_node { root pathlist } {
 # -------------------------------------------------------------------------
 
 # Return list of {node namespace elementname} for each child element of root
-proc SOAP::xpath::child_elements { root } {
+proc ::SOAP::xpath::child_elements { root } {
     set kids {}
     set children [dom::node children $root]
     foreach node $children {
@@ -174,7 +174,7 @@ proc SOAP::xpath::child_elements { root } {
 #      urn:test:Body             -> urn:test Body
 #      http://localhost:80/:Body -> http://localhost:80/ Body
 #
-proc SOAP::xpath::xmlnsSplit {elementName} {
+proc ::SOAP::xpath::xmlnsSplit {elementName} {
     set name [split $elementName :]
     set len [llength $name]
     if { $len == 1 } {
@@ -192,7 +192,7 @@ proc SOAP::xpath::xmlnsSplit {elementName} {
 # Build a list of any XML namespace definitions for node
 # Returns a list of {namesnameName qualifiedName}
 #
-proc SOAP::xpath::xmlnsGet {node} {
+proc ::SOAP::xpath::xmlnsGet {node} {
     set result {}
     foreach {ns fqns} [array get [dom::node cget $node -attributes]] {
 	set ns [split $ns :]
@@ -208,7 +208,7 @@ proc SOAP::xpath::xmlnsGet {node} {
 # Build a list of {{xml namespace name} {qualified namespace}} working up the
 # DOM tree from node. You should look for the last occurrence of your name
 # in the list.
-proc SOAP::xpath::xmlnsConstruct {node} {
+proc ::SOAP::xpath::xmlnsConstruct {node} {
     set result [xmlnsGet $node]
     set parent [dom::node parent $node]
     while { [dom::node cget $parent -nodeType] == "element" } {
@@ -225,17 +225,19 @@ proc SOAP::xpath::xmlnsConstruct {node} {
 # xmlnsNamespaces should be an array of namespaceNames to qualified names
 # constructed using array set var [xmlnsConstruct $node]
 #
-proc SOAP::xpath::xmlnsQualify {xmlnsNamespaces elementName} {
+proc ::SOAP::xpath::xmlnsQualify {xmlnsNamespaces elementName} {
     upvar $xmlnsNamespaces xmlns
     set name [split $elementName :]
     if { [llength $name] == 1} {
         return $elementName
     }
     if { [llength $name] != 2 } {
-	error "wrong # elements: name should be namespaceName:elementName"
+	return -code error "wrong # elements:\
+            name should be namespaceName:elementName"
     }
     if { [catch {set fqns $xmlns([lindex $name 0])}] } {
-	error "invalid namespace name: \"[lindex $name 0]\" not found"
+	return -code error "invalid namespace name:\
+            \"[lindex $name 0]\" not found"
     }
 
     return "${fqns}:[lindex $name 1]"
@@ -243,6 +245,9 @@ proc SOAP::xpath::xmlnsQualify {xmlnsNamespaces elementName} {
 
 # -------------------------------------------------------------------------
 
+package provide SOAP::xpath $::SOAP::xpath::version
+
+# -------------------------------------------------------------------------
 # Local variables:
 #   indent-tabs-mode: nil
 # End:

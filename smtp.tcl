@@ -1,4 +1,4 @@
-# smtp.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+# smtp.tcl - Copyright (C) 2001 Pat Thoyts <patthoyts@users.sourceforge.net>
 #
 # Provide an SMTP transport for the SOAP package.
 #
@@ -19,13 +19,11 @@
 package require mime;                   # tcllib 1.0
 package require smtp;                   # tcllib 1.0
 
-namespace eval SOAP::Transport::smtp {
+namespace eval ::SOAP::Transport::smtp {
     variable version 1.0
-    variable rcsid {$Id: smtp.tcl,v 1.2 2001/12/20 00:09:29 patthoyts Exp $}
+    variable rcsid {$Id: smtp.tcl,v 1.3.2.1 2003/02/07 01:31:18 patthoyts Exp $}
     variable options
     
-    package provide SOAP::smtp $version
-
     SOAP::register mailto [namespace current]
 
     # Initialize the transport options.
@@ -56,7 +54,7 @@ namespace eval SOAP::Transport::smtp {
 #  -attach      - implements SOAP Messages with attachments spec.
 #       The argument should be a MIME token returned by mime::initialize.
 #
-proc SOAP::Transport::smtp::method:configure {procVarName opt value} {
+proc ::SOAP::Transport::smtp::method:configure {procVarName opt value} {
     upvar $procVarName procvar
     switch -glob -- $opt {
         -mimeheaders {
@@ -67,7 +65,7 @@ proc SOAP::Transport::smtp::method:configure {procVarName opt value} {
         }
         default {
             # not reached
-            error "unknown option \"$opt\""
+            return -code error "unknown option \"$opt\""
         }
     }
 }
@@ -77,7 +75,7 @@ proc SOAP::Transport::smtp::method:configure {procVarName opt value} {
 # Description:
 #   Permit configuration of the SMTP transport.
 #
-proc SOAP::Transport::smtp::configure {args} {
+proc ::SOAP::Transport::smtp::configure {args} {
     variable options
 
     if {[llength $args] == 0} {
@@ -100,7 +98,7 @@ proc SOAP::Transport::smtp::configure {args} {
                 set options(headers) $value
             }
             default {
-                error "invalid option \"$opt\": must be \
+                return -code error "invalid option \"$opt\": must be \
                      \"-servers\", \"-headers\" or \"-sender\""
             }
         }
@@ -126,14 +124,14 @@ proc SOAP::Transport::smtp::configure {args} {
 #   get the call made as asynchronous so the framework doesn't expect an 
 #   answer. The SMTP transport will never attempt to call this procedure.
 #
-proc SOAP::Transport::smtp::xfer {procVarName url soap} {
+proc ::SOAP::Transport::smtp::xfer {procVarName url soap} {
     variable options
 
     if {[catch {eval array set addr [mime::parseaddress $url]} msg]} {
-        error $msg
+        return -code error $msg
     }
     if {$addr(error) != {}} {
-        error $addr(error)
+        return -code error $addr(error)
     }
 
     # Clean up the previous request (if any)
@@ -176,7 +174,7 @@ proc SOAP::Transport::smtp::xfer {procVarName url soap} {
                             "TclSOAP/$version ($::tcl_platform(os))"]]
 
     if {$r != {}} {
-        error "SOAP transport error: $r"
+        return -code error "SOAP transport error: $r"
     }
 
     return {}
@@ -190,7 +188,7 @@ proc SOAP::Transport::smtp::xfer {procVarName url soap} {
 # Parameters:
 #  methodVarName - the name of the SOAP method configuration array
 #
-proc SOAP::Transport::smtp::method:destroy {methodVarName} {
+proc ::SOAP::Transport::smtp::method:destroy {methodVarName} {
     upvar $methodVarName procvar
     if {[info exists procvar(smtp)] && $procvar(smtp) != {}} {
         catch { ::mime::finalize $procvar(smtp) -subordinate all }
@@ -199,18 +197,23 @@ proc SOAP::Transport::smtp::method:destroy {methodVarName} {
 
 # -------------------------------------------------------------------------
 
-proc SOAP::Transport::smtp::dump {methodName type} {
+proc ::SOAP::Transport::smtp::dump {methodName type} {
     SOAP::cget $methodName proxy
     if {[catch {SOAP::cget $methodName smtp} token]} {
         set token {}
     }
 
     if {$token == {}} {
-        error "cannot dump: no information is available for \"$methodName\""
+        return -code error "cannot dump: no information is available\
+            for \"$methodName\""
     }
 
     return [mime::buildmessage $token]
 }
+
+# -------------------------------------------------------------------------
+
+package provide SOAP::smtp $::SOAP::Transport::smtp::version
 
 # -------------------------------------------------------------------------
 # Local variables:

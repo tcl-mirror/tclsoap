@@ -1,4 +1,4 @@
-# http.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+# http.tcl - Copyright (C) 2001 Pat Thoyts <patthoyts@users.sourceforge.net>
 #
 # The SOAP HTTP Transport.
 #
@@ -9,14 +9,12 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package require http;                   # tcl
+package require http 2;                 # tcl
 
-namespace eval SOAP::Transport::http {
+namespace eval ::SOAP::Transport::http {
     variable version 1.0
-    variable rcsid {$Id: http.tcl,v 1.4 2001/12/21 16:57:52 patthoyts Exp $}
+    variable rcsid {$Id: http.tcl,v 1.5.2.2 2003/02/07 01:31:17 patthoyts Exp $}
     variable options
-
-    package provide SOAP::http $version
 
     SOAP::register http [namespace current]
 
@@ -57,7 +55,7 @@ namespace eval SOAP::Transport::http {
 #       the header name and value eg: [list Cookie $cookiedata]
 # -timeout - the method can override the transport defined http timeout.
 #       Set to {} to use the transport timeout, 0 for infinity.
-proc SOAP::Transport::http::method:configure {procVarName opt value} {
+proc ::SOAP::Transport::http::method:configure {procVarName opt value} {
     upvar $procVarName procvar
     switch -glob -- $opt {
         -httpheaders {
@@ -68,7 +66,7 @@ proc SOAP::Transport::http::method:configure {procVarName opt value} {
         }
         default {
             # not reached.
-            error "unknown option \"$opt\""
+            return -code error "unknown option \"$opt\""
         }
     }
 }
@@ -78,7 +76,7 @@ proc SOAP::Transport::http::method:configure {procVarName opt value} {
 # Description:
 #  Configure any http transport specific settings.
 #
-proc SOAP::Transport::http::configure {args} {
+proc ::SOAP::Transport::http::configure {args} {
     variable options
 
     if {[llength $args] == 0} {
@@ -98,7 +96,7 @@ proc SOAP::Transport::http::configure {args} {
                 set options(headers) $value
             }
             default {
-                error "invalid option \"$opt\":\
+                return -code error "invalid option \"$opt\":\
                       must be \"-proxy host:port\" or \"-headers list\""
             }
         }
@@ -128,7 +126,7 @@ proc SOAP::Transport::http::configure {args} {
 #   been configured to be asynchronous then the async handler is called
 #   once the http request completes.
 #
-proc SOAP::Transport::http::xfer { procVarName url request } {
+proc ::SOAP::Transport::http::xfer { procVarName url request } {
     variable options
     upvar $procVarName procvar
     
@@ -211,14 +209,17 @@ proc SOAP::Transport::http::xfer { procVarName url request } {
     }
 
     # Some other sort of error ...
-    switch -exact -- [::http::status $token] {
+    switch -exact -- [set status [::http::status $token]] {
         timeout {
-            error "error: SOAP http transport timed out after $timeout ms"
+            return -code error "error: SOAP http transport timed out\
+                after $timeout ms"
         }
         ok {
         }
         default {
-            error "SOAP transport error: \"[::http::code $token]\""
+            return -code error  "SOAP transport error:\
+                token $token status is \"$status\" and HTTP result code is\
+                \"[::http::code $token]\""
         }
     }
 
@@ -245,7 +246,7 @@ proc ::http::geturl_followRedirects {url args} {
         set url $meta(Location)
         unset meta
     }
-    error "maximum relocation depth reached: site loop?"
+    return -code error "maximum relocation depth reached: site loop?"
 }
 
 
@@ -253,7 +254,7 @@ proc ::http::geturl_followRedirects {url args} {
 
 # Description:
 #    Asynchronous http handler command.
-proc SOAP::Transport::http::asynchronous {procVarName token} {
+proc ::SOAP::Transport::http::asynchronous {procVarName token} {
     upvar $procVarName procvar
 
     if {[catch {asynchronous2 $procVarName $token} msg]} {
@@ -269,13 +270,13 @@ proc SOAP::Transport::http::asynchronous {procVarName token} {
     return $msg
 }
 
-proc SOAP::Transport::http::asynchronous2 {procVarName token} {
+proc ::SOAP::Transport::http::asynchronous2 {procVarName token} {
     upvar $procVarName procvar
     set procName [lindex [split $procVarName {_}] end]
 
     # Some other sort of error ...
     if {[::http::status $token] != "ok"} {
-         error "SOAP transport error: \"[::http::code $token]\""
+         return -code error "SOAP transport error: \"[::http::code $token]\""
     }
 
     set reply [::http::data $token]
@@ -299,7 +300,7 @@ proc SOAP::Transport::http::asynchronous2 {procVarName token} {
 #   The proxy variable in this namespace is set up by 
 #   SOAP::configure -transport http.
 #
-proc SOAP::Transport::http::filter {host} {
+proc ::SOAP::Transport::http::filter {host} {
     variable options
     if { [string match "localhost*" $host] \
              || [string match "127.*" $host] } {
@@ -315,7 +316,7 @@ proc SOAP::Transport::http::filter {host} {
 #   calls.
 # Parameters:
 #
-proc SOAP::Transport::http::wait {procVarName} {
+proc ::SOAP::Transport::http::wait {procVarName} {
     upvar $procVarName procvar
     http::wait $procvar(http)
 }
@@ -327,7 +328,7 @@ proc SOAP::Transport::http::wait {procVarName} {
 # Parameters:
 #  methodVarName - the name of the SOAP method configuration array
 #
-proc SOAP::Transport::http::method:destroy {methodVarName} {
+proc ::SOAP::Transport::http::method:destroy {methodVarName} {
     upvar $methodVarName procvar
     if {[info exists procvar(http)] && $procvar(http) != {}} {
         catch {::http::cleanup $procvar(http)}
@@ -336,14 +337,15 @@ proc SOAP::Transport::http::method:destroy {methodVarName} {
 
 # -------------------------------------------------------------------------
 
-proc SOAP::Transport::http::dump {methodName type} {
+proc ::SOAP::Transport::http::dump {methodName type} {
     SOAP::cget $methodName proxy
     if {[catch {SOAP::cget $methodName http} token]} {
         set token {}
     }
 
     if { $token == {} } {
-        error "cannot dump: no information is available for \"$methodName\""
+        return -code error "cannot dump:\
+            no information is available for \"$methodName\""
     }
 
     set result {}
@@ -353,13 +355,17 @@ proc SOAP::Transport::http::dump {methodName type} {
         -req*   {set result [lindex [array get $token -query] 1]}
         -rep*   {set result [::http::data $token]}
         default {
-            error "unrecognised option: must be one of \
+            return -code error "unrecognised option: must be one of \
                     \"-meta\", \"-request\" or \"-reply\""
         }
     }
 
     return $result
 }
+
+# -------------------------------------------------------------------------
+
+package provide SOAP::http $::SOAP::Transport::http::version
 
 # -------------------------------------------------------------------------
 # Local variables:

@@ -1,4 +1,4 @@
-# beep.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+# beep.tcl - Copyright (C) 2001 Pat Thoyts <patthoyts@users.sourceforge.net>
 #
 # Provide an BEEP transport for the SOAP package, e.g.,
 #
@@ -28,14 +28,14 @@ package require beepcore::mixer;        # beepcore-tcl
 package require beepcore::peer;         # beepcore-tcl
 package require mime;                   # tcllib
 
-namespace eval SOAP::Transport::beep {
+namespace eval ::SOAP::Transport::beep {
     variable version 1.0
-    variable rcsid {$Id: beep.tcl,v 1.6 2002/02/02 00:31:17 patthoyts Exp $}
+    variable rcsid {$Id: beep.tcl,v 1.7 2002/07/31 00:05:16 patthoyts Exp $}
     variable options
     variable sessions
 
-    SOAP::register soap.beep  [namespace current]
-    SOAP::register soap.beeps [namespace current]
+    ::SOAP::register soap.beep  [namespace current]
+    ::SOAP::register soap.beeps [namespace current]
 
     # Initialize the transport options.
     if {![info exists options]} {
@@ -68,7 +68,7 @@ namespace eval SOAP::Transport::beep {
 #  Implement the additional SOAP method configuration options provide
 #  for this transport.
 #  
-proc SOAP::Transport::beep::method:configure {procVarName opt value} {
+proc ::SOAP::Transport::beep::method:configure {procVarName opt value} {
     variable options
 
     upvar $procVarName procvar
@@ -88,7 +88,7 @@ proc SOAP::Transport::beep::method:configure {procVarName opt value} {
             set procvar([string trimleft $opt -]) $value
         }
         default {
-            error "unknown option \"$opt\""
+            return -code error "unknown option \"$opt\""
         }
     }
 }
@@ -103,7 +103,7 @@ proc SOAP::Transport::beep::method:configure {procVarName opt value} {
 #  procVarName - the name of the method configuration array
 #  args        - the argument list that was given to SOAP::create
 #
-proc SOAP::Transport::beep::method:create {procVarName args} {
+proc ::SOAP::Transport::beep::method:create {procVarName args} {
     global debugP
     variable sessions
     upvar $procVarName procvar
@@ -116,7 +116,8 @@ proc SOAP::Transport::beep::method:create {procVarName args} {
     set ndx [lsearch -exact $args -proxy]
     incr ndx 1
     if {$ndx == 0} {
-        error "invalid arguments: the \"-proxy URL\" argument is required"
+        return -code error "invalid arguments:\
+            the \"-proxy URL\" argument is required"
     } else {
         set procvar(proxy) [lindex $args $ndx]
     }
@@ -217,13 +218,13 @@ proc SOAP::Transport::beep::method:create {procVarName args} {
 	    ::beepcore::log::entry $logT user \
 			 "beepcore::mixer::init $parse(code): $parse(diagnostic)"
 
-	    error $parse(diagnostic)
+	    return -code error $parse(diagnostic)
 	}
 
 	default {
 	    ::beepcore::log::entry $logT error beepcore::mixer::init $mixerT
 
-	    error $mixerT
+	    return -code error $mixerT
 	}
     }
 
@@ -256,14 +257,14 @@ proc SOAP::Transport::beep::method:create {procVarName args} {
             # We can't call SOAP::destroy because we havn't created a SOAP
             # method yet. The local destroy proc will clean up for us.
 	    method:destroy $procVarName
-	    error $parse(diagnostic)
+	    return -code error $parse(diagnostic)
 	}
 
 	default {
 	    ::beepcore::log::entry $logT error beepcore::mixer::create $channelT
 
 	    method:destroy $procVarName
-	    error $channelT
+	    return -code error $channelT
 	}
     }
 
@@ -272,13 +273,13 @@ proc SOAP::Transport::beep::method:create {procVarName args} {
 	::beepcore::log::entry $logT error beepcore::peer::getprop $data
 
 	method:destroy $procVarName
-	error $data
+	return -code error $data
     }
     if { [catch { dom::DOMImplementation parse $data } doc] } {
 	::beepcore::log::entry $logT error dom::parse $doc
 
 	method:destroy $procVarName
-	error "bootrpy is invalid xml: $doc"
+	return -code error "bootrpy is invalid xml: $doc"
     }
     if { [set node [SOAP::selectNode $doc /bootrpy]] != {} } {
 	catch {
@@ -301,12 +302,12 @@ proc SOAP::Transport::beep::method:create {procVarName args} {
 	dom::DOMImplementation destroy $doc
 
         method:destroy $procVarName
-	error "$code: $diagnostic"
+	return -code error "$code: $diagnostic"
     } else {
 	dom::DOMImplementation destroy $doc
 
 	method:destroy $procVarName
-	error "invalid protocol: the boot reply is invalid"
+	return -code error "invalid protocol: the boot reply is invalid"
     }
 }
 
@@ -316,7 +317,7 @@ proc SOAP::Transport::beep::method:create {procVarName args} {
 #  Configure any beep transport specific settings.
 #  Anything that works for mixer::init works for us...
 #
-proc SOAP::Transport::beep::configure {args} {
+proc ::SOAP::Transport::beep::configure {args} {
     variable options
 
     if {[llength $args] == 0} {
@@ -333,7 +334,7 @@ proc SOAP::Transport::beep::configure {args} {
 # Parameters:
 #  methodVarName - the name of the SOAP method configuration array
 #
-proc SOAP::Transport::beep::method:destroy {methodVarName} {
+proc ::SOAP::Transport::beep::method:destroy {methodVarName} {
     variable sessions
     upvar $methodVarName procvar
 
@@ -374,7 +375,7 @@ proc SOAP::Transport::beep::method:destroy {methodVarName} {
 #   soap         - the XML payload for the SOAP message.
 # Notes:
 #
-proc SOAP::Transport::beep::xfer {procVarName url request} {
+proc ::SOAP::Transport::beep::xfer {procVarName url request} {
     upvar $procVarName procvar
 
     if {$procvar(command) != {}} {
@@ -407,7 +408,7 @@ proc SOAP::Transport::beep::xfer {procVarName url request} {
 	    ::mime::finalize $rspT
 
 	    if {[string compare $content application/xml]} {
-		error "not application/xml reply, not $content"
+		return -code error "not application/xml reply, not $content"
 	    }
 
 	    return $response
@@ -419,19 +420,19 @@ proc SOAP::Transport::beep::xfer {procVarName url request} {
 
 	    ::mime::finalize $reqT
 	    ::mime::finalize $rspT
-	    error "$parse(code): $parse(diagnostic)"
+	    return -code error "$parse(code): $parse(diagnostic)"
 	}
 
 	default {
 	    ::beepcore::log::entry $logT error beepcore::peer::message $rspT
 
 	    ::mime::finalize $reqT
-	    error $rspT
+	    return -code error $rspT
 	}
     }
 }
 
-proc SOAP::Transport::beep::async {procVarName channelT args} {
+proc ::SOAP::Transport::beep::async {procVarName channelT args} {
     upvar $procVarName procvar
 
     if { [catch { eval [list async2 $procVarName] $args } result] } {
@@ -446,7 +447,7 @@ proc SOAP::Transport::beep::async {procVarName channelT args} {
     }
 }
 
-proc SOAP::Transport::beep::async2 {procVarName args} {
+proc ::SOAP::Transport::beep::async2 {procVarName args} {
     upvar $procVarName procvar
     array set argv $args
 
@@ -457,7 +458,7 @@ proc SOAP::Transport::beep::async2 {procVarName args} {
 	    ::mime::finalize $argv(mimeT)
 
 	    if {[string compare $content application/xml]} {
-		error "not application/xml reply, not $content"
+		return -code error "not application/xml reply, not $content"
 	    }
 
 	    set reply [SOAP::invoke2 $procVarName $reply]
@@ -472,20 +473,20 @@ proc SOAP::Transport::beep::async2 {procVarName args} {
 	    ::beepcore::log::entry $logT user "$parse(code): $parse(diagnostic)"
 
 	    ::mime::finalize $argv(mimeT)
-	    error "$parse(code): $parse(diagnostic)"
+	    return -code error "$parse(code): $parse(diagnostic)"
 	}
 
 	default {
 	    ::mime::finalize $argv(mimeT)
 
-	    error "not expecting $argv(status) reply"
+	    return -code error "not expecting $argv(status) reply"
 	}
     }
 }
 
 # -------------------------------------------------------------------------
 
-proc SOAP::Transport::beep::wait {procVarName} {
+proc ::SOAP::Transport::beep::wait {procVarName} {
     upvar $procVarName procvar
     ::beepcore::mixer::wait $procvar(mixerT)
 }
@@ -496,20 +497,20 @@ proc SOAP::Transport::beep::wait {procVarName} {
 # code - in the meantime...
 
 catch {
-    uri::register {soap.beep soap.beeps beep} {
+    ::uri::register {soap.beep soap.beeps beep} {
         variable schemepart "//.*"
         variable url "(soap.)?beeps?:${schemepart}"
     }
 }
 
-proc uri::SplitSoap.beep {url} {
+proc ::uri::SplitSoap.beep {url} {
     return [SplitHttp $url]
 }
 
-proc uri::SplitSoap.beeps {url} {
+proc ::uri::SplitSoap.beeps {url} {
     return [SplitHttp $url]
 }
-proc uri::SplitBeep {url} {
+proc ::uri::SplitBeep {url} {
     return [SplitHttp $url]
 }
 

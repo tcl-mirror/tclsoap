@@ -1,4 +1,4 @@
-# XMLRPC.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+# XMLRPC.tcl - Copyright (C) 2001 Pat Thoyts <patthoyts@users.sourceforge.net>
 #
 # Provide Tcl access to XML-RPC provided methods.
 #
@@ -14,9 +14,9 @@
 package require SOAP 1.4
 package require rpcvar
 
-namespace eval XMLRPC {
+namespace eval ::XMLRPC {
     variable version 1.0
-    variable rcs_version { $Id: XMLRPC.tcl,v 1.6 2001/11/01 23:52:22 patthoyts Exp $ }
+    variable rcs_version { $Id: XMLRPC.tcl,v 1.7.2.1 2003/02/07 01:31:17 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force [uplevel {namespace current}]::rpcvar::*}
@@ -27,7 +27,7 @@ namespace eval XMLRPC {
 # Delegate all these methods to the SOAP package. The only difference between
 # a SOAP and XML-RPC call are the method call wrapper and unwrapper.
 
-proc XMLRPC::create {args} {
+proc ::XMLRPC::create {args} {
     set args [linsert $args 1 \
             -wrapProc [namespace origin \
                 [namespace parent]::SOAP::xmlrpc_request] \
@@ -36,23 +36,23 @@ proc XMLRPC::create {args} {
     return [uplevel 1 "SOAP::create $args"]
 }
 
-proc XMLRPC::configure { args } {
+proc ::XMLRPC::configure { args } {
     return [uplevel 1 "SOAP::configure $args"]
 }
 
-proc XMLRPC::cget { args } {
+proc ::XMLRPC::cget { args } {
     return [uplevel 1 "SOAP::cget $args"] 
 }
 
-proc XMLRPC::dump { args } {
+proc ::XMLRPC::dump { args } {
     return [uplevel 1 "SOAP::dump $args"] 
 }
 
-proc XMLRPC::proxyconfig { args } {
+proc ::XMLRPC::proxyconfig { args } {
     return [uplevel 1 "SOAP::proxyconfig $args"] 
 }
 
-proc XMLRPC::export {args} {
+proc ::XMLRPC::export {args} {
     foreach item $args {
         uplevel "set \[namespace current\]::__xmlrpc_exports($item)\
                 \[namespace code $item\]"
@@ -71,7 +71,7 @@ proc XMLRPC::export {args} {
 # Result:
 #   Returns the XML text of the SOAP Fault packet.
 #
-proc XMLRPC::fault {faultcode faultstring {detail {}}} {
+proc ::XMLRPC::fault {faultcode faultstring {detail {}}} {
     set xml [join [list \
 	    "<?xml version=\"1.0\" ?>" \
 	    "<methodResponse>" \
@@ -105,7 +105,7 @@ proc XMLRPC::fault {faultcode faultstring {detail {}}} {
 # Result:
 #   Returns the DOM document root of the generated reply packet
 #
-proc XMLRPC::_reply {doc uri methodName result} {
+proc ::XMLRPC::_reply {doc uri methodName result} {
     set d_root [dom::document createElement $doc "methodResponse"]
     set d_params [dom::document createElement $d_root "params"]
     set d_param [dom::document createElement $d_params "param"]
@@ -124,7 +124,7 @@ proc XMLRPC::_reply {doc uri methodName result} {
 # Result:
 #   Returns the DOM document root of the generated reply packet
 #
-proc XMLRPC::reply {doc uri methodName args} {
+proc ::XMLRPC::reply {doc uri methodName args} {
     set d_root   [dom::document createElement $doc  "methodResponse"]
     set d_params [dom::document createElement $d_root "params"]
 
@@ -138,7 +138,7 @@ proc XMLRPC::reply {doc uri methodName args} {
 # -------------------------------------------------------------------------
 
 # node is the <param> element
-proc XMLRPC::insert_value {node value} {
+proc ::XMLRPC::insert_value {node value} {
 
     set type      [rpctype $value]
     set value     [rpcvalue $value]

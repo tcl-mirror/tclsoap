@@ -1,4 +1,4 @@
-# SOAP-CGI.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+# SOAP-CGI.tcl - Copyright (C) 2001 Pat Thoyts <patthoyts@users.sf.net>
 #
 # A CGI framework for SOAP and XML-RPC services from TclSOAP
 #
@@ -12,7 +12,7 @@
 
 package provide SOAP::CGI 1.0
 
-namespace eval SOAP {
+namespace eval ::SOAP {
     namespace eval CGI {
 
 	# -----------------------------------------------------------------
@@ -39,7 +39,7 @@ namespace eval SOAP {
 	# -----------------------------------------------------------------
 
 	variable rcsid {
-	    $Id: SOAP-CGI.tcl,v 1.13 2002/09/21 00:10:29 patthoyts Exp $
+	    $Id: SOAP-CGI.tcl,v 1.14 2002/09/23 23:49:04 patthoyts Exp $
 	}
 	variable methodName  {}
 	variable debugging   0
@@ -66,7 +66,7 @@ namespace eval SOAP {
 #   This file will need to be writable by the httpd user. This is usually
 #   'nobody' on unix systems, so the logfile will need to be world writeable.
 #
-proc SOAP::CGI::log {protocol action result} {
+proc ::SOAP::CGI::log {protocol action result} {
     variable logfile
     catch {
 	if {[info exists logfile] && $logfile != {} && \
@@ -89,7 +89,7 @@ proc SOAP::CGI::log {protocol action result} {
 #   The string length is incremented by the number of newlines as HTTP content
 #   assumes CR-NL line endings.
 #
-proc SOAP::CGI::write {html {type text/html} {status {}}} {
+proc ::SOAP::CGI::write {html {type text/html} {status {}}} {
     variable debuginfo
 
     # Do some debug info:
@@ -126,7 +126,7 @@ proc SOAP::CGI::write {html {type text/html} {status {}}} {
 # Result:
 #   Returns the list for an array with filename, interp and classname elts.
 #
-proc SOAP::CGI::get_implementation_details {mapfile classname} {
+proc ::SOAP::CGI::get_implementation_details {mapfile classname} {
     if {[file exists $mapfile]} {
 	set f [open $mapfile r]
 	while {! [eof $f] } {
@@ -153,7 +153,7 @@ proc SOAP::CGI::get_implementation_details {mapfile classname} {
     return $r
 }
 
-proc SOAP::CGI::soap_implementation {SOAPAction} {
+proc ::SOAP::CGI::soap_implementation {SOAPAction} {
     variable soapmapfile
     variable soapdir
 
@@ -170,7 +170,7 @@ proc SOAP::CGI::soap_implementation {SOAPAction} {
     return [array get impl]
 }
 
-proc SOAP::CGI::xmlrpc_implementation {classname} {
+proc ::SOAP::CGI::xmlrpc_implementation {classname} {
     variable xmlrpcmapfile
     variable xmlrpcdir
 
@@ -186,7 +186,7 @@ proc SOAP::CGI::xmlrpc_implementation {classname} {
     return [array get impl]
 }
 
-proc SOAP::CGI::createInterp {interp path} {
+proc ::SOAP::CGI::createInterp {interp path} {
     safe::setLogCmd [namespace current]::itrace
     set slave [safe::interpCreate $interp]
     safe::interpAddToAccessPath $slave $path
@@ -204,7 +204,7 @@ proc SOAP::CGI::createInterp {interp path} {
 # Description:
 #   itrace prints it's arguments to stdout if we were called interactively.
 #
-proc SOAP::CGI::itrace args {
+proc ::SOAP::CGI::itrace args {
     variable interactive
     if {$interactive} {
 	puts $args
@@ -217,7 +217,7 @@ proc SOAP::CGI::itrace args {
 #   on by the use of the SOAPDebug header. You can enable this with:
 #     SOAP::configure -transport http -headers {SOAPDebug 1}
 #
-proc SOAP::CGI::dtrace args {
+proc ::SOAP::CGI::dtrace args {
     variable debuginfo
     variable debugging
     if {$debugging} {
@@ -231,7 +231,7 @@ proc SOAP::CGI::dtrace args {
 #   Handle UTF-8 and UTF-16 data and convert into unicode for DOM parsing
 #   as necessary.
 #
-proc SOAP::CGI::do_encoding {xml} {
+proc ::SOAP::CGI::do_encoding {xml} {
     if {[binary scan $xml ccc c0 c1 c2] == 3} {
 	if {$c0 == -1 && $c1 == -2} {
 	    dtrace "encoding: UTF-16 little endian"
@@ -258,7 +258,7 @@ proc SOAP::CGI::do_encoding {xml} {
 # Parameters:
 #   doc - a DOM tree constructed from the input request XML data.
 #
-proc SOAP::CGI::xmlrpc_call {doc {interp {}}} {
+proc ::SOAP::CGI::xmlrpc_call {doc {interp {}}} {
     variable methodName
     if {[catch {
 	
@@ -316,7 +316,7 @@ proc SOAP::CGI::xmlrpc_call {doc {interp {}}} {
 #   doc
 #   mandate - boolean: if true then throw an error for any mustUnderstand
 #
-proc SOAP::CGI::soap_header {doc {mandate 0}} {
+proc ::SOAP::CGI::soap_header {doc {mandate 0}} {
     dtrace "Handling SOAP Header"
     set result {}
     foreach elt [selectNode $doc "/Envelope/Header/*"] {
@@ -357,7 +357,7 @@ proc SOAP::CGI::soap_header {doc {mandate 0}} {
 # Parameters:
 #   doc - a DOM tree constructed from the input request XML data.
 #
-proc SOAP::CGI::soap_call {doc {interp {}}} {
+proc ::SOAP::CGI::soap_call {doc {interp {}}} {
     variable methodName
     set headers {}
     if {[catch {
@@ -466,7 +466,7 @@ proc SOAP::CGI::soap_call {doc {interp {}}} {
 #   xmlrpcmap file. This file also tells us if we should use a safe 
 #   interpreter for this method.
 #
-proc SOAP::CGI::xmlrpc_invocation {doc} {
+proc ::SOAP::CGI::xmlrpc_invocation {doc} {
     global env
     variable xmlrpcdir
 
@@ -524,7 +524,7 @@ proc SOAP::CGI::xmlrpc_invocation {doc} {
 #   a safe slave interpreter for extra security if needed.
 #   See the cgi-bin/soapmap.dat file for more details.
 #
-proc SOAP::CGI::soap_invocation {doc} {
+proc ::SOAP::CGI::soap_invocation {doc} {
     global env
     variable soapdir
 
@@ -590,7 +590,7 @@ proc SOAP::CGI::soap_invocation {doc} {
 #    xml - for testing purposes we can source this file and provide XML
 #          as this parameter. Normally this will not be used.
 #
-proc SOAP::CGI::main {{xml {}} {debug 0}} {
+proc ::SOAP::CGI::main {{xml {}} {debug 0}} {
     catch {package require tcllib} ;# re-eval the pkgIndex
     package require ncgi
     global env
