@@ -5,11 +5,11 @@
 # The SOAP::Lite project has some nice examples of object access that
 # we should pursue
 # 
-# @(#)$Id: SOAP-tests.tcl,v 1.3 2001/02/19 11:50:06 pt111992 Exp pat $
+# @(#)$Id: SOAP-tests.tcl,v 1.4 2001/02/19 23:45:31 pat Exp pat $
 
 package require SOAP 1.0
 
-# Setup SOAP HTTP transport for out authenticating proxy
+# Setup SOAP HTTP transport for our authenticating proxy
 proc reniconfig {} {
     if { [SOAP::get SOAP::Transport::http headers] == {} } {
         package require Trf
