@@ -18,7 +18,7 @@ package require rpcvar
 
 namespace eval XMLRPC {
     variable version 1.0
-    variable rcs_version { $Id: XMLRPC.tcl,v 1.3 2001/06/15 00:46:51 patthoyts Exp $ }
+    variable rcs_version { $Id: XMLRPC.tcl,v 1.4 2001/08/01 23:34:54 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force [uplevel {namespace current}]::rpcvar::*}
@@ -61,6 +61,61 @@ proc XMLRPC::export {args} {
     }
     return
 }
+
+# -------------------------------------------------------------------------
+
+# Description:
+#   Prepare an XML-RPC fault response
+# Parameters:
+#   faultcode   the XML-RPC fault code (numeric)
+#   faultstring summary of the fault
+#   detail      list of {detailName detailInfo}
+# Result:
+#   Returns the XML text of the SOAP Fault packet.
+#
+proc XMLRPC::fault {faultcode faultstring {detail {}}} {
+    set xml [join [list \
+	    "<?xml version=\"1.0\" ?>" \
+	    "<methodResponse>" \
+	    "  <fault>" \
+	    "    <value>" \
+	    "      <struct>" \
+	    "        <member>" \
+	    "           <name>faultCode</name>"\
+	    "           <value><int>${faultcode}</int></value>" \
+	    "        </member>" \
+	    "        <member>" \
+	    "           <name>faultString</name>"\
+	    "           <value><string>${faultstring}</string></value>" \
+	    "        </member>" \
+	    "      </struct> "\
+	    "    </value>" \
+	    "  </fault>" \
+	    "</methodResponse>"] "\n"]
+    return $xml
+}
+
+# -------------------------------------------------------------------------
+
+# Description:
+#   Generate a reply packet for a simple reply containing one result element
+# Parameters:
+#   doc         empty DOM document element
+#   uri         URI of the SOAP method
+#   methodName  the SOAP method name
+#   result      the reply data
+# Result:
+#   Returns the DOM document root of the generated reply packet
+#
+proc XMLRPC::reply {doc uri methodName result} {
+    set d_root [dom::document createElement $doc "methodResponse"]
+    set d_params [dom::document createElement $d_root "params"]
+    set d_param [dom::document createElement $d_params "param"]
+    insert_value $d_param $result
+    return $doc
+}
+
+# -------------------------------------------------------------------------
 
 # node is the <param> element
 proc XMLRPC::insert_value {node value} {

@@ -39,7 +39,7 @@ namespace eval SOAP {
 	# -----------------------------------------------------------------
 
 	variable rcsid {
-	    $Id: SOAP-CGI.tcl,v 1.4 2001/08/07 11:36:23 patthoyts Exp $
+	    $Id: SOAP-CGI.tcl,v 1.5 2001/08/07 15:49:52 patthoyts Exp $
 	}
 	variable methodName  {}
 	variable debugging   0
@@ -48,6 +48,7 @@ namespace eval SOAP {
 	
 	package require dom
 	package require SOAP
+	package require XMLRPC
 	package require SOAP::Utils
 	catch {namespace import -force [namespace parent]::Utils::*}
 
@@ -152,12 +153,11 @@ proc SOAP::CGI::get_implementation_details {mapfile classname} {
 }
 
 proc SOAP::CGI::soap_implementation {SOAPAction} {
-    package require SOAP::Domain
     variable soapmapfile
     variable soapdir
 
     if {[catch {get_implementation_details $soapmapfile $SOAPAction} detail]} {
-	set xml [SOAP::Domain::fault "Client" \
+	set xml [SOAP::fault "Client" \
 		"Invalid SOAPAction header: $detail" {}]
 	error $xml {} SOAP
     }
@@ -170,12 +170,11 @@ proc SOAP::CGI::soap_implementation {SOAPAction} {
 }
 
 proc SOAP::CGI::xmlrpc_implementation {classname} {
-    package require XMLRPC::Domain
     variable xmlrpcmapfile
     variable xmlrpcdir
 
     if {[catch {get_implementation_details $xmlrpcmapfile $classname} r]} {
-	set xml [XMLRPC::Domain::fault 500 "Invalid classname: $r" {}]
+	set xml [XMLRPC::fault 500 "Invalid classname: $r" {}]
 	error $xml {} XMLRPC
     }
 
@@ -259,7 +258,6 @@ proc SOAP::CGI::do_encoding {xml} {
 #
 proc SOAP::CGI::xmlrpc_call {doc {interp {}}} {
     variable methodName
-    package require XMLRPC::Domain
     if {[catch {
 	
 	set methodNode [selectNode $doc "/methodCall/methodName"]
@@ -289,8 +287,8 @@ proc SOAP::CGI::xmlrpc_call {doc {interp {}}} {
 	# evaluate the method
 	set msg [interp eval $interp $fqdn $argValues]
 
-	# generate a reply using the XMLRPC::Domain code
-	set reply [XMLRPC::Domain::reply_simple \
+	# generate a reply packet
+	set reply [XMLRPC::reply \
 		[dom::DOMImplementation create] \
 		{urn:xmlrpc-cgi} "${methodName}Response" $msg]
 	set xml [dom::DOMImplementation serialize $reply]
@@ -299,7 +297,7 @@ proc SOAP::CGI::xmlrpc_call {doc {interp {}}} {
 
     } msg]} {
 	set detail [list "errorCode" $::errorCode "stackTrace" $::errorInfo]
-	set xml [XMLRPC::Domain::fault 500 "$msg" $detail]
+	set xml [XMLRPC::fault 500 "$msg" $detail]
 	error $xml {} XMLRPC
     }
 
@@ -365,7 +363,6 @@ proc SOAP::CGI::soap_header {doc} {
 #
 proc SOAP::CGI::soap_call {doc {interp {}}} {
     variable methodName
-    package require SOAP::Domain
     if {[catch {
 
 	# Check SOAP version by examining the namespace of the Envelope elt.
@@ -425,8 +422,8 @@ proc SOAP::CGI::soap_call {doc {interp {}}} {
 	# evaluate the method
 	set msg [interp eval $interp $fqdn $argValues]
 
-	# generate a reply using the SOAP::Domain code
-	set reply [SOAP::Domain::reply_simple \
+	# generate a reply packet
+	set reply [SOAP::reply \
 		[dom::DOMImplementation create] \
 		$methodNamespace "${methodName}Response" $msg]
 	set xml [dom::DOMImplementation serialize $reply]
@@ -452,7 +449,7 @@ proc SOAP::CGI::soap_call {doc {interp {}}} {
 		set code "SOAP-ENV:Server"
 	    }
 	}
-	set xml [SOAP::Domain::fault $code "$msg" $detail]
+	set xml [SOAP::fault $code "$msg" $detail]
 	error $xml {} SOAP
     }
 

@@ -30,7 +30,7 @@ if { [catch {package require dom 2.0} domVer]} {
 namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
-    variable rcs_version { $Id: SOAP.tcl,v 1.25 2001/08/03 21:48:50 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.26 2001/08/07 11:37:39 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -639,6 +639,96 @@ proc SOAP::proxyconfig {} {
 # -------------------------------------------------------------------------
 
 # Description:
+#   Prepare a SOAP fault message
+# Parameters:
+#   faultcode   - the SOAP faultcode e.g: SOAP-ENV:Client
+#   faultstring - summary of the fault
+#   detail      - list of {detailName detailInfo}
+# Result:
+#   returns the XML text of the SOAP Fault packet.
+# 
+proc SOAP::fault {faultcode faultstring {detail {}}} {
+    set doc [dom::DOMImplementation create]
+    set bod [reply_envelope $doc]
+    set flt [dom::document createElement $bod "SOAP-ENV:Fault"]
+    set fcd [dom::document createElement $flt "faultcode"]
+    dom::document createTextNode $fcd $faultcode
+    set fst [dom::document createElement $flt "faultstring"]
+    dom::document createTextNode $fst $faultstring
+
+    if { $detail != {} } {
+        set dtl0 [dom::document createElement $flt "detail"]
+        set dtl  [dom::document createElement $dtl0 "e:errorInfo"]
+        dom::element setAttribute $dtl "xmlns:e" "urn:TclSOAP-ErrorInfo"
+        
+        foreach {detailName detailInfo} $detail {
+            set err [dom::document createElement $dtl $detailName]
+            dom::document createTextNode $err $detailInfo
+        }
+    }
+    
+    # serialize the DOM document and return the XML text
+    regsub "<!DOCTYPE\[^>\]*>\n" [dom::DOMImplementation serialize $doc] {} r
+    dom::DOMImplementation destroy $doc
+    return $r
+}
+
+# -------------------------------------------------------------------------
+
+# Description:
+#   Generate the common portion of a SOAP replay packet
+# Parameters:
+#   doc   - the document element of a DOM document
+# Result:
+#   returns the body node
+#
+proc SOAP::reply_envelope { doc } {
+    set env [dom::document createElement $doc "SOAP-ENV:Envelope"]
+    dom::element setAttribute $env \
+            "xmlns:SOAP-ENV" "http://schemas.xmlsoap.org/soap/envelope/"
+    dom::element setAttribute $env \
+            "xmlns:xsi"      "http://www.w3.org/1999/XMLSchema-instance"
+    dom::element setAttribute $env \
+            "xmlns:xsd"      "http://www.w3.org/1999/XMLSchema"
+    dom::element setAttribute $env \
+            "xmlns:SOAP-ENC" "http://schemas.xmlsoap.org/soap/encoding/"
+    set bod [dom::document createElement $env "SOAP-ENV:Body"]
+    return $bod
+}
+
+# -------------------------------------------------------------------------
+
+# Description:
+#   Generate a SOAP reply packet. Uses 'rpcvar' variable type information to
+#   manage complex data structures and arrays.
+# Parameters:
+#   doc         empty DOM document element
+#   uri         URI of the SOAP method
+#   methodName  the SOAP method name
+#   result      the reply data
+# Result:
+#   returns the DOM document root
+#
+proc SOAP::reply { doc uri methodName result } {
+    set bod [reply_envelope $doc]
+    set cmd [dom::document createElement $bod "ns:$methodName"]
+    dom::element setAttribute $cmd "xmlns:ns" $uri
+    dom::element setAttribute $cmd \
+            "SOAP-ENV:encodingStyle" \
+            "http://schemas.xmlsoap.org/soap/encoding/"
+
+    # insert the results into the DOM tree (unless it's a void result)
+    if {$result != {}} {
+        set retnode [dom::document createElement $cmd "return"]
+        SOAP::insert_value $retnode $result
+    }
+
+    return $doc
+}
+
+# -------------------------------------------------------------------------
+
+# Description:
 #   Procedure to generate the XML data for a configured SOAP procedure.
 # Parameters:
 #   procVarName - the path of the SOAP method configuration variable
@@ -833,7 +923,6 @@ proc SOAP::parse_xmlrpc_response { procVarName xml } {
         lappend result [xmlrpc_value_from_node $valueNode]
         incr n_params
     }
-
     dom::DOMImplementation destroy $doc
 
     # If (as is usual) there is only one param, simplify things for the user
@@ -860,6 +949,7 @@ proc SOAP::parse_xmlrpc_response { procVarName xml } {
 proc SOAP::xmlrpc_value_from_node {valueNode} {
     set value {}
     set elts [getElements $valueNode]
+
     if {[llength $elts] != 1} {
         return [getElementValue $valueNode]
     }
