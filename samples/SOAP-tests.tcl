@@ -1,30 +1,20 @@
-# soap-tests.tcl - Copyright (C) 2001 Pat Thoyts <pat@zsplat.freeserve.co.uk>
+# SOAP-tests.tcl - Copyright (C) 2001 Pat Thoyts <pat@zsplat.freeserve.co.uk>
 #
 # Create some remote SOAP access methods to demo servers.
 #
 # The SOAP::Lite project has some nice examples of object access that
 # we should pursue
 # 
-# @(#)$Id: SOAP-tests.tcl,v 1.4 2001/02/19 23:45:31 pat Exp pat $
+# -------------------------------------------------------------------------
+# This software is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the accompanying file `LICENSE'
+# for more details.
+# -------------------------------------------------------------------------
+#
+# @(#)$Id: SOAP-tests.tcl,v 1.5 2001/02/19 23:45:55 pat Exp pt111992 $
 
 package require SOAP 1.0
-
-# Setup SOAP HTTP transport for our authenticating proxy
-proc reniconfig {} {
-    if { [SOAP::get SOAP::Transport::http headers] == {} } {
-        package require Trf
-        toplevel .t
-        wm title .t "Enter username and passwd"
-        entry .t.e1 -textvariable SOAP::userid
-        entry .t.e2 -textvariable SOAP::passwd -show "*"
-        pack .t.e1 .t.e2 -side top -anchor n -fill x -expand 1
-        tkwait window .t
-        SOAP::configure -transport http -proxy ripon:80 \
-                -headers [list "Proxy-Authorization" \
-                "Basic [lindex [base64 -mode enc ${SOAP::userid}:${SOAP::passwd}] 0]" ]
-        unset SOAP::passwd SOAP::userid
-    }
-}
 
 # -------------------------------------------------------------------------
 #
@@ -59,6 +49,12 @@ SOAP::create hi \
         -proxy "http://services.soaplite.com/hibye.cgi" \
         -params {}
 
+SOAP::create hello \
+        -name hi \
+        -uri "http://www.soaplite.com/Demo" \
+        -proxy "http://services.soaplite.com/hibye.cgi" \
+        -params {}
+
 SOAP::create languages \
         -uri "http://www.soaplite.com/Demo" \
         -proxy "http://services.soaplite.com/hibye.cgi" \
@@ -67,20 +63,19 @@ SOAP::create languages \
 SOAP::create f2c \
         -uri "http://www.soaplite.com/Temperatures" \
         -proxy "http://services.soaplite.com/temper.cgi" \
-        -params { "temp" "float"}\
-        -alias F2C
+        -params { "temp" "float"}
 
 SOAP::create c2f \
         -uri "http://www.soaplite.com/Temperatures" \
         -proxy "http://services.soaplite.com/temper.cgi" \
-        -params { "temp" "float"}\
-        -alias C2F
+        -params { "temp" "float"}
 
+# Call with the wrong method name evokes a SOAP Fault packet.
 SOAP::create c2f_broke \
         -uri "http://www.soaplite.com/Temperatures" \
         -proxy "http://services.soaplite.com/temper.cgi" \
         -params { "temp" "float"}\
-        -alias C2F_broke
+        -name c2f_invalid
 
 # -------------------------------------------------------------------------
 #
@@ -96,13 +91,13 @@ SOAP::create whois \
         -proxy "http://www.razorsoft.net/ssss4c/whois.asp" \
         -params { "name" "string" }
 
-SOAP::create GetPoliticalUnitFactsByName \
+SOAP::create census \
         -uri "http://tempuri.org/" \
         -proxy "http://terranet.research.microsoft.com/CensusService.asmx" \
         -params { "pu" "string" "name" "string" \
                   "ParentName" "string" "year" "integer" } \
         -action "http://tempuri.org/GetPoliticalUnitFactsByName" \
-        -alias census
+        -name GetPoliticalUnitFactsByName
 
 
 # Fortune server has 3 methods.
@@ -135,6 +130,25 @@ namespace eval XFS {
 }
 
 # -------------------------------------------------------------------------
+
+# Setup SOAP HTTP transport for our authenticating proxy
+# This is used for me to test at work.
+
+proc reniconfig {} {
+    if { [SOAP::get SOAP::Transport::http headers] == {} } {
+        package require Trf
+        toplevel .t
+        wm title .t "Enter username and passwd"
+        entry .t.e1 -textvariable SOAP::userid
+        entry .t.e2 -textvariable SOAP::passwd -show "*"
+        pack .t.e1 .t.e2 -side top -anchor n -fill x -expand 1
+        tkwait window .t
+        SOAP::configure -transport http -proxy ripon:80 \
+                -headers [list "Proxy-Authorization" \
+                "Basic [lindex [base64 -mode enc ${SOAP::userid}:${SOAP::passwd}] 0]" ]
+        unset SOAP::passwd SOAP::userid
+    }
+}
 
 # Local variables:
 #   indent-tabs-mode: nil
