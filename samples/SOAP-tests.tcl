@@ -2,6 +2,11 @@
 #
 # Create some remote SOAP access methods to demo servers.
 #
+# If you live behind a firewall and have an authenticating proxy web server
+# try executing SOAP::proxyconfig and filling in the fields. This sets
+# up the SOAP package to send the correct headers for the proxy to 
+# forward the packets (provided it is using the `Basic' encoding scheme).
+#
 # The SOAP::Lite project has some nice examples of object access that
 # we should pursue
 # 
@@ -12,9 +17,20 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: SOAP-tests.tcl,v 1.7 2001/03/17 01:21:49 pat Exp pat $
+# @(#)$Id: SOAP-tests.tcl,v 1.8 2001/04/13 12:24:06 pat Exp pat $
 
-package require SOAP 1.0
+package require SOAP
+
+# -------------------------------------------------------------------------
+# Validators
+#
+# Microsoft provide a .NET client validator
+SOAP::create validator1 \
+        -name "validate"
+        -uri "urn:zsplat-Validator1" \
+        -action "urn:zsplat-Validator1" \
+        -proxy "http://www.soaptoolkit.com/soapvalidator/listener.asp" \
+        -params { msg string num integer }
 
 # -------------------------------------------------------------------------
 #
@@ -177,47 +193,6 @@ namespace eval Chat {
 }
 
 # -------------------------------------------------------------------------
-
-# Setup SOAP HTTP transport for our authenticating proxy
-# This is used for me to test at work.
-
-proc SOAP::proxyconfig {} {
-    package require Trf
-    toplevel .t
-    wm title .t "Proxy Configuration"
-    set m [message .t.m1 -relief groove -justify left -width 6c -aspect 200 \
-            -text "Enter details of your proxy server (if any) and your username and password if it is needed by the proxy."]
-    set f1 [frame .t.f1]
-    set f2 [frame .t.f2]
-    button $f2.b -text "OK" -command {destroy .t}
-    pack $f2.b -side right
-    label $f1.l1 -text "Proxy (host:port)"
-    label $f1.l2 -text "Username"
-    label $f1.l3 -text "Password"
-    entry $f1.e1 -textvariable SOAP::conf_proxy
-    entry $f1.e2 -textvariable SOAP::conf_userid
-    entry $f1.e3 -textvariable SOAP::conf_passwd -show {*}
-    grid $f1.l1 -column 0 -row 0 -sticky e
-    grid $f1.l2 -column 0 -row 1 -sticky e
-    grid $f1.l3 -column 0 -row 2 -sticky e
-    grid $f1.e1 -column 1 -row 0 -sticky news
-    grid $f1.e2 -column 1 -row 1 -sticky news
-    grid $f1.e3 -column 1 -row 2 -sticky news
-    grid columnconfigure $f1 1 -weight 1
-    pack $f2 -side bottom -fill x
-    pack $m  -side top -fill x -expand 1
-    pack $f1 -side top -anchor n -fill both -expand 1
-    tkwait window .t
-    SOAP::configure -transport http -proxy $SOAP::conf_proxy
-    if { [info exists SOAP::conf_userid] } {
-        SOAP::configure -transport http \
-            -headers [list "Proxy-Authorization" \
-            "Basic [lindex [base64 -mode enc ${SOAP::conf_userid}:${SOAP::conf_passwd}] 0]" ]
-    }
-    unset SOAP::conf_passwd
-}
-
-SOAP::proxyconfig
 
 # Local variables:
 #   indent-tabs-mode: nil
