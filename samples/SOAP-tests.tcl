@@ -5,10 +5,13 @@
 # The SOAP::Lite project has some nice examples of object access that
 # we should pursue
 # 
-# @(#)$Id$
+# @(#)$Id: SOAP-tests.tcl,v 1.1 2001/02/15 23:21:37 pat Exp pat $
 
 package require SOAP 1.0
 
+SOAP::configure -transport http -proxy ripon:80 \
+	-headers { "Proxy-Authorization" \
+	"Basic UkVOSVNIQVdccHQxMTE5OTI6Y2Ruam5mZGZodQ==" }
 
 SOAP::create getTemp \
 	-uri "urn:xmethods-Temperature" \
@@ -63,3 +66,9 @@ SOAP::create whois \
 	-proxy "http://www.razorsoft.net/ssss4c/whois.asp" \
 	-params { "name" "string" }
 
+SOAP::create GetPoliticalUnitFactsByName \
+	-uri "http://tempuri.org/" \
+	-proxy "http://terranet.research.microsoft.com/CensusService.asmx" \
+	-params { "pu" "string" "name" "string" "ParentName" "string" "year" "integer" } \
+	-action "http://tempuri.org/GetPoliticalUnitFactsByName" \
+	-alias census
