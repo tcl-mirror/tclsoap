@@ -11,28 +11,53 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-# Todo:
-# - Needs testing using SOAP::Lite's services esp. the object access demo.
-
 package provide SOAP 1.4
 
 # -------------------------------------------------------------------------
 
 package require http 2.3
 package require SOAP::Parse
-package require SOAP::xpath
 
-if { [catch {package require dom 2.0}] } {
-    if { [catch {package require dom 1.6}] } {
+if { [catch {package require dom 2.0} domVer]} {
+    if { [catch {package require dom 1.6} domVer]} {
         error "require dom package greater than 1.6"
     }
+    package require SOAP::xpath
 }
 
 namespace eval SOAP {
     variable version 1.4
-    variable rcs_version { $Id: SOAP.tcl,v 1.15 2001/06/06 00:46:09 patthoyts Exp $ }
+    variable domVersion $domVer
+    variable rcs_version { $Id: SOAP.tcl,v 1.16 2001/06/09 12:52:21 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig
+}
+
+unset domVer
+
+# -------------------------------------------------------------------------
+
+# Description:
+#   Provide a version independent selectNode implementation. We either use
+#   the version from the dom package or use the SOAP::xpath version if there
+#   is no dom one.
+# Parameters:
+#   node  - reference to a dom tree
+#   path  - XPath selection
+# Result:
+#   Returns the selected node or a list of matching nodes or an empty list
+#   if no match.
+#
+proc SOAP::selectNode {node path} {
+    variable domVersion
+    if {$domVersion < 2.0} {
+        if {[catch {xpath::xpath -node $node $path} r]} {
+            set r {}
+        }
+        return $r
+    } else {
+        return [dom::DOMImplementation selectNode $node $path]
+    }
 }
 
 # -------------------------------------------------------------------------
@@ -54,6 +79,31 @@ proc SOAP::get2 { nameSpace varName } {
 
 # -------------------------------------------------------------------------
 
+# Description:
+#   Called from SOAP package methods, shift up to the callers level and
+#   get the fully namespace qualified name for the given proc / var
+# Parameters:
+#   name - the name of a Tcl entity
+# Result:
+#   Fully qualified namespace path for the named entity.
+#
+proc SOAP::qualifyNamespace {name} {
+    if {$name != {}} {
+        set name [uplevel 2 namespace origin $name]
+    }
+    return $name
+}
+
+# -------------------------------------------------------------------------
+
+proc SOAP::methodVarName {methodName} {
+    set name [uplevel 2 namespace origin $methodName]
+    regsub -all {::+} $name {_} name
+    return [namespace current]::$name
+}
+
+# -------------------------------------------------------------------------
+
 # Retrieve configuration variables
 
 proc SOAP::cget { args } {
@@ -64,15 +114,12 @@ proc SOAP::cget { args } {
 
     set methodName [lindex $args 0]
     set optionName [lindex $args 1]
+    set configVarName [methodVarName $methodName]
 
-    set ok [catch {
-        set r [get2 Commands::$methodName [string trimleft $optionName "-"]]
-    } msg]
-    if { $ok == 1 } {
+    if {[catch {set [subst $configVarName]([string trimleft $optionName "-"])} result]} {
         error "unknown option \"$option\""
     }
-    return  $r
-
+    return $result
 }
 
 # -------------------------------------------------------------------------
@@ -117,11 +164,13 @@ proc SOAP::dump {args} {
 
 # -------------------------------------------------------------------------
 
-# Configure a SOAP method
-
-# Should change this to work from the alias name too.
-# Currently the id used in the commands namespace isn't unique. Should use
-# qualified alias name as the id.
+# Description:
+#   Configure or display a SOAP method options.
+# Parameters:
+#   procName - the SOAP method Tcl procedure name
+#   args     - list of option name / option pairs
+# Result:
+#   Sets up a configuration array for the SOAP method.
 
 proc SOAP::configure { procName args } {
     # The list of valid options
@@ -132,8 +181,11 @@ proc SOAP::configure { procName args } {
         return [eval "transport_configure $args"]
     }
 
-    set valid [catch { eval set url \$Commands::${procName}::proxy } msg]
-    if { $valid != 0 } {
+    set procVarName "[uplevel namespace current]::$procName"
+    regsub -all {::+} $procVarName {_} procVarName
+    set procVarName [namespace current]::$procVarName
+
+    if {[catch { set [subst $procVarName](proxy) } msg]} {
         error "invalid command: \"$procName\" not defined"
     }
 
@@ -141,7 +193,7 @@ proc SOAP::configure { procName args } {
     if { [llength $args] == 0 } {
         set r {}
         foreach item $options {
-            set val [get Commands::$procName $item]
+            set val [set [subst $procVarName]($item)]
             lappend r "-$item" $val
         }
         return $r
@@ -149,58 +201,48 @@ proc SOAP::configure { procName args } {
 
     foreach {opt value} $args {
         switch -- $opt {
-            -uri       { set Commands::${procName}::uri $value }
-            -proxy     { set Commands::${procName}::proxy $value }
-            -params    { set Commands::${procName}::params $value }
-            -transport { set Commands::${procName}::transport $value }
-            -name      { set Commands::${procName}::name $value }
-            -action    { set Commands::${procName}::action $value }
-            -xmlrpc    { set Commands::${procName}::xmlrpc $value }
-            -wrapProc  { set Commands::${procName}::wrapProc $value }
-            -replyProc { set Commands::${procName}::replyProc $value }
-            -parseProc { set Commands::${procName}::parseProc $value }
-            -postProc  { set Commands::${procName}::postProc $value }
+            -uri       { set [subst $procVarName](uri) $value }
+            -proxy     { set [subst $procVarName](proxy) $value }
+            -params    { set [subst $procVarName](params) $value }
+            -transport { set [subst $procVarName](transport) $value }
+            -name      { set [subst $procVarName](name) $value }
+            -action    { set [subst $procVarName](action) $value }
+            -wrapProc  { set [subst $procVarName](wrapProc) \
+                    [qualifyNamespace $value] }
+            -replyProc { set [subst $procVarName](replyProc) \
+                    [qualifyNamespace $value] }
+            -parseProc { set [subst $procVarName](parseProc) \
+                    [qualifyNamespace $value] }
+            -postProc  { set [subst $procVarName](postProc) \
+                    [qualifyNamespace $value] }
             default {
                 error "unknown option \"$opt\": must be one of ${options}"
             }
         }
     }
 
-    if { [get Commands::$procName name] == {} } { 
-        set Commands::${procName}::name $procName
+    if { [set [subst $procVarName](name)] == {} } { 
+        set [subst $procVarName](name) $procName
     }
 
-    if { [get Commands::$procName transport] == {} } {
-        set Commands::${procName}::transport transport_http
+    if { [set [subst $procVarName](transport)] == {} } {
+        set [subst $procVarName](transport) \
+                [namespace current]::transport_http
     } 
     
-    # Select one of the default parsers
-    if { [get Commands::$procName parseProc] == {} } {
-        if { [get Commands::$procName xmlrpc] == {} } {
-            set Commands::${procName}::parseProc parse_soap_response
-        } else {
-            set Commands::${procName}::parseProc parse_xmlrpc_response
-        }
+    # Select the default parser unless one is specified
+    if { [set [subst $procVarName](parseProc)] == {} } {
+        set [subst $procVarName](parseProc) \
+                [namespace current]::parse_soap_response
     } 
 
-    # Arrange for XML generation using either an XML-RPC or SOAP helper
-    if { [get Commands::$procName xmlrpc] != {} } {
-
-        if { [get Commands::$procName wrapProc] == {} } {
-            set Commands::${procName}::wrapProc \
-                [namespace current]::xmlrpc_request
-        }
-
-    } else {
-        
-        if { [get Commands:$procName wrapProc] == {} } {
-            set Commands::${procName}::wrapProc \
+    # If no request wrapper is set, use the default SOAP wrap proc.
+    if { [set [subst $procVarName](wrapProc)] == {} } {
+        set [subst $procVarName](wrapProc) \
                 [namespace current]::soap_request
-        }
-
     }
 
-    uplevel 1 "proc $procName { args } {eval [namespace current]::invoke $procName \$args}"
+    uplevel 1 "proc $procName { args } {eval [namespace current]::invoke $procVarName \$args}"
 
     # return the fully qualified command created.
     return [uplevel 1 "namespace which $procName"]
@@ -216,21 +258,21 @@ proc SOAP::create { args } {
         set args [lreplace $args 0 0]
     }
 
-    # Create a namespace to hold the variables for this command.
-    namespace eval Commands::$procName {
-        variable uri       {} ;# the XML namespace URI for this method 
-        variable proxy     {} ;# URL for the location of a provider
-        variable params    {} ;# list of name type pairs for the parameters
-        variable transport {} ;# the transport procedure for this method
-        variable name      {} ;# SOAP method name
-        variable action    {} ;# Contents of the SOAPAction header
-        variable xmlrpc    {} ;# if true this is an XMLRPC call - not SOAP
-        variable http      {} ;# the http data variable (if used)
-        variable wrapProc  {} ;# encode the request into XML for sending
-        variable replyProc {} ;# post process the raw XML result
-        variable parseProc {} ;# parse the raw XML and extract the values
-        variable postProc  {} ;# post process the parsed result
-    }
+    set ns "[uplevel namespace current]::$procName"
+    regsub -all {::+} $ns {_} varName
+    set varName [namespace current]::$varName
+    array set $varName {}
+    array set $varName {uri       {}} ;# the XML namespace URI for this method 
+    array set $varName {proxy     {}} ;# URL for the location of a provider
+    array set $varName {params    {}} ;# name/type pairs for the parameters
+    array set $varName {transport {}} ;# transport procedure for this method
+    array set $varName {name      {}} ;# SOAP method name
+    array set $varName {action    {}} ;# Contents of the SOAPAction header
+    array set $varName {http      {}} ;# the http data variable (if used)
+    array set $varName {wrapProc  {}} ;# encode request into XML for sending
+    array set $varName {replyProc {}} ;# post process the raw XML result
+    array set $varName {parseProc {}} ;# parse raw XML and extract the values
+    array set $varName {postProc  {}} ;# post process the parsed result
 
     # call configure from the callers level so it can get the namespace.
     return [uplevel 1 "[namespace current]::configure $procName $args"]
@@ -241,39 +283,42 @@ proc SOAP::create { args } {
 # Description:
 #   Make a SOAP method call using the configured transport.
 # Parameters:
-#   procName  - the SOAP method name
+#   procName  - the SOAP method configuration variable path
 #   args      - the parameter list for the SOAP method call
 # Returns:
 #   Returns the parsed and processed result of the method call
 #
-proc SOAP::invoke { procName args } {
-    set valid [catch { set url [get2 Commands::$procName proxy] } msg]
-    if { $valid != 0 } {
+proc SOAP::invoke { procVarName args } {
+    set procName [lindex [split $procVarName {_}] end]
+    if {![array exists $procVarName]} {
         error "invalid command: \"$procName\" not defined"
     }
-    
+
+    # Get the URL
+    set url [set [subst $procVarName](proxy)]
+
     # Get the XML data containing our request
-    set req [eval "[get Commands::${procName} wrapProc] $procName $args"]
+    set req [eval "[set [subst $procVarName](wrapProc)] $procVarName $args"]
 
     # Send the SOAP packet (req) using the configured transport.
-    set transport [ get Commands::$procName transport ]
-    set reply [$transport $procName $url $req]
+    set transport [set [subst $procVarName](transport)]
+    set reply [$transport $procVarName $url $req]
 
     # Post-process the raw XML using -replyProc
-    set replyProc [ get Commands::$procName replyProc ]
+    set replyProc [set [subst $procVarName](replyProc)]
     if { $replyProc != {} } {
         set reply [$replyProc $procName $reply]
     }
 
     # Call the relevant parser to extract the returned values
-    set parseProc [ get Commands::$procName parseProc ]
+    set parseProc [set [subst $procVarName](parseProc)]
     if { $parseProc == {} } {
         set parseProc parse_soap_response
     }
     set r [$parseProc $procName $reply]
 
     # Post process the parsed reply using -postProc
-    set postProc [ get Commands::$procName postProc ]
+    set postProc [set [subst $procVarName](postProc)]
     if { $postProc != {} } {
         set r [$postProc $procName $r]
     }
@@ -288,11 +333,11 @@ proc SOAP::invoke { procName args } {
 # setup the http package independently eg:
 #  ::http::config -proxyhost wwwproxy
 
-proc SOAP::transport_http { procName url request } {
+proc SOAP::transport_http { procVarName url request } {
     variable version
 
     # setup the HTTP POST request
-    ::http::config -useragent "TclSOAP $version"
+    ::http::config -useragent "TclSOAP/$version ($::tcl_platform(os))"
 
     # If a proxy was configured, use it.
     set proxy [get Transport::http proxy]
@@ -308,7 +353,7 @@ proc SOAP::transport_http { procName url request } {
 
     # Add mandatory SOAPAction header (SOAP 1.1). This may be empty otherwise
     # must be in quotes.
-    set action [get Commands::$procName action]
+    set action [set [subst $procVarName](action)]
     if { $action != {} } { 
         set action [string trim $action "\""]
         set action "\"$action\""
@@ -316,8 +361,8 @@ proc SOAP::transport_http { procName url request } {
     lappend headers "SOAPAction" $action
 
     # cleanup the last http request
-    if { [get Commands::${procName} http] != {} } {
-        catch { eval "::http::cleanup \$Commands::${procName}::http" }
+    if { [set [subst $procVarName](http)] != {} } {
+        catch { eval "::http::cleanup [set [subst $procVarName](http)]" }
     }
 
     # POST and get the reply.
@@ -325,7 +370,7 @@ proc SOAP::transport_http { procName url request } {
             -type text/xml -query $request ]
 
     # store the http structure for possible access later.
-    set Commands::${procName}::http $reply
+    set [subst $procVarName](http) $reply
 
     # If it's a fault then add any <detail> elements to the error stack.
     if { [::http::ncode $reply ] == 500 } {
@@ -368,11 +413,11 @@ namespace eval SOAP::Transport::http {
 # Description:
 #   A dummy SOAP transport procedure to examine the SOAP requests generated.
 # Parameters:
-#   procName  - SOAP method name
-#   url       - URL of the remote server method implementation
-#   soap      - the XML payload for this SOAP method call
+#   procVarName  - SOAP method name configuration variable
+#   url          - URL of the remote server method implementation
+#   soap         - the XML payload for this SOAP method call
 #
-proc SOAP::transport_print { procName url soap } {
+proc SOAP::transport_print { procVarName url soap } {
     puts "$soap"
     return {}
 }
@@ -486,16 +531,17 @@ proc SOAP::proxyconfig {} {
 # Description:
 #   Procedure to generate the XML data for a configured SOAP procedure.
 # Parameters:
-#   procName - the name of a configured SOAP method
-#   args     - the arguments for this SOAP method
+#   procVarName - the path of the SOAP method configuration variable
+#   args        - the arguments for this SOAP method
 # Result:
 #   XML data containing the SOAP method call.
+#
+proc SOAP::soap_request {procVarName args} {
 
-proc SOAP::soap_request {procName args} {
-
-    set params [get Commands::${procName} params]
-    set name [get Commands::${procName} name]
-    set uri [get Commands::${procName} uri]
+    set procName [lindex [split $procVarName {_}] end]
+    set params [set [subst $procVarName](params)]
+    set name [set [subst $procVarName](name)]
+    set uri [set [subst $procVarName](uri)]
     
     if { [llength $args] != [expr [llength $params] / 2]} {
         set msg "wrong # args: should be \"$procName"
@@ -542,15 +588,16 @@ proc SOAP::soap_request {procName args} {
 # Description:
 #   Procedure to generate the XML data for a configured XML-RPC procedure.
 # Parameters:
-#   procName - the name of a configured XML-RPC method
-#   args     - the arguments for this RPC method
+#   procVarName - the name of the XML-RPC method variable
+#   args        - the arguments for this RPC method
 # Result:
 #   XML data containing the XML-RPC method call.
 #
-proc SOAP::xmlrpc_request {procName args} {
+proc SOAP::xmlrpc_request {procVarName args} {
 
-    set params [get Commands::${procName} params]
-    set name [get Commands::${procName} name]
+    set procName [lindex [split $procVarName {_}] 0]
+    set params [set [subst $procVarName](params)]
+    set name   [set [subst $procVarName](name)]
     
     if { [llength $args] != [expr [llength $params] / 2]} {
         set msg "wrong # args: should be \"$procName"
@@ -574,19 +621,36 @@ proc SOAP::xmlrpc_request {procName args} {
     foreach {key type} $params {
         set d_param [dom::document createElement $d_params "param"]
         set d_pname [dom::document createElement $d_param "value"]
+        
+        if { [string match {struct} $type] } {
 
-        # XMLRPC Array type
-        if { [regexp {^array\((.*)\)} $type match subtype] } {
+            # XMLRPC struct type
+            set d_struct [dom::document createElement $d_pname "struct"]
+            foreach {sid sval} [lindex $args $param] {
+                set d_mmbr [dom::document createElement $d_struct "member"]
+                set d_mnam [dom::document createElement $d_mmbr "name"]
+                dom::document createTextNode $d_mnam $sid
+                set d_mval [dom::document createElement $d_mmbr "value"]
+                set d_mtyp [dom::document createElement $d_mval \
+                        [[namespace parent]::XMLRPC::TypedVariable::get_type $sval]]
+                dom::document createTextNode $d_mtyp \
+                        [[namespace parent]::XMLRPC::TypedVariable::get_value $sval]
+            }
+
+        } elseif { [regexp {^array\((.*)\)} $type match subtype] } {
+            # XMLRPC Array type
             set d_array [dom::document createElement $d_pname "array"]
             set d_data  [dom::document createElement $d_array "data"]
             foreach elt [lindex $args $param] {
                 set d_value [dom::document createElement $d_data "value"]
                 set d_type [dom::document createElement $d_value $subtype]
-                dom::document createTextNode $d_type $elt                
+                dom::document createTextNode $d_type \
+                        [[namespace parent]::XMLRPC::TypedVariable::get_value $elt]
             }
         } else {
             set d_ptype [dom::document createElement $d_pname $type]
-            dom::document createTextNode $d_ptype [lindex $args $param]
+            dom::document createTextNode $d_ptype \
+                    [[namespace parent]::XMLRPC::TypedVariable::get_value [lindex $args $param]]
         }
         incr param
     }
@@ -604,56 +668,186 @@ proc SOAP::xmlrpc_request {procName args} {
 # -------------------------------------------------------------------------
 
 # Description:
+#   Parse a SOAP response payload. Check for Fault response otherwise 
+#   extract the value data.
 # Parameters:
-#   procName  - the name of the SOAP method
-#   xml       - the XML payload of the response
+#   procVarName  - the name of the SOAP method configuration variable
+#   xml          - the XML payload of the response
+# Result:
+#   The returned value data.
+# Notes:
+#   Needs work to cope with struct or array types.
 #
-proc SOAP::parse_soap_response { procName xml } {
+proc SOAP::parse_soap_response { procVarName xml } {
     # Sometimes Fault packets come back with HTTP code 200
     set doc [dom::DOMImplementation parse $xml]
-    set fault {}
-    if { ! [catch {SOAP::xpath::xpath $doc "/Envelope/Body/Fault"} ] } {
+
+    set faultNode [selectNode $doc "/Envelope/Body/Fault"]
+    if {$faultNode != {}} {
         set fault [SOAP::Parse::parse $xml]
+        dom::DOMImplementation destroy $doc
+        error [lrange $fault 0 1] [lrange $fault 2 end]
+    }
+    
+    set result {}
+    set nodes [subElements [selectNode $doc "/Envelope/Body"]]
+    foreach node $nodes {
+        set r [getSubElementValues $node]
+        if {$result == {}} { set result $r } else { lappend result $r }
     }
 
     dom::DOMImplementation destroy $doc
-    
-    if { $fault != {} } {
-        error [lrange $fault 0 1] [lrange $fault 2 end]
-    }
-
-    # Extract the data from the reply XML
-    set r [SOAP::Parse::parse $xml]
-    #set r [SOAP::xpath::xpath $dom "Envelope/Body//*"]
-
-    return $r
+    return $result
 }
 
 # -------------------------------------------------------------------------
 
 # Description:
+#   If there are child elements then recursively call this procedure on each
+#   child element. If this is a leaf element, then get the element value data.
 # Parameters:
-#   procName  - the name of the XML-RPC method
-#   xml       - the XML payload of the response
+#   domElement - a reference to a dom element node
+# Result:
+#   Returns a value or a list of values.
+#
+proc SOAP::getSubElementValues {domElement} {
+    set result {}
+    set nodes [subElements $domElement]
+    if {$nodes == {}} {
+        set result [getElementValue $domElement]
+    } else {
+        foreach node $nodes {
+            set r [getSubElementValues $node]
+            if {$result == {}} { set result $r } else { lappend result $r }
+        }
+    }
+    return $result
+}
+
+# -------------------------------------------------------------------------
+
+# Description:
+#   Parse an XML-RPC response payload. Check for fault response otherwise 
+#   extract the value data.
+# Parameters:
+#   procVarName  - the name of the XML-RPC method configuration variable
+#   xml          - the XML payload of the response
+# Result:
+#   The extracted value(s). Array types are converted into lists and struct
+#   types are turned into lists of name/value pairs suitable for array set
 # Notes:
 #   The XML-RPC fault response doesn't allow us to add in extra values
 #   to the fault struct. So where to put the servers errorInfo?
 #
-proc SOAP::parse_xmlrpc_response { procName xml } {
-    
+proc SOAP::parse_xmlrpc_response { procVarName xml } {
+    set result {}
     set doc [dom::DOMImplementation parse $xml]
-    if { ! [catch {SOAP::xpath::xpath $doc "/methodResponse/fault"}] } {
-        array set err [SOAP::Parse::parse $xml]
-    }
-    
-    dom::DOMImplementation destroy $doc
 
-    if { [array exists err] } {
+    set faultNode [selectNode $doc "/methodResponse/fault"]
+    if {$faultNode != {}} {
+        array set err [SOAP::Parse::parse $xml]
+        dom::DOMImplementation destroy $doc
         error $err(faultString) {} $err(faultCode)
     }
     
-    set r [SOAP::Parse::parse $xml]
-    
+    # Recurse over each params/param/value
+    set n_params 0
+    foreach valueNode [selectNode $doc \
+            "/methodResponse/params/param/value"] {
+        lappend result [xmlrpc_value_from_node $valueNode]
+        incr n_params
+    }
+
+    dom::DOMImplementation destroy $doc
+
+    # If (as is usual) there is only one param, simplify things for the user
+    # ie: sort {one two three} should return a 3 element list, not a single
+    # element list whose first element has 3 elements!
+    if {$n_params == 1} {set result [lindex $result 0]}
+    return $result
+}
+
+# -------------------------------------------------------------------------
+
+### NB: the code below this comment needs to be moved into XMLRPC namespace
+
+# Description:
+#   Retrieve the value under the given <value> node.
+# Parameters:
+#   valueNode - reference to a <value> element in the response dom tree
+# Result:
+#   Either a single value or a list of values. Arrays expand into a list
+#   of values, structs to a list of name/value pairs.
+# Notes:
+#   Called recursively when processing arrays and structs.
+#
+proc SOAP::xmlrpc_value_from_node {valueNode} {
+    set value {}
+    set elts [subElements $valueNode]
+    if {[llength $elts] != 1} {
+        error "invalid response: should be one element under value"
+    }
+    set typeElement [lindex $elts 0]
+    set type [dom::node cget $typeElement -nodeName]
+
+    if {$type == "array"} {
+        set dataElement [lindex [subElements $typeElement] 0]
+        foreach valueElement [subElements $dataElement] {
+            lappend value [xmlrpc_value_from_node $valueElement]
+        }
+    } elseif {$type == "struct"} {
+        # struct type has 1+ members which have a name and a value elt.
+        foreach memberElement [subElements $typeElement] {
+            set params [subElements $memberElement]
+            foreach param $params {
+                set nodeName [dom::node cget $param -nodeName]
+                if { $nodeName == "name"} {
+                    set pname [getElementValue $param]
+                } elseif { $nodeName == "value" } {
+                    set pvalue [xmlrpc_value_from_node $param]
+                }
+            }
+            lappend value $pname $pvalue
+        }
+    } else {
+        set value [getElementValue $typeElement]
+    }
+    return $value
+}
+
+# -------------------------------------------------------------------------
+
+# Description:
+#   Return a list of all the immediate children of domNode that are element
+#   nodes.
+# Parameters:
+#   domNode  - a reference to a node in a dom tree
+#
+proc SOAP::subElements {domNode} {
+    set elements {}
+    foreach node [dom::node children $domNode] {
+        if {[dom::node cget $node -nodeType] == "element"} {
+            lappend elements $node
+        }
+    }
+    return $elements
+}
+
+# -------------------------------------------------------------------------
+
+# Description:
+#   Merge together all the child node values under a given dom element
+# Params:
+#   domElement  - a reference to an element node in a dom tree
+# Result:
+#   A string containing the elements value
+#
+proc SOAP::getElementValue {domElement} {
+    set r {}
+    set dataNodes [dom::node children $domElement]
+    foreach dataNode $dataNodes {
+        append r [dom::node cget $dataNode -nodeValue]
+    }
     return $r
 }
 
