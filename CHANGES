@@ -1,33 +1,78 @@
-TclSOAP 1.6
+* TclSOAP 1.6.1
+---------------
+
+** Client SOAP types
+  Ammended SOAP.tcl::inset_value to only apply xml namespace qualifiers
+  to values if a namespace is provided
+
+** validator tests
+   Improved the type checking of the manyTypesTest and echoStructTest.
+
+** XML Namespace support for SOAP Types
+   Implemented a scheme for specifiying the namespace of a user
+   defined type. See interop/soapinterop.tcl
+
+** Removed SOAP::Parse
+   This package is no longer used. We only require TclDOM and if the
+   dom::c package is in use we do not require the xml package.
+
+** Structure bounds checking
+   simon@e-ppraisal.com implemented boundary checks for structure
+   assignments in SOAP.tcl
+
+** SOAP:Header support
+   Implemented Header support as a -header option to the SOAP command
+   for client code and attached to the rpcvar result of a server
+   procedure. See interop/soapinteropC.tcl for an example of client usage
+   and cgi-bin/soap/soapinterop.tcl:echoVoid for the server code.
+
+** SOAP Element Attributes
+   We allow attaching of additional attributes to XML elements via the
+   rpcvar -attribute option. interop/soapinteropC.tcl:validate.emsr:header 
+   has an example. This can be use to implement the Transaction example
+   from the SOAP spec eg:
+     return [rpcvar -header [list Transaction [rpcvar Transaction 5]]
+
+** dom::c 2.0 Support
+   Various fixes to support the TclDOM 2.0 C package.
+
+** SOAPAction HTTP header
+   Fix to SOAPAction handling to follow spec.
+
+* TclSOAP 1.6
 -------------
 
-SOAP interoperability testing:
+** SOAP interoperability testing
   We now pass the Userland SOAP and XML-RPC validation suite at
   http://validate.soapware.org/ and http://validate.xmlrpc.com/. We also
   provide an implementation of the SOAP Interoperability Lab Round 1 test
   suite and pass these tests too.
 
-CGI server code added. This has been tested under Apache httpd.
-TclHTTPD support is now implemented via the CGI package - see the
-samples/tclserver.tcl script for an example.
+** CGI server code added.
+  This has been tested under Apache httpd.
+  TclHTTPD support is now implemented via the CGI package - see the
+  samples/tclserver.tcl script for an example.
 
-Dumped XMLRPC::TypedVariable in favour of rpcvar::* because it's a lot more
-simple to type. Fixed the methods so we can reasonably import the names into
-other namespaces. Implemented 'typedef' for defining complex SOAP types.
+** rpcvar package
+  Dumped XMLRPC::TypedVariable in favour of rpcvar::* because it's a
+  lot more simple to type. Fixed the methods so we can reasonably
+  import the names into other namespaces. Implemented 'typedef' for
+  defining complex SOAP types.
 
-Numerous enhancements to the SOAP parameter type recognition especially for
-structs and for structs of structs.
+** Type Recognition.
+  Numerous enhancements to the SOAP parameter type recognition especially
+  for structs and for structs of structs.
 
-Numerous patches and bug fixes applied.
+** Numerous patches and bug fixes applied.
 
-Checked against TclXML 2.1theta with TclDOM 2.0
+** Checked against TclXML 2.1theta with TclDOM 2.0
 
-TclSOAP 1.5.1
--------------
+* TclSOAP 1.5.1
+---------------
 
-Bug fixes for HTTP transport problems.
+** Bug fixes for HTTP transport problems.
 
-TclSOAP 1.5
+* TclSOAP 1.5
 -------------
 
 Added support for asynchronous transports with the -command option to the
@@ -44,8 +89,8 @@ Fixed bug in SOAP::configure from old -xmlrpc option.
 Fixed bug in XMLRPC response parsing. values with no type are strings.
 Fixed bug in error message for missing XMLRPC parameters.
 
-TclSOAP 1.4
------------
+* TclSOAP 1.4
+-------------
 
 Added XML-RPC support using the same interface as that for SOAP methods.
 
@@ -68,8 +113,8 @@ Added tests to soap.test for the post-processing feature.
 
 Added more extensive comments to the source code.
 
-TclSOAP 1.3
------------
+* TclSOAP 1.3
+-------------
 
 Added the SOAP::Domain package to provide support for SOAP services
 under tclhttpd. See doc/SOAPURLDomain.html for details.
@@ -88,8 +133,8 @@ tests using xml 2.0 and dom 2.0. (Note I am not using xml::c). I am
 interested in receiving bug reports and feature requests if they are
 accompanied by a test.
 
-TclSOAP1.2
-----------
+* TclSOAP 1.2
+-------------
 
 Added SOAP::cget procedure.
 
@@ -97,14 +142,19 @@ Updated to use the new SOAP::xpath namespace (to avoid xml 2.0's xpath)
 
 Various bug fixes.
 
-TclSOAP 1.1
------------
+* TclSOAP 1.1
+-------------
 
 Changed the create command to work on the tcl procedure name and added a -name option to replace the -alias option. This avoids tcl namespace clashes.
 
 Added some Fault processing using my xpath package.
 
-TclSOAP 1.0
------------
+* TclSOAP 1.0
+-------------
 
 Initial release.
+
+
+Local Variables:
+  mode: outline
+End:
