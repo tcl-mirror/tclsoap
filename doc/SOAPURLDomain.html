@@ -56,9 +56,6 @@
 
   <!-- ----------------------------------------------------------------- -->
 
-  <h1><font color="red">This code has been superceeded as of version
-  1.6</font></h1>
-
   <p>The <tt>SOAP::Domain</tt> package provides a wrapper enabling the
   simple use of Tcl procedures as SOAP methods. The package is
   designed to operate with the tclhttpd web server but in principal
@@ -70,14 +67,22 @@
   server).</p>
 
 <pre>package require SOAP::Domain
-SOAP::Domain::register -prefix /soap -namespace zsplat::Test
 
-proc zsplat::Test::/square {num} {
-    if { [catch {expr $num + 0}] } {
-        error "parameter num must be a number"
-    }
-    return [expr $num * $num]
+namespace eval urn:tclsoap:Test1 {
+
+   proc square {num} {
+      if { [catch {expr $num + 0}] } {
+         error "parameter num must be a number"
+      }
+      return [expr {$num * $num}]
+   }
+
+   SOAP::export square
+
 }
+
+SOAP::Domain::register -prefix /soap \
+    -namespace urn:tclsoap:Test1 -uri urn:tclsoap:Test1
   </pre>
 
   <p>This block of code loads the SOAP server utilities (the
@@ -92,14 +97,19 @@ proc zsplat::Test::/square {num} {
   namespace and then define our soap methods within the slave
   interpreter.</p>
 
+  <p>We then define our SOAP method in a namespace (generally life is
+  simpler if this is the same as the XML namespace). We also must
+  publish the public methods. This is to prevent exposing Tcl internal
+  commands like <tt>exec</tt> accidentally.</p>
+
   <p>We can test the above server by entering the following script to
   get a SOAP command in Tcl to use this service.</p>
 
 <pre>% package require SOAP
-1.4
+1.6
 % SOAP::create square \
-           -uri urn:zsplat-Test \
-           -proxy http://localhost:8015/soap/square \
+           -uri urn:tclsoap:Test1 \
+           -proxy http://localhost:8015/soap \
            -params {num integer}
 ::square
 % square 8
@@ -116,10 +126,9 @@ proc zsplat::Test::/square {num} {
 
   <p>To illustrate this, if we evaluate the following in the server</p>
 
-<pre>% catch {square Hello} msg
-1
-% puts "$msg"
+<pre>% square Hello
 SOAP-ENV:Client {parameter num must be a number}
+
 % SOAP::dump square
 &lt;?xml version='1.0'?&gt;
 &lt;SOAP-ENV:Envelope 
@@ -136,9 +145,9 @@ SOAP-ENV:Client {parameter num must be a number}
           &lt;stackTrace&gt;parameter num must be a number
     while executing
 &quot;error &quot;parameter num must be a number&quot;&quot;
-    (procedure &quot;::zsplat::Test::/square&quot; line 3)
+    (procedure &quot;::urn:tclsoap:Test1::square&quot; line 3)
     invoked from within
-&quot;::zsplat::Test::/square Hello&quot;
+&quot;::urn:tclsoap:Test1::square Hello&quot;
     invoked from within
 &quot;interp eval $xmlinterp [list $xmlns] $argValues&quot;&lt;/stackTrace&gt;
         &lt;/e:errorInfo&gt;
@@ -154,14 +163,18 @@ SOAP-ENV:Client {parameter num must be a number}
   one of the detail elements. This is very useful for debugging such
   procedures.</p>
 
-  <br><br>
+  <p>There is a sample service in <tt>samples/tclhttpd-sample.tcl</tt>
+  and also a rather complete example implementing the interoperability
+  test suite in <tt>cgi-bin/soap/soapinterop.tcl</tt>.</p>
+
+  <br /><br />
   <!-- ----------------------------------------------------------------- -->
 
 </div>
 </td></tr>
 <tr class="footer">
 <td class="footer" colspan="2">
-$Id: SOAPURLDomain.html,v 1.6 2001/10/09 21:01:11 patthoyts Exp $
+$Id: SOAPURLDomain.html,v 1.7 2001/10/11 22:40:37 patthoyts Exp $
 </td></tr>
 
     </table>
