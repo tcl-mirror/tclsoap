@@ -19,7 +19,7 @@ package require mime;                   # tcllib
 
 namespace eval SOAP::Transport::beep {
     variable version 1.0
-    variable rcsid {$Id: beep.tcl,v 1.1 2001/12/20 00:07:57 patthoyts Exp $}
+    variable rcsid {$Id: beep.tcl,v 1.2 2001/12/21 01:47:25 patthoyts Exp $}
     variable options
     variable sessions
 
@@ -59,9 +59,15 @@ namespace eval SOAP::Transport::beep {
 proc SOAP::Transport::beep::method:configure {procVarName opt value} {
     upvar $procVarName procvar
     switch -glob -- $opt {
-        -logT - -logfile - -logident - -mixerT - -channelT -
-        -features - -destroy - -wait {
-            set procvar($opt) $value
+        -logT - 
+        -logfile - 
+        -logident - 
+        -mixerT - 
+        -channelT -
+        -features - 
+        -destroy - 
+        -wait {
+            set procvar([string trimleft $opt -]) $value
         }
         default {
             error "unknown option \"$opt\""
@@ -150,14 +156,14 @@ proc SOAP::Transport::beep::method:create {procVarName args} {
 	}
 
 	if { $procvar(mixerT) == $mixerT } {
-	    ::beepcore::log::entry $logT debug [info level 0] "$procName noop"
+	    ::beepcore::log::entry $logT debug [lindex [info level 0] 0] "$procName noop"
 
 	    return
 	}
 
 	incr props(refcnt)
 	set sessions($mixerT) [array get props]
-	::beepcore::log::entry $logT debug [info level 0] \
+	::beepcore::log::entry $logT debug [lindex [info level 0] 0] \
 	     "$procName using session $mixerT, refcnt now $props(refcnt)"
 
 	set procvar(mixerT) $mixerT
@@ -182,7 +188,7 @@ proc SOAP::Transport::beep::method:create {procVarName args} {
 	    set sessions($mixerT) [array get props]
 
 	    set procvar(mixerT) $mixerT
-	    ::beepcore::log::entry $logT debug [info level 0] \
+	    ::beepcore::log::entry $logT debug [lindex [info level 0] 0] \
 		 "$procName adding $mixerT to session cache, host $URL(host)"
 	}
 
@@ -298,7 +304,9 @@ proc SOAP::Transport::beep::configure {args} {
 
     foreach {opt value} $args {
         switch -- $opt {
-            -logfile - -logident {
+            -logfile - 
+            -logident {
+                set procvar([string trimleft $opt -]) $value
             }
             default {
                 error "invalid option \"$opt\": must be \
@@ -331,13 +339,13 @@ proc SOAP::Transport::beep::method:destroy {methodVarName} {
     array set props $sessions($mixerT)
     if {[incr props(refcnt) -1] > 0} {
 	set sessions($mixerT) [array get props]
-	::beepcore::log::entry $logT debug [info level 0] \
+	::beepcore::log::entry $logT debug [lindex [info level 0] 0]\
 	     "$procName no longer using session $mixerT, refcnt now $props(refcnt)"
 	return
     }
 
     unset sessions($mixerT)
-    ::beepcore::log::entry $logT debug [info level 0] \
+    ::beepcore::log::entry $logT debug [lindex [info level 0] 0] \
 	"$procName removing $mixerT from session cache"
 
     if { [catch { ::beepcore::mixer::fin $mixerT } result] } {

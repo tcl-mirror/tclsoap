@@ -11,17 +11,14 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package provide SOAP 1.6
-
-# -------------------------------------------------------------------------
-
 package require http 2.0;               # tcl 8.n
 package require log;                    # tcllib 1.0
 package require uri;                    # tcllib 1.0
 catch {package require uri::urn};       # tcllib 1.2
 package require SOAP::Utils;            # TclSOAP
 package require rpcvar;                 # TclSOAP 
-package require SOAP::http;             # TclSOAP
+
+# -------------------------------------------------------------------------
 
 # Find a suitable DOM package to use. First we try for tDOM. If this is
 # present we need a wrapper (not complete yet). If either fails then we 
@@ -40,12 +37,13 @@ if {[catch {
     }
 }
 
+# -------------------------------------------------------------------------
 
 namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.40 2001/12/21 01:47:25 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.41 2001/12/21 02:05:54 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -1282,6 +1280,12 @@ proc SOAP::insert_value {node value} {
         dom::document createTextNode $node $value
     }
 }
+
+# -------------------------------------------------------------------------
+
+package require SOAP::http;             # TclSOAP 1.6.2+
+
+package provide SOAP $SOAP::version
 
 # -------------------------------------------------------------------------
 

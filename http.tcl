@@ -13,7 +13,7 @@ package require http;                   # tcl
 
 namespace eval SOAP::Transport::http {
     variable version 1.0
-    variable rcsid {$Id: http.tcl,v 1.2 2001/12/20 00:09:29 patthoyts Exp $}
+    variable rcsid {$Id: http.tcl,v 1.3 2001/12/21 01:47:25 patthoyts Exp $}
     variable options
 
     package provide SOAP::http $version
@@ -26,12 +26,14 @@ namespace eval SOAP::Transport::http {
             headers  {}
             proxy    {}
             progress {}
+            timeout  0
         }
     }
 
     # Declare the additional SOAP method options provided by this transport.
     variable method:options [list \
         httpheaders \
+        timeout     \
     ]
     
     # Provide missing code for http < 2.3
@@ -53,12 +55,16 @@ namespace eval SOAP::Transport::http {
 #  -httpheaders - additional HTTP headers may be defined for specific
 #       SOAP methods. Argument should be a two element list made of
 #       the header name and value eg: [list Cookie $cookiedata]
-#
+# -timeout - the method can override the transport defined http timeout.
+#       Set to {} to use the transport timeout, 0 for infinity.
 proc SOAP::Transport::http::method:configure {procVarName opt value} {
     upvar $procVarName procvar
     switch -glob -- $opt {
         -httpheaders {
             set procvar(httpheaders) $value
+        }
+        -timeout {
+            set procvar(timeout) $value
         }
         default {
             # not reached.
@@ -85,14 +91,11 @@ proc SOAP::Transport::http::configure {args} {
 
     foreach {opt value} $args {
         switch -- $opt {
-            -proxy   {
-                set options(proxy) $value
+            -proxy - -timeout -  -progress {
+                set options([string trimleft $opt -]) $value
             }
             -headers {
                 set options(headers) $value
-            }
-            -progress {
-                set options(progress) $value
             }
             default {
                 error "invalid option \"$opt\":\
@@ -147,6 +150,12 @@ proc SOAP::Transport::http::xfer { procVarName url request } {
         set local_progress "-progress [list $options(progress)]"
     }
     
+    # Check for a timeout. Method timeout overrides transport timeout.
+    set timeout $options(timeout)
+    if {$procvar(timeout) != {}} {
+        set timeout $procvar(timeout)
+    }
+
     # There may be http headers configured. eg: for proxy servers
     # eg: SOAP::configure -transport http -headers 
     #    [list "Proxy-Authorization" [basic_authorization]]
@@ -181,7 +190,9 @@ proc SOAP::Transport::http::xfer { procVarName url request } {
     
     set token [eval ::http::geturl_followRedirects [list $url] \
                    -headers [list $local_headers] \
-                   -type text/xml -query [list $request] \
+                   -type text/xml \
+                   -timeout $timeout \
+                   -query [list $request] \
                    $local_progress $command]
     
     # store the http structure reference for possible access later.
@@ -200,8 +211,15 @@ proc SOAP::Transport::http::xfer { procVarName url request } {
     }
 
     # Some other sort of error ...
-    if {[::http::status $token] != "ok"} {
-         error "SOAP transport error: \"[::http::code $token]\""
+    switch -exact -- [::http::status $token] {
+        timeout {
+            error "error: SOAP http transport timed out after $timeout ms"
+        }
+        ok {
+        }
+        default {
+            error "SOAP transport error: \"[::http::code $token]\""
+        }
     }
 
     return [::http::data $token]
