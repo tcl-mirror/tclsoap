@@ -1,4 +1,4 @@
-# SOAP-tests.tcl - Copyright (C) 2001 Pat Thoyts <pat@zsplat.freeserve.co.uk>
+# SOAP-tests.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
 #
 # Create some remote SOAP access methods to demo servers.
 #
@@ -17,7 +17,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: SOAP-tests.tcl,v 1.8 2001/04/13 12:24:06 pat Exp pat $
+# @(#)$Id: SOAP-tests.tcl,v 1.9 2001/04/17 23:22:53 pat Exp pat $
 
 package require SOAP
 
@@ -26,9 +26,22 @@ package require SOAP
 #
 # Microsoft provide a .NET client validator
 SOAP::create validator1 \
-        -name "validate"
-        -uri "urn:zsplat-Validator1" \
-        -action "urn:zsplat-Validator1" \
+        -name "validate" \
+        -uri "urn:zsplat-Validator" \
+        -proxy "http://www.soaptoolkit.com/soapvalidator/listener.asp" \
+        -params { msg string num integer }
+
+SOAP::create validator2 \
+        -name "validate" \
+        -uri "urn:zsplat-Validator" \
+        -action "\"\"" \
+        -proxy "http://www.soaptoolkit.com/soapvalidator/listener.asp" \
+        -params { msg string num integer }
+
+SOAP::create validator3 \
+        -name "validate" \
+        -uri "urn:zsplat-Validator" \
+        -action "urn:tclsoap-Test" \
         -proxy "http://www.soaptoolkit.com/soapvalidator/listener.asp" \
         -params { msg string num integer }
 
