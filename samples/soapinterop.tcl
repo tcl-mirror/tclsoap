@@ -8,10 +8,36 @@ namespace eval soapinterop {
     variable uri    "http://soapinterop.org/"
     variable action "urn:soapinterop"
 
+    # ---------------------------------------------------------------------
+    # types
+    # ---------------------------------------------------------------------
+
     rpcvar::typedef -namespace http://soapinterop.org/xsd { \
 	    varString string \
 	    varInt    int \
 	    varFloat  float} SOAPStruct
+
+    rpcvar::typedef -namespace http://soapinterop.org/xsd { \
+	    varString string \
+	    varInt    int \
+	    varFloat  float \
+	    varStruct SOAPStruct } SOAPStructStruct
+
+    # FIX ME
+    rpcvar::typedef -namespace http://soapinterop.org/xsd \
+	    string() Arrayofstring
+
+    # FIX ME
+    rpcvar::typedef -namespace http://soapinterop.org/xsd \
+	    string()() ArrayOfString2D
+    
+    rpcvar::typedef -namespace http://soapinterop.org/xsd { \
+	    varString string \
+	    varInt    int \
+	    varFloat  float \
+	    varArray  string() } SOAPArrayStruct
+
+    # ----------------------------------------------------------------------
 
     proc create {proxy} {
         variable uri
@@ -41,6 +67,19 @@ namespace eval soapinterop {
                 -params {inputDate timeInstant}
         SOAP::create echoVoid -proxy $proxy -uri $uri -action $action \
                 -params {}
+
+	# Proposal B Methods
+	SOAP::create echoStructAsSimpleTypes -proxy $proxy -uri $uri \
+		-action $action -params {inputStruct SOAPStruct}
+	SOAP::create echoSimpleTypesAsStruct -proxy $proxy -uri $uri \
+		-action $action \
+		-params {inputString string inputInteger int inputFloat float}
+	SOAP::create echo2DStringArray -proxy $proxy -uri $uri \
+		-action $action -params {input2DStringArray ArrayOfString2D}
+	SOAP::create echoNestedStruct -proxy $proxy -uri $uri -action $action \
+		-params {inputStruct SOAPStructStruct}
+	SOAP::create echoNestedArray -proxy $proxy -uri $uri -action $action \
+		-params {inputStruct SOAPArrayStruct}
     }
 
     proc test_local {} {
@@ -100,9 +139,11 @@ proc soapinterop::validate.echoDate {} {
 
 proc soapinterop::validate.echoBase64 {} {
     package require base64
-    set q [base64::encode [array get ::tcl_platform]]
-    set r [echoBase64 $q]
-    if {![string match $q $r]} {
+    set check [array get ::tcl_platform]
+    set q [join [base64::encode $check] {}]
+    set result [echoBase64 $q]
+    set r [base64::decode $result]
+    if {![string match $check $r]} {
 	error "echoBase64 failed: strings do not match"
     }
     return "echoBase64"
@@ -111,7 +152,7 @@ proc soapinterop::validate.echoBase64 {} {
 proc soapinterop::validate.echoInteger {} {
     set i [rand_int]
     set r [echoInteger $i]
-    if {$i != $r} { error "echoInteger failed" }
+    if {$i != $r} { error "echoInteger failed: $i != $r" }
     return "echoInteger"
 }
 
@@ -129,7 +170,7 @@ proc soapinterop::validate.echoString {} {
     set s [array get ::tcl_platform]
     set r [echoString $s]
     if {! [string match $s $r]} {
-	error "echoString failed simple string test."
+	error "echoString failed simple string test: $s != $r"
     }
     return "echoString"
 }
@@ -141,11 +182,11 @@ proc soapinterop::validate.echoIntegerArray {} {
     }
     set r [echoIntegerArray $q]
     if {[llength $r] != [llength $q]} {
-	error "echoIntegerArray failed: lists are different"
+	error "echoIntegerArray failed: lists are different: $r != $q"
     }
     for {set n 0} {$n < $max} {incr n} {
 	if {[lindex $q $n] != [lindex $r $n]} {
-	    error "echoIntegerArray failed: element $n is different"
+	    error "echoIntegerArray failed: element $n is different: $r != $q"
 	}
     }
     return "echoIntegerArray"
@@ -158,11 +199,11 @@ proc soapinterop::validate.echoFloatArray {} {
     }
     set r [echoFloatArray $q]
     if {[llength $r] != [llength $q]} {
-	error "echoFloatArray failed: lists are different"
+	error "echoFloatArray failed: lists are different: $r != $q"
     }
     for {set n 0} {$n < $max} {incr n} {
 	if {[expr [lindex $q $n] != [lindex $r $n]]} {
-	    error "echoFloatArray failed: element $n is different"
+	    error "echoFloatArray failed: element $n is different: $r != $q"
 	}
     }
     return "echoFloatArray"
@@ -172,12 +213,12 @@ proc soapinterop::validate.echoStringArray {} {
     set q [array get ::tcl_platform]
     set r [echoStringArray $q]
     if {[llength $r] != [llength $q]} {
-	error "echoStringArray failed: lists are different"
+	error "echoStringArray failed: lists are different: $r != $q"
     }
     set max [llength $q]
     for {set n 0} {$n < $max} {incr n} {
 	if {! [string match [lindex $q $n] [lindex $r $n]]} {
-	    error "echoStringArray failed: element $n is different"
+	    error "echoStringArray failed: element $n is different: $r != $q"
 	}
     }
     return "echoStringArray"
@@ -227,6 +268,21 @@ proc soapinterop::validate.echoStructArray {} {
     }
     return "echoStructArray"
 }
+
+# -------------------------------------------------------------------------
+
+# Proposal B
+
+# Returns the struct parts.
+proc soapinterop::validate.echoStructAsSimpleTypes {} {
+    array set q [list \
+	    varString "" \
+	    varInt [rand_int] \
+	    varFloat [rand_float]]
+    set r [echoStructAsSimpleTypes [array get q]]
+    return $r
+}    
+
 
 # -------------------------------------------------------------------------
 
