@@ -16,11 +16,15 @@
 
 package provide SOAP::xpath 0.1
 
-package require dom 1.6
+if { [catch {package require dom 2.0}] } {
+    if { [catch {package require dom 1.6}] } {
+        error "require dom package greater than 1.6"
+    }
+}
 
 namespace eval SOAP::xpath {
     variable version 0.1
-    variable rcsid { $Id: xpath.tcl,v 1.3 2001/03/02 13:29:50 pat Exp pat $ }
+    variable rcsid { $Id: xpath.tcl,v 1.4 2001/03/17 01:19:09 pat Exp pat $ }
     namespace export xpath
 }
 
@@ -57,12 +61,20 @@ proc SOAP::xpath::xpath { args } {
 
     set root [lindex $args 0]
     set path [lindex $args 1]
+    array set xmlns {}
+    set nsPath {}
 
+    # split the path up and call find_node to get the new node or nodes.
     foreach nodeName [split $path {/}] {
         if { $nodeName == {} } {
             continue
         }
-        set root [find_node $root $nodeName]
+
+        ## BUG HERE
+        append nsPath "/${nodeName}" ; puts "nsPath: $nsPath"
+        xmlnsUpdate xmlns $root $nsPath ; puts "[array get xmlns]"
+
+        set root [find_node $root $nodeName xmlns]
         if { $root == {}} {
             return -code error "$nodeName not found"
         }
@@ -103,11 +115,12 @@ proc SOAP::xpath::xpath { args } {
 
 # check for an element called name that is a child of root. Returns
 # the node, or null
-proc SOAP::xpath::find_node { root name } {
+proc SOAP::xpath::find_node { root name xmlNamespaces } {
+    upvar $xmlNamespaces xmlns
     set r {}
     set kids ""
     foreach element $root { 
-        append kids [child_elements $element]
+        append kids [child_elements $element xmlns]
     }
     foreach {node namespace elt_name} $kids {
         if { [string match $name $elt_name] } {
@@ -119,24 +132,16 @@ proc SOAP::xpath::find_node { root name } {
 
 # -------------------------------------------------------------------------
 
-# remove extraneous whitespace from each end of string
-proc SOAP::xpath::trim { str } {
-    set r {}
-    regsub {^\s+} $str {} r
-    regsub {\s+$} $r   {} r
-    return $r
-}
-
-# -------------------------------------------------------------------------
-
 # Return list of {node namespace elementname} for each child element of root
-proc SOAP::xpath::child_elements { root } {
+proc SOAP::xpath::child_elements { root xmlNamespaces } {
+    upvar $xmlNamespaces xmlns
     set kids {}
     set children [dom::node children $root]
     foreach node $children {
-        set type [trim [dom::node cget $node -nodeType ]]
+        set type [string trim [dom::node cget $node -nodeType ]]
         if { $type == "element" } {
-            set name [split [trim [dom::node cget $node -nodeName]] {:}]
+            #set name [split [string trim [dom::node cget $node -nodeName]] {:}]
+            set name [xmlnsQualify xmlns [dom::node cget $node -nodeName]]
             if { [llength $name] == 1 } {
                 set ns {}
             } else {
@@ -147,6 +152,46 @@ proc SOAP::xpath::child_elements { root } {
         }
     }
     return $kids
+}
+
+# -------------------------------------------------------------------------
+
+# read in the attributes for the current path in DOC and update a table
+# of namespace names. Used in xmlns_sub.
+#
+proc SOAP::xpath::xmlnsUpdate {varName doc path} {
+    upvar $varName xmlns
+    foreach {ns fqns} [array get [dom::node cget $doc -attributes]] {
+	set ns [split $ns :]
+        puts "  $ns -> $fqns"
+	if { [lindex $ns 0] == "xmlns" } {
+	    set xmlns([lindex $ns 1]) $fqns
+	}
+    }
+}
+
+# -------------------------------------------------------------------------
+
+# Split an XML element name into its namespace and name parts and return
+# a fully qualified XML element name.
+# xmlnsArray is the set of xmlns definitions that have been seen so
+# far (see get_xmlns)
+#
+proc SOAP::xpath::xmlnsQualify {xmlnsNamespaces elementName} {
+    upvar $xmlnsNamespaces xmlns
+    set name [split $elementName :]
+
+    if { [llength $name] != 2} {
+	error "wrong # elements: name should be namespaceName:elementName"
+    }
+
+    if { [catch {set fqns $xmlns([lindex $name 0])}] } {
+	error "invalid namespace name: \"[lindex $name 0]\" not found"
+    }
+
+    set name [lindex $name 1]
+
+    return "${fqns}:${name}"
 }
 
 # -------------------------------------------------------------------------
