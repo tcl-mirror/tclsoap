@@ -8,7 +8,8 @@ SOAP interoperability testing:
   suite and pass these tests too.
 
 CGI server code added. This has been tested under Apache httpd.
-TclHTTPD support is now implemented via the CGI package. 
+TclHTTPD support is now implemented via the CGI package - see the
+samples/tclserver.tcl script for an example.
 
 Dumped XMLRPC::TypedVariable in favour of rpcvar::* because it's a lot more
 simple to type. Fixed the methods so we can reasonably import the names into
@@ -18,6 +19,8 @@ Numerous enhancements to the SOAP parameter type recognition especially for
 structs and for structs of structs.
 
 Numerous patches and bug fixes applied.
+
+Checked against TclXML 2.1theta with TclDOM 2.0
 
 TclSOAP 1.5.1
 -------------

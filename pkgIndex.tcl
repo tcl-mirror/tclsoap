@@ -10,12 +10,9 @@
 
 package ifneeded SOAP 1.6 [list source [file join $dir SOAP.tcl]]
 package ifneeded SOAP::CGI 1.0 [list source [file join $dir SOAP-CGI.tcl]]
-package ifneeded SOAP::Domain 1.3 [list source [file join $dir SOAP-domain.tcl]]
 package ifneeded SOAP::Parse 1.0 [list source [file join $dir SOAP-parse.tcl]]
 package ifneeded SOAP::Service 0.4 [list source [file join $dir SOAP-service.tcl]]
 package ifneeded SOAP::Utils 1.0 [list source [file join $dir utils.tcl]]
 package ifneeded SOAP::xpath 0.2 [list source [file join $dir xpath.tcl]]
 package ifneeded XMLRPC 1.0 [list source [file join $dir XMLRPC.tcl]]
-package ifneeded XMLRPC::Domain 1.0 [list source [file join $dir XMLRPC-domain.tcl]]
-package ifneeded XMLRPC::TypedVariable 1.1 [list source [file join $dir XMLRPC-typed.tcl]]
 package ifneeded rpcvar 1.0 [list source [file join $dir rpcvar.tcl]]
