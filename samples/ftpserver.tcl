@@ -16,7 +16,7 @@
 #  test::init ftp://anonymous:guest@localhost/soap
 #  test::platform
 #
-# $Id$
+# $Id: ftpserver.tcl,v 1.1.2.2 2003/01/11 01:28:28 patthoyts Exp $
 #
 # -------------------------------------------------------------------------
 # This software is distributed in the hope that it will be useful, but
@@ -30,6 +30,8 @@ exec wish8.3 "$0" ${1+"$@"}
 package require ftpd;                   # tcllib 1.1
 package require Memchan 2.2;            # memchan
 package require SOAP::CGI
+
+namespace eval ::SOAP::ftpd {}
 
 # -------------------------------------------------------------------------
 # Configure for our SOAP::CGI installation
