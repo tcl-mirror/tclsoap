@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# scriptview.cgi = Copyright (C) 2001 Pat Thoyts <pat@zsplat.freeserve.co.uk>
+# scriptview.cgi = Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
 #
 # Present a named Tcl script file over HTTP. Include some font-lock style 
 # syntax colouring.
@@ -11,15 +11,22 @@
 # restart with tclsh \
 exec tclsh "$0" ${1+"$@"}
 
+# -------------------------------------------------------------------------
+# << configure me >>
+# -------------------------------------------------------------------------
+
 # Point to our installation of tcllib etc.
 #set auto_path [linsert $auto_path 0 [file join [pwd] "../../.."]]
 #set auto_path [linsert $auto_path 0 [file join [pwd] "../lib/tcl/tcllib0.8"]]
 set auto_path [linsert $auto_path 0 /home/pat/lib/tcl \
 	/home/pat/lib/tcl/tcllib0.8]
+
 # This is the filesystem root and list of permissible script names.
 #set root [file join [pwd] "../../../tclsoap"]
 #set root [file join [pwd] "../tclsoap"]
 set root /home/pat/lib/tcl/tclsoap
+
+# -------------------------------------------------------------------------
 
 set permitted {SOAP.tcl SOAP-domain.tcl SOAP-parse.tcl SOAP-service.tcl \
 	       xpath.tcl XMLRPC.tcl XMLRPC-domain.tcl XMLRPC-typed.tcl \
