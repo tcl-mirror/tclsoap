@@ -24,11 +24,12 @@ if { [catch {package require dom 2.0}] } {
 }
 
 package require SOAP::xpath
+package require XMLRPC::TypedVariable
 
 namespace eval SOAP::Domain {
     variable version 1.0  ;# package version number
     variable debug 0      ;# flag to toggle debug output
-    variable rcs_id {$Id: SOAP-domain.tcl,v 1.4 2001/06/06 00:46:09 patthoyts Exp $}
+    variable rcs_id {$Id: SOAP-domain.tcl,v 1.5 2001/06/19 00:40:26 patthoyts Exp $}
 
     namespace export fault reply_envelope reply_simple
 }
@@ -294,11 +295,43 @@ proc SOAP::Domain::reply_simple { doc uri methodName type result } {
     dom::element setAttribute $cmd \
             "SOAP-ENV:encodingStyle" \
             "http://schemas.xmlsoap.org/soap/encoding/"
-    set par [dom::document createElement $cmd "return"]
-    dom::element setAttribute $par "xsi:type" "xsd:$type"
-    dom::document createTextNode $par $result
+    set retnode [dom::document createElement $cmd "return"]
+
+    # insert the results into the DOM tree.
+    insert_value $retnode $result
+
     return $doc
 }
+
+# -------------------------------------------------------------------------
+
+proc SOAP::Domain::insert_value {node value} {
+
+    set type [::XMLRPC::TypedVariable::get_type $value]
+    set value [::XMLRPC::TypedVariable::get_value $value]
+    
+    if {$type == "array"} {
+        set d_len [llength $value]
+        set d_type [::XMLRPC::TypedVariable::get_type [lindex $value 0]]
+
+        dom::element setAttribute $node "xsi:type" "xsd:Array"
+        dom::element setAttribute $node \
+                "xsi:arrayType" "xsd:$d_type\[$d_len\]"
+        foreach elt $value {
+            set d_elt [dom::document createElement $node "item"]
+            insert_value $d_elt $elt
+        }
+    } elseif {$type == "struct"} {
+        foreach {eltname eltvalue} $value {
+            set d_elt [dom::document createElement $node $eltname]
+            insert_value $d_elt $eltvalue
+        }
+    } else {
+        dom::element setAttribute $node "xsi:type" "xsd:$type"
+        dom::document createTextNode $node $value
+    }
+}
+
 
 # -------------------------------------------------------------------------
 

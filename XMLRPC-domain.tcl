@@ -51,7 +51,7 @@ package require SOAP::xpath
 namespace eval XMLRPC::Domain {
     variable version 1.0   ;# package version number
     variable debug 1       ;# debugging flag
-    variable rcs_id {$Id: XMLRPC-domain.tcl,v 1.3 2001/06/10 23:25:26 patthoyts Exp $}
+    variable rcs_id {$Id: XMLRPC-domain.tcl,v 1.4 2001/06/19 00:40:26 patthoyts Exp $}
 
     namespace export fault
 }
@@ -301,38 +301,37 @@ proc XMLRPC::Domain::reply_simple { doc uri methodName type result } {
     set d_params [dom::document createElement $d_root "params"]
     set d_param [dom::document createElement $d_params "param"]
     set d_value [dom::document createElement $d_param "value"]
+    insert_value $d_value $result
+    return $doc
+}
 
-    set type [XMLRPC::TypedVariable::get_type $result]
-    set value [XMLRPC::TypedVariable::get_value $result]
+# -------------------------------------------------------------------------
+
+proc XMLRPC::Domain::insert_value {node value} {
+    set type [XMLRPC::TypedVariable::get_type $value]
+    set value [XMLRPC::TypedVariable::get_value $value]
 
     if { $type == "array" } {
-        set d_array [dom::document createElement $d_value "array"]
+        set d_array [dom::document createElement $node "array"]
         set d_data [dom::document createElement $d_array "data"]
         foreach elt $value {
             set d_elt [dom::document createElement $d_data "value"]
-            set subtype [XMLRPC::TypedVariable::get_type $elt]
-            set d_type [dom::document createElement $d_elt $subtype]
-            dom::document createTextNode $d_type $elt
+            insert_value $d_elt $elt
         }
     } elseif { $type == "struct" } {
         # Arrays have been expanded for us with array get ...
-        set d_struct [dom::document createElement $d_value "struct"]
+        set d_struct [dom::document createElement $node "struct"]
         foreach {eltname eltvalue} $value {
             set d_mmbr [dom::document createElement $d_struct "member"]
             set d_name [dom::document createElement $d_mmbr "name"]
             dom::document createTextNode $d_name $eltname
             set d_value [dom::document createElement $d_mmbr "value"]
-            set d_eltyp [dom::document createElement $d_value \
-                    [XMLRPC::TypedVariable::get_type $eltvalue]]
-            dom::document createTextNode $d_eltyp \
-                    [XMLRPC::TypedVariable::get_value $eltvalue]
+            insert_value $d_value $eltvalue
         }
     } else {
-        set d_type [dom::document createElement $d_value $type]
+        set d_type [dom::document createElement $node $type]
         dom::document createTextNode $d_type $value
     }
-
-    return $doc
 }
 
 # -------------------------------------------------------------------------
