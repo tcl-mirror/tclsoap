@@ -2,7 +2,7 @@
 #
 # Provide Tcl access to SOAP 1.1 methods.
 #
-# See http://tclsoap.sourceforge.net/ for usage details.
+# See http://tclsoap.sourceforge.net/ or doc/TclSOAP.html for usage details.
 #
 # -------------------------------------------------------------------------
 # This software is distributed in the hope that it will be useful, but
@@ -11,12 +11,14 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package provide SOAP 1.5
+package provide SOAP 1.6
 
 # -------------------------------------------------------------------------
 
 package require http 2.0
 package require SOAP::Parse
+package require XMLRPC::TypedVariable
+package require SOAP::Utils
 
 if { [catch {package require dom 2.0} domVer]} {
     if { [catch {package require dom 1.6} domVer]} {
@@ -26,39 +28,15 @@ if { [catch {package require dom 2.0} domVer]} {
 }
 
 namespace eval SOAP {
-    variable version 1.4
+    variable version 1.6
     variable domVersion $domVer
     variable rcs_version { $Id: SOAP.tcl,v 1.21 2001/06/21 23:03:23 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig
+    catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
 }
 
 unset domVer
-
-# -------------------------------------------------------------------------
-
-# Description:
-#   Provide a version independent selectNode implementation. We either use
-#   the version from the dom package or use the SOAP::xpath version if there
-#   is no dom one.
-# Parameters:
-#   node  - reference to a dom tree
-#   path  - XPath selection
-# Result:
-#   Returns the selected node or a list of matching nodes or an empty list
-#   if no match.
-#
-proc SOAP::selectNode {node path} {
-    variable domVersion
-    if {$domVersion < 2.0} {
-        if {[catch {xpath::xpath -node $node $path} r]} {
-            set r {}
-        }
-        return $r
-    } else {
-        return [dom::DOMImplementation selectNode $node $path]
-    }
-}
 
 # -------------------------------------------------------------------------
 
@@ -832,37 +810,14 @@ proc SOAP::parse_soap_response { procVarName xml } {
     }
     
     set result {}
-    set nodes [subElements [selectNode $doc "/Envelope/Body"]]
+
+    set nodes [selectNode $doc "/Envelope/Body/*/*"]
     foreach node $nodes {
-        set r [getSubElementValues $node]
+        set r [decomposeSoap $node]
         if {$result == {}} { set result $r } else { lappend result $r }
     }
 
     dom::DOMImplementation destroy $doc
-    return $result
-}
-
-# -------------------------------------------------------------------------
-
-# Description:
-#   If there are child elements then recursively call this procedure on each
-#   child element. If this is a leaf element, then get the element value data.
-# Parameters:
-#   domElement - a reference to a dom element node
-# Result:
-#   Returns a value or a list of values.
-#
-proc SOAP::getSubElementValues {domElement} {
-    set result {}
-    set nodes [subElements $domElement]
-    if {$nodes == {}} {
-        set result [getElementValue $domElement]
-    } else {
-        foreach node $nodes {
-            set r [getSubElementValues $node]
-            if {$result == {}} { set result $r } else { lappend result $r }
-        }
-    }
     return $result
 }
 
@@ -925,7 +880,7 @@ proc SOAP::parse_xmlrpc_response { procVarName xml } {
 #
 proc SOAP::xmlrpc_value_from_node {valueNode} {
     set value {}
-    set elts [subElements $valueNode]
+    set elts [getElements $valueNode]
     if {[llength $elts] != 1} {
         return [getElementValue $valueNode]
     }
@@ -933,14 +888,14 @@ proc SOAP::xmlrpc_value_from_node {valueNode} {
     set type [dom::node cget $typeElement -nodeName]
 
     if {$type == "array"} {
-        set dataElement [lindex [subElements $typeElement] 0]
-        foreach valueElement [subElements $dataElement] {
+        set dataElement [lindex [getElements $typeElement] 0]
+        foreach valueElement [getElements $dataElement] {
             lappend value [xmlrpc_value_from_node $valueElement]
         }
     } elseif {$type == "struct"} {
         # struct type has 1+ members which have a name and a value elt.
-        foreach memberElement [subElements $typeElement] {
-            set params [subElements $memberElement]
+        foreach memberElement [getElements $typeElement] {
+            set params [getElements $memberElement]
             foreach param $params {
                 set nodeName [dom::node cget $param -nodeName]
                 if { $nodeName == "name"} {
@@ -955,42 +910,6 @@ proc SOAP::xmlrpc_value_from_node {valueNode} {
         set value [getElementValue $typeElement]
     }
     return $value
-}
-
-# -------------------------------------------------------------------------
-
-# Description:
-#   Return a list of all the immediate children of domNode that are element
-#   nodes.
-# Parameters:
-#   domNode  - a reference to a node in a dom tree
-#
-proc SOAP::subElements {domNode} {
-    set elements {}
-    foreach node [dom::node children $domNode] {
-        if {[dom::node cget $node -nodeType] == "element"} {
-            lappend elements $node
-        }
-    }
-    return $elements
-}
-
-# -------------------------------------------------------------------------
-
-# Description:
-#   Merge together all the child node values under a given dom element
-# Params:
-#   domElement  - a reference to an element node in a dom tree
-# Result:
-#   A string containing the elements value
-#
-proc SOAP::getElementValue {domElement} {
-    set r {}
-    set dataNodes [dom::node children $domElement]
-    foreach dataNode $dataNodes {
-        append r [dom::node cget $dataNode -nodeValue]
-    }
-    return $r
 }
 
 # -------------------------------------------------------------------------

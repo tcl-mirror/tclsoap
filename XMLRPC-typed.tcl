@@ -15,7 +15,7 @@ package provide XMLRPC::TypedVariable 1.1
 namespace eval XMLRPC::TypedVariable {
     variable version 1.1
     variable magic {XTVar}
-    variable rcs_id {$Id: XMLRPC-typed.tcl,v 1.1 2001/06/06 00:46:09 patthoyts Exp $}
+    variable rcs_id {$Id: XMLRPC-typed.tcl,v 1.2 2001/07/06 00:37:30 patthoyts Exp $}
 
     namespace export create destroy is_typed_variable get_type get_value \
             get_subtype
@@ -88,13 +88,13 @@ proc XMLRPC::TypedVariable::get_type { arg } {
     set type {}
     if { [is_typed_variable $arg] } {
         regexp {([^(]+)(\([^)]+\))?} [lindex $arg 1] -> type subtype
-    } elseif { [uplevel 1 array exists [list $arg]] } {
+    } elseif {[uplevel 1 array exists [list $arg]]} {
         set type "struct"
-    } elseif { [ string is integer -strict $arg ] } {
+    } elseif {[string is integer -strict $arg]} {
         set type "int"
-    } elseif { [ string is double -strict $arg ] } {
+    } elseif {[string is double -strict $arg]} {
         set type "double"
-    } elseif { [ string is boolean -strict $arg ] } {
+    } elseif {[string is boolean -strict $arg]} { 
         set type "boolean"
     } else {
         set type "string"
@@ -107,8 +107,7 @@ proc XMLRPC::TypedVariable::get_type { arg } {
 proc XMLRPC::TypedVariable::get_subtype { arg } {
     set subtype {}
     if {[is_typed_variable $arg]} {
-        regexp {([^(]+)(\([^)]+\))?} [lindex $arg 1] -> type subtype
-        set subtype [string trim $subtype "()"]
+        regexp {([^(]+)(\((.+)\))?} [lindex $arg 1] -> type -> subtype
     }
     return $subtype
 }

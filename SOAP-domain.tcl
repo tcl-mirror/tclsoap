@@ -15,7 +15,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package provide SOAP::Domain 1.1
+package provide SOAP::Domain 1.3
 
 if { [catch {package require dom 2.0}] } {
     if { [catch {package require dom 1.6}] } {
@@ -25,13 +25,15 @@ if { [catch {package require dom 2.0}] } {
 
 package require SOAP::xpath
 package require XMLRPC::TypedVariable 1.1
+package require SOAP::Utils
 
 namespace eval SOAP::Domain {
-    variable version 1.1  ;# package version number
+    variable version 1.3  ;# package version number
     variable debug 0      ;# flag to toggle debug output
-    variable rcs_id {$Id: SOAP-domain.tcl,v 1.6 2001/07/04 00:45:41 patthoyts Exp $}
+    variable rcs_id {$Id: SOAP-domain.tcl,v 1.7 2001/07/06 00:42:07 patthoyts Exp $}
 
     namespace export fault reply_envelope reply_simple
+    catch {namespace import -force [namespace parent]::Utils::*}
 }
 
 # -------------------------------------------------------------------------
@@ -169,29 +171,42 @@ proc SOAP::Domain::domain_handler {optsname sock args} {
     # methodNamespace should get set to the xmlns namespace in use.
     # However, dom::DOMImplementation parse strips the xmlns attributes.
     # FIX ME
-    set methodName [xpath -name $doc "/Envelope/Body/*"]
-    set methodNamespace [lindex [xmlnsSplit $methodName] 0]
-    set methodName [lindex [xmlnsSplit $methodName] 1]
-    if { [catch {xpath $doc "/Envelope/Body/${methodName}/*"} argValues] } {
-        set argValues {}
+    #
+    # - matches the code in SOAP::CGI ----------------------------------
+    set methodNode [selectNode $doc "/Envelope/Body/*"]
+    set methodName [dom::node cget $methodNode -nodeName]
+    set methodNamespace [array get [dom::node cget $methodNode -attributes]]
+    set argNodes [selectNode $doc "/Envelope/Body/*/*"]
+    set argValues {}
+    foreach node $argNodes {
+        lappend argValues [decomposeSoap $node]
     }
-    if { ! $debug } {catch {dom::DOMImplementation destroy $doc}}
+    catch {dom::DOMImplementation destroy $doc}
+    # ------------------------------------------------------------------
 
     # The implementation of this method will be in xmlinterp and the procname
     # is going to be namespace + suffix.
-    set xmlns {}
+    # NB: suffix is prefixed by '/'. We will search for an implementation by
+    # looking for 'registered namespace'::/methodname followed by
+    # 'registered namespace'::methodname
+    # We also determine which interpreter is used here.
+    set xmlns {} ; set xmlns2 {}
     set xmlinterp [lindex [array get $optsname -interp] 1]
-    append xmlns [lindex [array get $optsname -namespace] 1] {::} $suffix
+    append xmlns  [lindex [array get $optsname -namespace] 1] {::} $suffix
+    append xmlns2 [lindex [array get $optsname -namespace] 1] {::} \
+            [string range $suffix 1 end]
 
     # Check that this method has an implementation. If not then we return an
     # error with no <detail> element (as per SOAP 1.1 specification) 
     # indicating an error in header processing.
     if { [catch {interp eval $xmlinterp namespace origin $xmlns} xmlns] } {
-        Httpd_ReturnData $sock text/xml \
-                [fault SOAP-ENV:Client \
-                  "Invalid SOAP request: method \"$methodName\" not found"
-                ] 500
-        return 1
+        if {[catch {interp eval $xmlnsinterp namespace origin $xmlns2} xmlns]} {
+            Httpd_ReturnData $sock text/xml \
+                    [fault SOAP-ENV:Client \
+                      "Invalid SOAP request: method \"$methodName\" not found"
+                    ] 500
+            return 1
+        }
     }
 
     # The URI for this method will be
@@ -206,8 +221,9 @@ proc SOAP::Domain::domain_handler {optsname sock args} {
                 [fault SOAP-ENV:Client "$msg" $detail] 500
     } else {
 
-        set reply [reply_simple [dom::DOMImplementation create] \
-                $xmluri "return" string $msg]
+        set reply [reply_simple \
+                [dom::DOMImplementation create] \
+                $xmluri "${methodName}Response" $msg]
         
         # serialize and fix the DOM - doctype is not allowed (SOAP-1.1 spec)
         regsub "<!DOCTYPE\[^>\]*>\n" \
@@ -283,12 +299,11 @@ proc SOAP::Domain::reply_envelope { doc } {
 #   doc         empty DOM document element
 #   uri         URI of the SOAP method
 #   methodName  the SOAP method name
-#   type        the stype of the reply (string, float etc)
 #   result      the reply data
 # Returns:
 #   returns the DOM document root
 #
-proc SOAP::Domain::reply_simple { doc uri methodName type result } {
+proc SOAP::Domain::reply_simple { doc uri methodName result } {
     set bod [reply_envelope $doc]
     set cmd [dom::document createElement $bod "ns:$methodName"]
     dom::element setAttribute $cmd "xmlns:ns" $uri
@@ -297,33 +312,45 @@ proc SOAP::Domain::reply_simple { doc uri methodName type result } {
             "http://schemas.xmlsoap.org/soap/encoding/"
     set retnode [dom::document createElement $cmd "return"]
 
-    # insert the results into the DOM tree.
-    insert_value $retnode $result
+    # insert the results into the DOM tree (unless it's a void result)
+    if {$result != {}} {
+        insert_value $retnode $result
+    }
 
     return $doc
 }
 
 # -------------------------------------------------------------------------
 
-proc SOAP::Domain::insert_value {node value} {
+proc SOAP::Domain::insert_value {node value {force {}}} {
 
-    set type    [::XMLRPC::TypedVariable::get_type $value]
-    set subtype [::XMLRPC::TypedVariable::get_subtype $value]
+    if {$force == {}} {
+        set type    [::XMLRPC::TypedVariable::get_type $value]
+        set subtype [::XMLRPC::TypedVariable::get_subtype $value]
+    } else {
+        # last call was an array($force) so force the type.
+        regexp {([^(]+)(\((.+)\))?} $force -> type -> subtype
+        set force {}
+    }
     set value   [::XMLRPC::TypedVariable::get_value $value]
 
     if {$type == "array"} {
 
         dom::element setAttribute $node \
-                "xmlns:SOAP-ENC" "http://schemas.xmlsoap.org/soap/encoding"
+                "xmlns:SOAP-ENC" "http://schemas.xmlsoap.org/soap/encoding/"
         dom::element setAttribute $node "xsi:type" "SOAP-ENC:Array"
-        if {$subtype != {}} {
-            dom::element setAttribute $node \
-                    "SOAP-ENC::arrayType" "xsd:$subtype\[[llength $value]\]"
+        if {$subtype == {}} {
+            set subtype "ur-type"
+        } else {
+            # if array(string) then force elts to be string.
+            set force $subtype
         }
+        dom::element setAttribute $node \
+                "SOAP-ENC:arrayType" "xsd:$subtype\[[llength $value]\]"
 
         foreach elt $value {
             set d_elt [dom::document createElement $node "item"]
-            insert_value $d_elt $elt
+            insert_value $d_elt $elt $force
         }
     } elseif {$type == "struct"} {
         foreach {eltname eltvalue} $value {

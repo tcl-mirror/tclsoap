@@ -51,7 +51,7 @@ package require SOAP::xpath
 namespace eval XMLRPC::Domain {
     variable version 1.0   ;# package version number
     variable debug 1       ;# debugging flag
-    variable rcs_id {$Id: XMLRPC-domain.tcl,v 1.4 2001/06/19 00:40:26 patthoyts Exp $}
+    variable rcs_id {$Id: XMLRPC-domain.tcl,v 1.5 2001/07/04 00:45:41 patthoyts Exp $}
 
     namespace export fault
 }
@@ -238,7 +238,7 @@ proc XMLRPC::Domain::domain_handler {optsname sock args} {
     } else {
 
         set reply [reply_simple [dom::DOMImplementation create] \
-                $xmluri "return" string $msg]
+                $xmluri "${methodName}Response" $msg]
         
         # serialize and fix the DOM - doctype is not allowed (SOAP-1.1 spec)
         regsub "<!DOCTYPE\[^>\]*>\n" \
@@ -291,12 +291,11 @@ proc XMLRPC::Domain::fault { faultcode faultstring {detail {}} } {
 #   doc         empty DOM document element
 #   uri         URI of the SOAP method
 #   methodName  the SOAP method name
-#   type        the stype of the reply (string, float etc)
 #   result      the reply data
 # Result:
 #   Returns the DOM document root of the generated reply packet
 #
-proc XMLRPC::Domain::reply_simple { doc uri methodName type result } {
+proc XMLRPC::Domain::reply_simple { doc uri methodName result } {
     set d_root [dom::document createElement $doc "methodResponse"]
     set d_params [dom::document createElement $d_root "params"]
     set d_param [dom::document createElement $d_params "param"]
