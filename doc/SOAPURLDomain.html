@@ -13,16 +13,14 @@
   <!-- ----------------------------------------------------------------- -->
 
   <img src="tclsoap.gif" alt="TclSOAP Logo" align="bottom" border="0" />
-  <p><h1 align="center">Soap for Tcl</h1></p>
+  <p><h1 align="center">Tcl SOAP Server Utility Package</h1></p>
   <hr noshade="noshade" size="2" />
 
   <!-- ----------------------------------------------------------------- -->
 
-  <h1>Tcl SOAP Server Utility Package</h1>
-
   <p>The <tt>SOAP::Domain</tt> package provides a wrapper enabling the
   simple use of Tcl procedures as SOAP methods. The package is
-  designed to operate with the tclhttpd web server but in prinipal
+  designed to operate with the tclhttpd web server but in principal
   could be converted to another server fairly easily. </p>
 
   <p>As an example of its use enter the following code and save as
@@ -33,10 +31,13 @@
     <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
            bgcolor="#c0c0c0"><tr><td align="left"><pre>
 package require SOAP::Domain
-SOAP::Domain::register -prefix /soap -namespace zsplat
+SOAP::Domain::register -prefix /soap -namespace zsplat::Test
 
-proc zsplat::/soaptime {} {
-   return [clock format [clock seconds]]
+proc zsplat::Test::/square {num} {
+    if { [catch {expr $num + 0}] } {
+        error "parameter num must be a number"
+    }
+    return [expr $num * $num]
 }
   </pre></td></tr></table>
 
@@ -45,20 +46,27 @@ proc zsplat::/soaptime {} {
   namespace with the http server. The effect of this is that any URL
   under /soap will be handled by SOAP::Domain::domain_handler. This
   procedure examines incoming SOAP requests and attempts to evaluate
-  corresponding procedures in the specified namespace.</p>
+  corresponding procedures in the specified namespace. By specifying a
+  namespace we can isolate the soap procedures from any other
+  procedures defined in the server. If we require an additional level
+  of security we can specify a named slave interpreter rather than a
+  namespace and then define our soap methods within the slave
+  interpreter.</p>
 
-  <p>We can test this by entering the following script to get a SOAP
-  command in Tcl to use this service.</p>
+  <p>We can test the above server by entering the following script to
+  get a SOAP command in Tcl to use this service.</p>
 
     <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
            bgcolor="#c0c0c0"><tr><td align="left"><pre>
 % package require SOAP
 1.3
-% SOAP::create soaptime -proxy http://localhost:8015/soap/soaptime \
-           -uri urn:zsplat-soaptime
-::soaptime
-% soaptime
-Thu Apr 12 18:53:08 GMT Daylight Time 2001
+% SOAP::create square \
+           -uri urn:zsplat-Test \
+           -proxy http://localhost:8015/soap/square \
+           -params {num integer}
+::square
+% square 8
+64
   </pre></td></tr></table>
 
   <p>Errors returned by the Tcl procedure are converted into SOAP
@@ -73,54 +81,43 @@ Thu Apr 12 18:53:08 GMT Daylight Time 2001
 
   <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
          bgcolor="#c0c0c0"><tr><td align="left"><pre>
-proc zsplat::/square {num} {
-    if { [catch {expr $num + 0}] } {
-        error "parameter num must be a number"
-    }
-    return [expr $num * $num]
-}
-
-# Create a client command
-SOAP::create square -uri urn:zsplat-square \
-      -proxy http://localhost:8015/soap/square \
-      -params { num integer }
-  </pre></td></tr></table>
-
-  If we now evaluate <tt>square "Hello, World"</tt> we receive the
-  following XML
-
-  <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
-         bgcolor="#c0c0c0"><tr><td align="left"><pre>
+% catch {square Hello} msg
+1
+% puts "$msg"
+SOAP-ENV:Client {parameter num must be a number}
+% SOAP::dump square
 &lt;?xml version='1.0'?&gt;
 &lt;SOAP-ENV:Envelope 
-     xmlns:xsi="http://www.w3.org/1999/XMLSchema-instance" 
-     xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" 
-     xmlns:xsd="http://www.w3.org/1999/XMLSchema"&gt;
-   &lt;SOAP-ENV:Body&gt;
-      &lt;SOAP-ENV:Fault&gt;
-         &lt;faultcode&gt;SOAP-ENV:Client&lt;/faultcode&gt;
-         &lt;faultstring&gt;parameter must be a number&lt;/faultstring&gt;
-         &lt;detail&gt;
-            &lt;e:errorInfo xmlns:e="urn:TclSOAP-ErrorInfo"&gt;
-               &lt;errorCode&gt;NONE&lt;/errorCode&gt;
-               &lt;stackTrace&gt;parameter must be a number
+  xmlns:xsi="http://www.w3.org/1999/XMLSchema-instance" 
+  xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" 
+  xmlns:xsd="http://www.w3.org/1999/XMLSchema"&gt;
+  &lt;SOAP-ENV:Body&gt;
+    &lt;SOAP-ENV:Fault&gt;
+      &lt;faultcode&gt;SOAP-ENV:Client&lt;/faultcode&gt;
+      &lt;faultstring&gt;parameter num must be a number&lt;/faultstring&gt;
+      &lt;detail&gt;
+        &lt;e:errorInfo xmlns:e="urn:TclSOAP-ErrorInfo"&gt;
+          &lt;errorCode&gt;NONE&lt;/errorCode&gt;
+          &lt;stackTrace&gt;parameter num must be a number
     while executing
-&quot;error &quot;parameter must be a number&quot; &quot;
-    (procedure &quot;::SOAP::Domain::/square&quot; line 2)
+&quot;error &quot;parameter num must be a number&quot;&quot;
+    (procedure &quot;::zsplat::Test::/square&quot; line 3)
     invoked from within
-&quot;::SOAP::Domain::/square {Hello, World}&quot;
-    (&quot;eval&quot; body line 1)
+&quot;::zsplat::Test::/square Hello&quot;
     invoked from within
-&quot;eval ::SOAP::Domain::/square $argValues&quot;
-    invoked from within
-&quot;catch &quot;eval [namespace current]::$suffix \$argValues&quot;msg&quot; 
-               &lt;/stackTrace&gt;
-            &lt;/e:errorInfo&gt;
-         &lt;/detail&gt;
-      &lt;/SOAP-ENV:Fault&gt;
-   &lt;/SOAP-ENV:Body&gt;
+&quot;interp eval $xmlinterp [list $xmlns] $argValues&quot;&lt;/stackTrace&gt;
+        &lt;/e:errorInfo&gt;
+      &lt;/detail&gt;
+    &lt;/SOAP-ENV:Fault&gt;
+  &lt;/SOAP-ENV:Body&gt;
 &lt;/SOAP-ENV:Envelope&gt;
   </pre></td></tr></table>
+
+  As can be seen from the XML data, if an error is raised by the Tcl
+  implementation of the SOAP method then the SOAP::Domain package
+  includes the stack trace (from the global variable errorLevel) as
+  one of the detail elements. This is very useful for debugging such
+  procedures.</p>
 
   <!-- ----------------------------------------------------------------- -->
 
@@ -135,7 +132,7 @@ SOAP::create square -uri urn:zsplat-square \
 Last modified: Thu Apr 19 01:25:09 2001
 <!-- hhmts end -->
 
-    <br><tt>$Id$</tt>
+    <br><tt>$Id: SOAPURLDomain.html,v 1.1 2001/04/19 00:25:16 pat Exp pat $</tt>
     </font>
 
   </body>
