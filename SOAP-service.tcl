@@ -26,21 +26,27 @@
 
 package provide SOAP::Service 0.4
 
-package require Trf
+package require dom 1.6
+
+if { [catch {package require Trf}] } {
+    if { [catch {package require base64}] } {
+        error "missing required package: base64 command needs to be provided"
+    }
+}
 
 # -------------------------------------------------------------------------
 
 namespace eval SOAP::Service {
     variable version 1.0
-    variable rcs_version { $Id: SOAP-service.tcl,v 1.1 2001/02/15 23:21:37 pat Exp pt111992 $ }
+    variable rcs_version { $Id: SOAP-service.tcl,v 1.2 2001/02/26 12:39:15 pt111992 Exp pat $ }
     variable socket
     variable port
     variable stats
     array set stats {
-        zsplat-Base64 0
-        error_404  0
-        error_500  0
-        fault     0
+        zsplat-Base64  0
+        error_404      0
+        error_500      0
+        fault          0
     }
     namespace export start stop stats
 }
@@ -224,8 +230,20 @@ proc SOAP::Service::error500 {} {
 
 proc SOAP::Service::base64_service { request } {
     variable stats
-    incr stats(zsplat-Base64)
-    set doc [gen_reply]
+    
+    package require SOAP::xpath
+    set req [dom::DOMImplementation parse $request]
+    set failed [catch {SOAP::xpath::xpath $req "Envelope/Body/zsplat-Base64/*"} result]
+    if { $failed } {
+        puts "FAULT"
+        #set doc [gen_fault]
+        incr stats(fault)
+    } else {
+        puts "OK: $result"
+        set doc [gen_reply]
+        incr stats(zsplat-Base64)
+    }
+
     set prebody [dom::DOMImplementation serialize $doc]
     dom::DOMImplementation destroy $doc            ;# clean up
     regsub {<!DOCTYPE[^>]*>\n} $prebody {} body    ;# hack
@@ -239,6 +257,7 @@ proc SOAP::Service::base64_service { request } {
 
 # -------------------------------------------------------------------------
 
+# Mostly this is boilerplate code to generate a general SOAP reply
 proc SOAP::Service::gen_reply {} {
     set doc [dom::DOMImplementation create]
     set env [dom::document createElement $doc "SOAP-ENV:Element"]
