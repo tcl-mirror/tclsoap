@@ -9,7 +9,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: rpcvar.test,v 1.1 2001/08/01 23:40:55 patthoyts Exp $
+# @(#)$Id: rpcvar.test,v 1.2 2001/08/13 21:03:29 patthoyts Exp $
 
 # Initialize the required packages
 
@@ -281,6 +281,31 @@ test rpcvar-6.10 {Test typedef: validate enumeration members} {
     catch {rpcvar::rpcvalidate Colour yellow} result
     set result
 } {0}
+
+# -------------------------------------------------------------------------
+
+# Patch #494275
+test rpcvar-7.1 {Test string: string construction should not deref array by same name} {
+    catch {unset a}
+    set a(name) val
+    set result [rpcvar::rpcvar string a]
+    rpcvar::rpcvalue $result
+} {a}
+
+test rpcvar-7.1 {Test tcl array: struct type should accept array or list} {
+    catch {unset a}
+    set a(name) val
+    set result [rpcvar::rpcvar struct a]
+    rpcvar::rpcvalue $result
+} {name val}
+
+test rpcvar-7.2 {Test tcl array: struct type should accept array or list} {
+    catch {unset a}
+    set a(name) val
+    set result [rpcvar::rpcvar struct [array get a]]
+    rpcvar::rpcvalue $result
+} {name val}
+
 # -------------------------------------------------------------------------
 
 # Clean up the tests

@@ -20,7 +20,7 @@ package provide rpcvar 1.1
 namespace eval rpcvar {
     variable version 1.1
     variable magic "rpcvar$version"
-    variable rcs_id {$Id: rpcvar.tcl,v 1.6 2001/08/28 23:12:28 patthoyts Exp $}
+    variable rcs_id {$Id: rpcvar.tcl,v 1.7 2001/10/10 02:56:24 patthoyts Exp $}
     variable typedefs
     variable typens
     variable enums
@@ -91,7 +91,9 @@ proc rpcvar::rpcvar {args} {
 
     set type [lindex $args 0]
     set value [lindex $args 1]
-    if {[uplevel array exists [list $value]]} {
+
+    # For struct types (or typedefs that are structs) accept an array name or a list.
+    if {$type != "string" && [uplevel array exists [list $value]]} {
         set value [uplevel array get [list $value]]
     }
 
