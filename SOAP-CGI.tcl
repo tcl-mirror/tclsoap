@@ -39,7 +39,7 @@ namespace eval SOAP {
 	# -----------------------------------------------------------------
 
 	variable rcsid {
-	    $Id: SOAP-CGI.tcl,v 1.11 2001/12/09 23:28:59 patthoyts Exp $
+	    $Id: SOAP-CGI.tcl,v 1.14 2002/09/23 23:49:04 patthoyts Exp $
 	}
 	variable methodName  {}
 	variable debugging   0
@@ -382,7 +382,9 @@ proc SOAP::CGI::soap_call {doc {interp {}}} {
 	}
 
 	# Get the method name from the XML request.
-	set methodNode [selectNode $doc "/Envelope/Body/*"]
+        # Ensure we only select the first child element (Vico.Klump@risa.de)
+	set methodNodes [selectNode $doc "/Envelope/Body/*"]
+        set methodNode [lindex $methodNodes 0]
 	set methodName [nodeName $methodNode]
 
 	# Get the XML namespace for this method.
@@ -390,7 +392,7 @@ proc SOAP::CGI::soap_call {doc {interp {}}} {
 	dtrace "methodinfo: ${methodNamespace}::${methodName}"
 
 	# Extract the parameters.
-	set argNodes [selectNode $doc "/Envelope/Body/*/*"]
+	set argNodes [selectNode $doc "/Envelope/Body/${methodName}/*"]
 	set argValues {}
 	foreach node $argNodes {
 	    lappend argValues [decomposeSoap $node]

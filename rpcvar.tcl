@@ -20,7 +20,7 @@ package provide rpcvar 1.2
 namespace eval rpcvar {
     variable version 1.2
     variable magic "rpcvar$version"
-    variable rcs_id {$Id: rpcvar.tcl,v 1.8 2001/12/21 00:43:51 patthoyts Exp $}
+    variable rcs_id {$Id: rpcvar.tcl,v 1.12 2002/09/23 23:49:04 patthoyts Exp $}
     variable typedefs
     variable typens
     variable enums
@@ -150,7 +150,13 @@ proc rpcvar::rpctype { arg } {
     } elseif {[string is integer -strict $arg]} {
         set type "int"
     } elseif {[string is double -strict $arg]} {
-        set type "double"
+        # See: http://www.w3.org/TR/xmlschema-2/#float
+        if {[expr {(abs($arg) > (pow(2,24)*pow(2,-149))) 
+            && (abs($arg) < (pow(2,24)*pow(2,104)))}]} {
+            set type "float"
+        } else {
+            set type "double"
+        }
     } elseif {[string is boolean -strict $arg]} { 
         set type "boolean"
     } else {
@@ -374,10 +380,10 @@ proc rpcvar::rpcvalidate {type value} {
 #  => zm {varInt 2 varFloat 2.2 varString "hello"}
 #
 #  typedef {
-#      arrInt     int[]
-#      stooges    Stooges[]
-#      arrString  string[]
-#      arrColours Colour[]
+#      arrInt     int()
+#      stooges    Stooges()
+#      arrString  string()
+#      arrColours Colour()
 #  } arrStruct
 #  => SOAP::create m -params {myStruct arrStruct}
 #  => m {arrInt {1 2 3 4 5} \

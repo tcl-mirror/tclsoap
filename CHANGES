@@ -1,3 +1,44 @@
+* TclSOAP 1.6.6
+---------------
+
+** Applied OSX build patch to Makefile.in
+   Use the DESTDIR environment variable in install-libraries.
+
+** Fixed the float recognition range
+   The float range is calculated as powers of 2 not 10.
+
+** Fixed avoidance of non-method child elements in SOAP-CGI.
+   If the client sends data as href'd elements - we shouldn't treat
+   these and method call elements.
+
+* TclSOAP 1.6.5
+----------------
+** Applied patches from Vico Klump
+   Vico provided a patch to differentiate between float and doubles
+   and to ensure we find the method name in case there are multiple Body
+   elements.
+
+** Implemented typedef for arrays
+   See usage in interop/soapinteropB.tcl. [typdef string() Arrayofstring]
+   Multi dimensional arrays and offset array ranges are still not
+   done.
+
+** Fixed missing '-schemas' option
+   The '-schemas' option is supposed to add additional attributes to
+   the Envelope element but was not done. 
+
+** Update beep.tcl for RFC 3288
+   SF Patch #584390 by M Rose updates the beep transport for the RFC.
+
+** https transport.
+   Merged in patch #535302 from David Bleicher which provides SOAP
+   over secure http in a simple to use manner.
+
+** XPath handling
+   Reverted to our internal XPathish location handling to deal with
+   the updated TclDOM. We could do the xpath queries properly but they
+   are then fairly complicated looking.
+
 * TclSOAP 1.6.4
 ---------------
 

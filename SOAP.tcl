@@ -43,7 +43,7 @@ namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.43 2002/02/02 00:29:16 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.46 2002/08/20 00:37:59 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -862,7 +862,12 @@ proc SOAP::soap_request {procVarName args} {
 
     # The set of namespaces depends upon the SOAP encoding as specified by
     # the encoding option and the user specified set of relevant schemas.
-    foreach {nsname url} [rpcvar::default_schemas $soapenc] {
+    foreach {nsname url} [concat \
+                              [rpcvar::default_schemas $soapenc] \
+                              $procvar(schemas)] {
+        if {! [string match "xmlns:*" $nsname]} {
+            set nsname "xmlns:$nsname"
+        }
         dom::element setAttribute $envx $nsname $url
     }
 
@@ -1230,11 +1235,21 @@ proc SOAP::insert_value {node value} {
         }
     }
 
-    if {[string match {*()} $type] || [string match array $type]} {
-        # array type: arrays are indicated by a () suffix or the word 'array'
-        set itemtype [string trimright $type ()]
-        if {$itemtype == "array"} {
-            set itemtype ur-type
+    if {[string match {*()} $typeinfo] || [string match {*()} $type] 
+        || [string match array $type]} {
+        # array type: arrays are indicated by one or more () suffixes or
+        # the word 'array' (depreciated)
+
+        if {[string length $typeinfo] == 0} {
+            set dimensions [regexp -all -- {\(\)} $type]
+            set itemtype [string trimright $type ()]
+            if {$itemtype == "array"} {
+                set itemtype ur-type
+                set dimensions 1
+            }
+        } else {
+            set dimensions [regexp -all -- {\(\)} $typeinfo]
+            set itemtype [string trimright $typeinfo ()]
         }
         
         # Look up the typedef info of the item type
@@ -1244,11 +1259,21 @@ proc SOAP::insert_value {node value} {
             set itemxmlns i
         }
         
+        # Currently we do not support non-0 offsets into the array.
+        # This is because I don;t know how I should present this to the
+        # user. It's got to be a dynamic attribute on the value.
         dom::element setAttribute $node \
                 "xmlns:SOAP-ENC" "http://schemas.xmlsoap.org/soap/encoding/"
         dom::element setAttribute $node "xsi:type" "SOAP-ENC:Array"
-        dom::element setAttribute $node \
-                "SOAP-ENC:arrayType" "$itemxmlns:$itemtype\[[llength $value]\]"
+        dom::element setAttribute $node "SOAP-ENC:offset" "\[0\]"
+
+        # we need to break a multi-dim array into r0c0,r0c1,r1c0,r1c1
+        # so list0 followed by list1 etc.
+        # FIX ME
+        set arrayType "$itemxmlns:$itemtype"
+        #for {set cn 0} {$cn < $dimensions} {incr cn}
+        append arrayType "\[[llength $value]\]"
+        dom::element setAttribute $node "SOAP-ENC:arrayType" $arrayType
 
         foreach elt $value {
             set d_elt [dom::document createElement $node "item"]

@@ -3,7 +3,7 @@
 # Run the SOAP Interoperability Test Suite Round 2: Base tests.
 # Generates a html page of the results.
 #
-# $Id: silab.tcl,v 1.5 2001/11/01 23:55:36 patthoyts Exp $
+# $Id: silab.tcl,v 1.7 2002/09/21 00:10:29 patthoyts Exp $
 
 package require soapinterop::base
 package require soapinterop::B
@@ -28,8 +28,6 @@ set round1 {
 }
 
 # round 2 http://www.whitemesa.com/interop.htm
-#{Apache Axis}      http://nagoya.apache.org:5049/axis/servlet/AxisServlet
-#{Apache SOAP}      http://nagoya.apache.org:5049/soap/servlet/rpcrouter
 #{{eSOAP}            http://212.177.97.8:8080/rpcrouter http://soapinterop.org/ http://soapinterop.org/}
 #{{SOAP RMI}         http://www.extreme.indiana.edu:1568  http://soapinterop.org/ http://soapinterop.org/}
 #{{kSOAP 0.8}        http://kissen.cs.uni-dortmind.de:8008               http://soapinterop.org/ http://soapinterop.org/}
@@ -47,6 +45,8 @@ set round2base {
     {{SIM}              http://soapinterop.simdb.com/round2                 http://soapinterop.org/ http://soapinterop.org/}
     {{Spray 2001}      http://www.dolphinharbor.org/services/interop2001    http://soapinterop.org/ http://soapinterop.org/ {-encoding SOAP1.2}}
     {{4s4c}             http://soap.4s4c.com/ilab/soap.asp                  http://soapinterop.org/ http://soapinterop.org/}
+    {{Apache Axis}      http://nagoya.apache.org:5049/axis/servlet/AxisServlet  http://soapinterop.org/ http://soapinterop.org/}
+    {{Apache SOAP}      http://nagoya.apache.org:5049/soap/servlet/rpcrouter    http://soapinterop.org/ http://soapinterop.org/}
 }
 
 set round2B {
@@ -138,6 +138,9 @@ proc silab:round2C {} {
 proc silab:execute {filename title info servers procname} {
     global logdir
     global logfile
+
+    # set a global http timeout to avoid overruns of 30 seconds
+    SOAP::configure -transport http -timeout 30000
 
     if {$logdir != {} && ![file isdirectory $logdir]} {
 	file mkdir $logdir

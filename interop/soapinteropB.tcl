@@ -11,7 +11,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: soapinteropB.tcl,v 1.2 2001/10/11 22:40:37 patthoyts Exp $
+# @(#)$Id: soapinteropB.tcl,v 1.4 2002/08/20 00:38:00 patthoyts Exp $
 
 package require -exact soapinterop::base 1.0
 package provide soapinterop::B 1.0
@@ -24,19 +24,18 @@ namespace eval soapinterop {
 	    varFloat  float \
 	    varStruct SOAPStruct } SOAPStructStruct
 
-    # FIX ME
     rpcvar::typedef -namespace http://soapinterop.org/xsd \
 	    string() Arrayofstring
 
     # FIX ME
     rpcvar::typedef -namespace http://soapinterop.org/xsd \
-	    string(,) ArrayOfString2D
+	    string()() ArrayOfString2D
     
     rpcvar::typedef -namespace http://soapinterop.org/xsd { \
 	    varString string \
 	    varInt    int \
 	    varFloat  float \
-	    varArray  string() } SOAPArrayStruct
+	    varArray  Arrayofstring } SOAPArrayStruct
 }
 
 # -------------------------------------------------------------------------
