@@ -15,7 +15,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package provide SOAP::Domain 1.0
+package provide SOAP::Domain 1.1
 
 if { [catch {package require dom 2.0}] } {
     if { [catch {package require dom 1.6}] } {
@@ -24,12 +24,12 @@ if { [catch {package require dom 2.0}] } {
 }
 
 package require SOAP::xpath
-package require XMLRPC::TypedVariable
+package require XMLRPC::TypedVariable 1.1
 
 namespace eval SOAP::Domain {
-    variable version 1.0  ;# package version number
+    variable version 1.1  ;# package version number
     variable debug 0      ;# flag to toggle debug output
-    variable rcs_id {$Id: SOAP-domain.tcl,v 1.5 2001/06/19 00:40:26 patthoyts Exp $}
+    variable rcs_id {$Id: SOAP-domain.tcl,v 1.6 2001/07/04 00:45:41 patthoyts Exp $}
 
     namespace export fault reply_envelope reply_simple
 }
@@ -307,16 +307,20 @@ proc SOAP::Domain::reply_simple { doc uri methodName type result } {
 
 proc SOAP::Domain::insert_value {node value} {
 
-    set type [::XMLRPC::TypedVariable::get_type $value]
-    set value [::XMLRPC::TypedVariable::get_value $value]
-    
-    if {$type == "array"} {
-        set d_len [llength $value]
-        set d_type [::XMLRPC::TypedVariable::get_type [lindex $value 0]]
+    set type    [::XMLRPC::TypedVariable::get_type $value]
+    set subtype [::XMLRPC::TypedVariable::get_subtype $value]
+    set value   [::XMLRPC::TypedVariable::get_value $value]
 
-        dom::element setAttribute $node "xsi:type" "xsd:Array"
+    if {$type == "array"} {
+
         dom::element setAttribute $node \
-                "xsi:arrayType" "xsd:$d_type\[$d_len\]"
+                "xmlns:SOAP-ENC" "http://schemas.xmlsoap.org/soap/encoding"
+        dom::element setAttribute $node "xsi:type" "SOAP-ENC:Array"
+        if {$subtype != {}} {
+            dom::element setAttribute $node \
+                    "SOAP-ENC::arrayType" "xsd:$subtype\[[llength $value]\]"
+        }
+
         foreach elt $value {
             set d_elt [dom::document createElement $node "item"]
             insert_value $d_elt $elt
