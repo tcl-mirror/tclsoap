@@ -1,4 +1,4 @@
-# SOAP-domain.tcl - Copyright (C) 2001 Pat Thoyts <pat@zsplat.freeserve.co.uk>
+# SOAP-domain.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
 #
 # SOAP Domain Service module for the tclhttpd web server.
 #
@@ -15,7 +15,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package provide SOAP::Domain 0.2
+package provide SOAP::Domain 1.0
 
 if { [catch {package require dom 2.0}] } {
     if { [catch {package require dom 1.6}] } {
@@ -26,12 +26,9 @@ if { [catch {package require dom 2.0}] } {
 package require SOAP::xpath
 
 namespace eval SOAP::Domain {
-    variable version 0.2  ;# package version number
-    variable debug 1      ;# flag to toggle debug output
-    variable soapspaces   ;# list of registered namespaces
-    variable rcs_id {$Id: SOAP-domain.tcl,v 1.1 2001/04/10 00:21:55 pat Exp pat $}
-
-    namespace import -force [namespace parent]::xpath::*
+    variable version 1.0  ;# package version number
+    variable debug 0      ;# flag to toggle debug output
+    variable rcs_id {$Id: SOAP-domain.tcl,v 1.2 2001/04/13 12:22:35 pat Exp pat $}
 
     namespace export fault reply_envelope reply_simple
 }
@@ -40,29 +37,103 @@ namespace eval SOAP::Domain {
 
 # Register this package with tclhttpd.
 #
-#  virtual   url prefix to use (ie: /soap)
-#  soapspace namespace to search for the soap method implementation
-#  args      any other options
+# eg: register -prefix /soap ?-namespace ::zsplat? ?-interp slave?
 #
-proc SOAP::Domain::register {virtual soapspace args} {
-    variable soapspaces
-    Url_PrefixInstall $virtual [list SOAP::Domain::domain_handler] $args
-    lappend soapspaces $soapspace
+# -prefix is the URL prefix for the SOAP methods to be implemented under
+# -interp is the Tcl slave interpreter to use ( {} for the current interp)
+# -namespace is the Tcl namespace look for the implementations under
+#            (default is global)
+# -uri    the XML namespace for these methods. Defaults to the Tcl interpreter
+#         and namespace name.
+#
+proc SOAP::Domain::register {args} {
+
+    if { [llength $args] < 1 } {
+        error "invalid # args: should be \"register ?option value  ...?\""
+    }
+
+    # set the default options. These work out to be the current interpreter,
+    # toplevel namespace and under /soap URL
+    array set opts [list \
+            -prefix /soap \
+            -namespace {::} \
+            -interp {} \
+            -uri {^} ]
+
+    # process the arguments
+    foreach {opt value} $args {
+        switch -glob -- $opt {
+            -pre* {set opts(-prefix) $value}
+            -nam* {set opts(-namespace) ::$value}
+            -int* {set opts(-interp) $value}
+            -uri  {set opts(-uri) $value}
+            default {
+                error "unrecognised option \"$opt\": must be \"-prefix\",\
+                        \"-namespace\", \"-interp\" or \"-uri\""
+            }
+        }
+    }
+
+    # Construct a URI if not supplied (as indicated by the funny character)
+    # gives interpname hyphen namespace path (with more hyphens)
+    if { $opts(-uri) == {^} } {
+        set opts(-uri) 
+        regsub -all -- {::+} "$opts(-interp)::$opts(-namespace)" {-} r
+        set opts(-uri) [string trim $r -]
+    }
+
+    # Generate the fully qualified name of our options array variable.
+    set optname [namespace current]::opts$opts(-prefix)
+
+    # check we didn't already have this registered.
+    if { [info exists $optname] } {
+        error "URL prefix \"$opts(-prefix)\" already registered"
+    }
+
+    # set up the URL domain handler procedure.
+    # As interp eval {} evaluates in the current interpreter we can define
+    # both a slave interpreter _and_ a specific namespace if we need.
+
+    # If required create a slave interpreter.
+    if { $opts(-interp) != {} } {
+        catch {interp create -- $opts(-interp)}
+    }
+    
+    # Now create a command in the slave interpreter's target namespace that
+    # links to out implementation in this interpreter in the SOAP::Domain
+    # namespace.
+    interp alias $opts(-interp) $opts(-namespace)::URLhandler \
+            {} [namespace current]::domain_handler $optname
+
+    # Register with tclhttpd now.
+    Url_PrefixInstall $opts(-prefix) \
+            "interp eval [list $opts(-interp)] $opts(-namespace)::URLhandler"
+
+    # log the uri/domain registration
+    array set [namespace current]::opts$opts(-prefix) [array get opts]
+
+    return $opts(-prefix)
 }
 
 # -------------------------------------------------------------------------
 
 # SOAP URL Domain handler
 #
-# sock    socket back to the client
-# suffix  the remainder of the url
+# Called from the namespace or interpreter domain_handler to perform the
+# work.
+# optsname the qualified name of the options array set up during registration.
+# sock     socket back to the client
+# suffix   the remainder of the url once the prefix was stripped.
 #
-proc SOAP::Domain::domain_handler {sock suffix} {
+proc SOAP::Domain::domain_handler {optsname sock args} {
     variable debug
-    variable soapspaces
     upvar \#0 Httpd$sock data
     
-    set failed 0
+    # if suffix is {} then it fails to make it through the various evals.
+    set suffix [lindex $args 0]
+    
+    # Import the SOAP::xpath stuff for now.
+    namespace import -force [namespace parent]::xpath::*
 
     # check this is an XML post
     set failed [catch {set type $data(mime,content-type)} msg]
@@ -81,13 +152,22 @@ proc SOAP::Domain::domain_handler {sock suffix} {
                 500
         return $failed
     }
-    
+
+    # Check that we have a properly registered domain
+    if { ! [info exists $optsname] } {
+        Httpd_ReturnData $sock text/xml \
+                [fault SOAP-ENV:Server "Internal server error: domain improperly registered"] \
+                500
+        return 1
+    }        
+
     # Get the method name and parameters from the XML request. 
     set doc [dom::DOMImplementation parse $query]
     if { $debug } { set ::doc $doc }
 
     # methodNamespace should get set to the xmlns namespace in use.
-    # However, parse strips the xmlns attributes.
+    # However, dom::DOMImplementation parse strips the xmlns attributes.
+    # FIX ME
     set methodName [xpath -name $doc "/Envelope/Body/*"]
     set methodNamespace [lindex [xmlnsSplit $methodName] 0]
     set methodName [lindex [xmlnsSplit $methodName] 1]
@@ -96,38 +176,42 @@ proc SOAP::Domain::domain_handler {sock suffix} {
     }
     if { ! $debug } {catch {dom::DOMImplementation destroy $doc}}
 
-    # Check the procedure exists (so we can raise a fault with no details
-    # as per SOAP-1.1 spec for fault in the header processing.
-    set soapspace {}
-    foreach ss $soapspaces {
-        if { [catch {info args ::${ss}::${suffix}} ] == 0 } {
-            set soapspace ::${ss}
-            break
-        }
-    }
-    if { $soapspace == {} } {
+    # The implementation of this method will be in xmlinterp and the procname
+    # is going to be namespace + suffix.
+    set xmlns {}
+    set xmlinterp [lindex [array get $optsname -interp] 1]
+    append xmlns [lindex [array get $optsname -namespace] 1] {::} $suffix
+
+    # Check that this method has an implementation. If not then we return an
+    # error with no <detail> element (as per SOAP 1.1 specification) 
+    # indicating an error in header processing.
+    if { [catch {interp eval $xmlinterp namespace origin $xmlns} xmlns] } {
         Httpd_ReturnData $sock text/xml \
                 [fault SOAP-ENV:Client \
-                  "Invalid SOAP request: method \"$methodName\" not found" \
+                  "Invalid SOAP request: method \"$methodName\" not found"
                 ] 500
-        return $failed
+        return 1
     }
+
+    # The URI for this method will be
+    set xmluri [lindex [array get $optsname -uri] 1]
 
     # Call the procedure and convert errors into SOAP Faults and the return
     # data into a SOAP return packet.
-    set failed [catch "eval ${soapspace}::$suffix \$argValues" msg]
+    set failed [catch {interp eval $xmlinterp [list $xmlns] $argValues} msg]
     if { $failed } {
         set detail [list "errorCode" $::errorCode "stackTrace" $::errorInfo]
         Httpd_ReturnData $sock text/xml \
                 [fault SOAP-ENV:Client "$msg" $detail] 500
     } else {
-        # FIX ME - $methodName should be the URI for this method.
+
         set reply [reply_simple [dom::DOMImplementation create] \
-                $methodName "return" string $msg]
+                $xmluri "return" string $msg]
         
         # serialize and fix the DOM - doctype is not allowed (SOAP-1.1 spec)
         regsub {<!DOCTYPE[^>]*>\n} \
                 [dom::DOMImplementation serialize $reply] {} xml
+        catch {dom::DOMImplementation destroy $reply}
         Httpd_ReturnData $sock text/xml $xml 200
     }
 
@@ -175,7 +259,9 @@ proc SOAP::Domain::fault {faultcode faultstring {detail {}}} {
 # Generate the common portion of a SOAP replay packet
 #
 # doc   the document element of a DOM document
+#
 # returns the body node
+#
 proc SOAP::Domain::reply_envelope { doc } {
     set env [dom::document createElement $doc "SOAP-ENV:Envelope"]
     dom::element setAttribute $env \
