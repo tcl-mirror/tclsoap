@@ -31,7 +31,7 @@ package require uri;                    # tcllib
 
 namespace eval ::SOAP::Transport::beep {
     variable version 1.0
-    variable rcsid {$Id: beep.tcl,v 1.6.2.2 2003/02/07 01:31:17 patthoyts Exp $}
+    variable rcsid {$Id: beep.tcl,v 1.6.2.3 2004/03/09 22:19:04 patthoyts Exp $}
     variable options
     variable sessions
 
@@ -496,6 +496,9 @@ proc ::SOAP::Transport::beep::wait {procVarName} {
 # Extend the uri package to support our beep URL's. I don't think these are
 # official scheme names. If they are then we can add them into the tcllib
 # code - in the meantime...
+
+# ensure the uri namespace exists to avoid spurious errors.
+namespace eval ::uri {}
 
 catch {
     ::uri::register {soap.beep soap.beeps beep} {

@@ -8,6 +8,9 @@
 #    package require SOAP::Domain
 #    SOAP::Domain::register -prefix /soap
 #
+# 3/2004 Pat Thoyts and Jacob Levy: Made to work with xml-rpc and soap
+#        and made to load implementations on demand from a specified dir.
+#
 # -------------------------------------------------------------------------
 # This software is distributed in the hope that it will be useful, but
 # WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
@@ -22,7 +25,7 @@ package require log;                    # tcllib 1.0
 namespace eval ::SOAP::Domain {
     variable version 1.4  ;# package version number
     variable debug 0      ;# flag to toggle debug output
-    variable rcs_id {$Id: SOAP-domain.tcl,v 1.13.2.3 2004/03/08 03:13:37 patthoyts Exp $}
+    variable rcs_id {$Id: SOAP-domain.tcl,v 1.13.2.4 2004/03/08 03:21:52 patthoyts Exp $}
 
     namespace export register
 
@@ -44,7 +47,7 @@ namespace eval ::SOAP::Domain {
 #         and namespace name.
 #
 proc ::SOAP::Domain::register {args} {
-
+    # Sanity checks:
     if { [llength $args] < 1 } {
         return -code error "invalid # args:\
               should be \"register ?option value  ...?\""
@@ -56,6 +59,7 @@ proc ::SOAP::Domain::register {args} {
             -prefix /soap \
             -namespace {::} \
             -interp {} \
+            -dir . \
             -uri {^} ]
 
     # process the arguments
@@ -65,6 +69,7 @@ proc ::SOAP::Domain::register {args} {
             -nam* {set opts(-namespace) ::$value}
             -int* {set opts(-interp) $value}
             -uri  {set opts(-uri) $value}
+            -dir  {set opts(-dir) $value}
             default {
                 set names [join [array names opts -*] ", "]
                 return -code error "unrecognised option \"$opt\":\
@@ -128,7 +133,7 @@ proc ::SOAP::Domain::domain_handler {optsname sock args} {
     variable debug
     upvar \#0 Httpd$sock data
     upvar \#0 $optsname options
-    
+
     # if suffix is {} then it fails to make it through the various evals.
     set suffix [lindex $args 0]
     
@@ -140,7 +145,7 @@ proc ::SOAP::Domain::domain_handler {optsname sock args} {
         Httpd_ReturnData $sock text/html [html_fault SOAP-ENV:Client $msg] 500
         return $failed
     }
-    
+
     # make sure we were sent some XML
     set failed [catch {set query $data(query)} msg]
     if { $failed } {
@@ -179,9 +184,75 @@ proc ::SOAP::Domain::domain_handler {optsname sock args} {
 
     if { $debug } { set ::doc $doc }
 
-    # Identify the type of request - SOAP or XML-RPC, load the
-    # implementation and call.
+    # Identify the protocol of the request - SOAP or XML-RPC - and identify
+    # the name of the method to call.
+
     if {[selectNode $doc "/Envelope"] != {}} {
+        # This is a SOAP protocol call:
+        set protocol soap
+        if {[catch {
+            set methodNodes [selectNode $doc "/Envelope/Body/*"]
+            set methodNode [lindex $methodNodes 0]
+            set cmdName [nodeName $methodNode]
+            set methodName "$options(-namespace)::$cmdName"
+        } msg]} {
+            Httpd_ReturnData $sock \
+			     text/html \
+			     [html_fault SOAP-ENV:Client $msg] \
+			     500
+            catch {dom::DOMImplementation destroy $doc}
+            if {$mime != {}} { mime::finalize $mime -subordinates all }
+            return 1
+        }
+    } elseif {[selectNode $doc "/methodCall"] != {}} {
+        # This is an XML-RPC protocol call:
+        set protocol xmlrpc
+        if {[catch {
+            set methodNode [selectNode $doc "/methodCall/methodName"]
+            set cmdName [getElementValue $methodNode]
+            set methodName "$options(-namespace)::$cmdName"
+        } msg]} {
+            Httpd_ReturnData $sock \
+			     text/html \
+			     [html_fault SOAP-ENV:Server $msg] \
+			     500
+            catch {dom::DOMImplementation destroy $doc}
+            if {$mime != {}} { mime::finalize $mime -subordinates all }
+            return 1
+        }
+    } else {
+        # We didn't understand that.
+        set msg "Invalid webservice protocol. \
+                 The request was neither a SOAP call nor an XML-RPC call."
+        Httpd_ReturnData $sock \
+			 text/html \
+                         [html_fault SOAP-ENV:Server $msg] \
+                         500
+        catch {dom::DOMImplementation destroy $doc}
+        if {$mime != {}} { mime::finalize $mime -subordinates all }
+        return 1
+    }
+
+    # Ensure the method is loaded, and bail out otherwise:
+
+    if {![ensureLoaded $methodName \
+		       $cmdName \
+                       $options(-namespace) \
+            	       $options(-dir) \
+                       $options(-interp)]} {
+        set msg "Method $methodName not found"
+        Httpd_ReturnData $sock \
+			 text/html \
+			 [html_fault SOAP-ENV:Server $msg] \
+			 500
+        catch {dom::DOMImplementation destroy $doc}
+        if {$mime != {}} { mime::finalize $mime -subordinates all }
+        return 1
+    }
+
+    # Call the method according to the protocol selected by the user:
+
+    if {$protocol == "soap"} {
         # Call the SOAP procedure and convert errors into SOAP Faults and
         # the return data into a SOAP return packet.
         set failed [catch {
@@ -189,24 +260,73 @@ proc ::SOAP::Domain::domain_handler {optsname sock args} {
                 $options(-interp) $options(-namespace)
         } msg]
         Httpd_ReturnData $sock text/xml $msg [expr {$failed ? 500 : 200}]
-    } elseif {[selectNode $doc "/methodCall"] != {}} {
+    } else {
         # Call the XML-RPC procedure.
         set failed [catch {
             SOAP::CGI::xmlrpc_call $doc \
                 $options(-interp) $options(-namespace)
         } msg]
         Httpd_ReturnData $sock text/xml $msg [expr {$failed ? 500 : 200}]
-    } else {
-        # We didn't understand that.
-        set msg "Invalid webservice method call. \
-            The request was neither a SOAP call nor an XML-RPC call."
-        Httpd_ReturnData $sock text/html [html_fault SOAP-ENV:Client $msg] 500
     }
     
     catch {dom::DOMImplementation destroy $doc}
     if {$mime != {}} { mime::finalize $mime -subordinates all }
     return $failed
 }
+
+# Ensure the requested method is loaded into the target interpreter:
+#
+# 1. Check if the method is already defined -- if so, return true.
+# 2. Ensure the directory is part of the auto_path and package require
+#    the namespace (use the namespace as a package name). See if it's now
+#    loaded, if so, return true.
+# 3. Split the command name (usually something like weblogUpdates.ping) on
+#    the '.', use [file join $dir <first-part>.tcl] as a file name, and source
+#    that. If the method is now defined, return true.
+# 4. Give up and return false.
+
+proc SOAP::Domain::ensureLoaded {methodName cmdName namespace dir interp} {
+    catch {
+        # Check if it's already loaded:
+        if {[interp eval $interp [list info commands $methodName]] != ""} {
+            return true
+        }
+
+        # Ensure that the dir is part of the auto-path in the interp,
+        # and then force a package require in that interp, using the
+        # namespace as the package name.
+        if {[interp eval $interp \
+                 [list uplevel \#0 [list lsearch \$auto_path $dir]]]
+            == -1} {
+            interp eval $interp \
+                [list uplevel \#0 [list lappend auto_path $dir]]
+        }
+        catch {interp eval $interp \
+                   [list uplevel \#0 [list package require $namespace]]}
+
+        # If the method is  now loaded, return true:
+        if {[interp eval $interp [list info commands $methodName]] != ""} {
+            return true
+        }
+
+        # Try to split the cmdName on "." and use the first part
+        # as the name of a file to source into the interp:
+        set fileName [file join $dir [lindex [split $cmdName "."] 0].tcl]
+        if {[catch {interp eval $interp \
+                        [list uplevel \#0 [list source $fileName]]}]} {
+            return false
+        }
+        if {[interp eval $interp [list info commands $methodName]] != ""} {
+            return true
+        }
+
+        # Give up and return false:
+        return false
+    } msg
+    return $msg
+}
+
+# Return an html wrapping of an error:
 
 proc ::SOAP::Domain::html_fault {type msg} {
     set html "<html><head>\

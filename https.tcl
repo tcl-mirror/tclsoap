@@ -19,7 +19,7 @@ package require tls;			# Required for SSL support
 
 namespace eval ::SOAP::Transport::https {
     variable version 1.0
-    variable rcsid {$Id: https.tcl,v 1.1.2.3 2003/06/12 22:51:08 patthoyts Exp $}
+    variable rcsid {$Id: https.tcl,v 1.1.2.4 2003/09/08 15:23:13 patthoyts Exp $}
     variable options
 
     ::SOAP::register https [namespace current]
@@ -34,10 +34,12 @@ namespace eval ::SOAP::Transport::https {
             timeout   0
         }
 
-        set options(useragent) \
-            "Mozilla/4.0 ([string totitle $::tcl_platform(platform)];\
-             $::tcl_platform(os)) https/[package provide http]\
-             TclSOAP/[set [namespace parent [namespace parent]]::version]"
+        if {[info exists [namespace parent [namespace parent]]::version]} {
+            set options(useragent) \
+                "Mozilla/4.0 ([string totitle $::tcl_platform(platform)];\
+                 $::tcl_platform(os)) https/[package provide http]\
+                 TclSOAP/[set [namespace parent [namespace parent]]::version]"
+        }
     }
 
     # Declare the additional SOAP method options provided by this transport.

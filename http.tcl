@@ -13,7 +13,7 @@ package require http 2;                 # tcl
 
 namespace eval ::SOAP::Transport::http {
     variable version 1.0
-    variable rcsid {$Id: http.tcl,v 1.5.2.4 2003/09/08 22:04:24 patthoyts Exp $}
+    variable rcsid {$Id: http.tcl,v 1.5.2.5 2004/03/04 00:40:39 patthoyts Exp $}
     variable options
 
     SOAP::register http [namespace current]
@@ -28,10 +28,12 @@ namespace eval ::SOAP::Transport::http {
             timeout   0
         }
 
-        set options(useragent) \
-            "Mozilla/4.0 ([string totitle $::tcl_platform(platform)];\
-             $::tcl_platform(os)) http/[package provide http]\
-             TclSOAP/[set [namespace parent [namespace parent]]::version]"
+        if {[info exists [namespace parent [namespace parent]]::version]} {
+            set options(useragent) \
+                "Mozilla/4.0 ([string totitle $::tcl_platform(platform)];\
+                 $::tcl_platform(os)) http/[package provide http]\
+                 TclSOAP/[set [namespace parent [namespace parent]]::version]"
+        }
     }
 
     # Declare the additional SOAP method options provided by this transport.
