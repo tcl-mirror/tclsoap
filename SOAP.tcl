@@ -14,17 +14,16 @@
 # Todo:
 # - Needs testing using SOAP::Lite's services esp. the object access demo.
 
-package provide SOAP 1.1
+package provide SOAP 1.2
 
 # -------------------------------------------------------------------------
 
 package require http 2.3
 package require dom 1.6
-# package require SOAP::xpath 0.1
 
 namespace eval SOAP {
-    variable version 1.0
-    variable rcs_version { $Id: SOAP.tcl,v 1.7 2001/03/14 01:51:59 pat Exp pat $ }
+    variable version 1.2
+    variable rcs_version { $Id: SOAP.tcl,v 1.8 2001/03/17 01:11:42 pat Exp pat $ }
 }
 
 # -------------------------------------------------------------------------
