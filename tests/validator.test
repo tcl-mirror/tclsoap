@@ -18,7 +18,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id$
+# @(#)$Id: validator.test,v 1.1 2001/08/01 23:39:12 patthoyts Exp $
 
 # Initialize the required packages
 
@@ -62,7 +62,7 @@ proc domload {filename} {
 test validator-1.1 {SOAP echoStructTest} {
     set doc [domload soap/echoStructTest.xml]
     set xml [SOAP::CGI::soap_call $doc]
-    set result [SOAP::parse_soap_response echoStructTest $xml]
+    set result [SOAP::parse_soap_response ::SOAP::_echoStructTest $xml]
     set result
 } {substruct0 {curly -48 larry 57 moe 75} substruct1 {curly -99 larry 51 moe 49} substruct2 {curly -73 larry 20 moe 33} substruct3 {curly -74 larry 1 moe 58} substruct4 {curly -42 larry 57 moe 34} substruct5 {curly -84 larry 95 moe 69} substruct6 {curly -13 larry 11 moe 93} substruct7 {curly -3 larry 23 moe 56} substruct8 {curly -42 larry 24 moe 27} substruct9 {curly -19 larry 16 moe 77}}
 
