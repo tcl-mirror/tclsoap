@@ -1,8 +1,8 @@
 # SOAP.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
 #
 # Provide Tcl access to SOAP 1.1 methods.
-# See http://www.zsplat.freeserve.co.uk/soap/doc/TclSOAP.html
-# for usage details.
+#
+# See http://www.tclsoap.sourceforge.net/ for usage details.
 #
 # -------------------------------------------------------------------------
 # This software is distributed in the hope that it will be useful, but
@@ -30,7 +30,7 @@ if { [catch {package require dom 2.0}] } {
 
 namespace eval SOAP {
     variable version 1.3
-    variable rcs_version { $Id: SOAP.tcl,v 1.12 2001/04/19 00:05:59 pat Exp pat $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.13 2001/04/22 21:15:06 pat Exp $ }
 
     namespace export create cget dump configure proxyconfig
 }
@@ -124,6 +124,9 @@ proc SOAP::dump {args} {
 # qualified alias name as the id.
 
 proc SOAP::configure { procName args } {
+    # The list of valid options
+    set options { uri proxy params name transport action \
+                      replyProc postProc }
 
     if { $procName == "-transport" } {
         return [eval "transport_configure $args"]
@@ -134,9 +137,10 @@ proc SOAP::configure { procName args } {
         error "invalid command: \"$procName\" not defined"
     }
 
+    # if no args - print out the current settings.
     if { [llength $args] == 0 } {
         set r {}
-        foreach item { uri proxy params reply name transport action } {
+        foreach item $options {
             set val [get Commands::$procName $item]
             lappend r "-$item" $val
         }
@@ -148,12 +152,13 @@ proc SOAP::configure { procName args } {
             -uri       { set Commands::${procName}::uri $value }
             -proxy     { set Commands::${procName}::proxy $value }
             -params    { set Commands::${procName}::params $value }
-            -reply     { set Commands::${procName}::reply $value }
             -transport { set Commands::${procName}::transport $value }
             -name      { set Commands::${procName}::name $value }
             -action    { set Commands::${procName}::action $value }
+            -replyProc { set Commands::${procName}::replyProc $value }
+            -postProc  { set Commands::${procName}::postProc $value }
             default {
-                error "unknown option \"$opt\""
+                error "unknown option \"$opt\": must be one of ${options}"
             }
         }
     }
@@ -222,11 +227,12 @@ proc SOAP::create { args } {
         variable uri       {} ;# the XML namespace URI for this method 
         variable proxy     {} ;# URL for the location of a provider
         variable params    {} ;# list of name type pairs for the parameters
-        variable reply     {} ;# the type of the reply (string, integer ...)
         variable transport {} ;# the transport procedure for this method
         variable name      {} ;# SOAP method name
         variable action    {} ;# Contents of the SOAPAction header
         variable http      {} ;# the http data variable (if used)
+        variable replyProc {} ;# post process the raw XML result
+        variable postProc  {} ;# post process the parsed result
     }
 
     # call configure from the callers level so it can get the namespace.
@@ -252,9 +258,15 @@ proc SOAP::invoke { procName args } {
     dom::DOMImplementation destroy $doc          ;# clean up
     regsub {<!DOCTYPE[^>]*>\n} $prereq {} req    ;# hack
 
-    # Send the SOAP packet using the configured transport.
+    # Send the SOAP packet (req) using the configured transport.
     set transport [ get Commands::$procName transport ]
     set reply [$transport $procName $url $req]
+
+    # Post-process the raw XML using -replyProc
+    set replyProc [ get Commands::$procName replyProc ]
+    if { $replyProc != {} } {
+        set reply [$replyProc $procName $reply]
+    }
 
     # Sometimes Fault packets come back with HTTP code 200
     set doc [dom::DOMImplementation parse $reply]
@@ -266,6 +278,12 @@ proc SOAP::invoke { procName args } {
     # Extract the data from the reply XML
     set r [SOAP::Parse::parse $reply]
     #set r [SOAP::xpath::xpath $dom "Envelope/Body//*"]
+
+    # Post process the parsed reply using -postProc
+    set postProc [ get Commands::$procName postProc ]
+    if { $postProc != {} } {
+        set r [$postProc $procName $r]
+    }
 
     return $r
 }

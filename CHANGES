@@ -1,3 +1,12 @@
+TclSOAP 1.3+
+-----------
+
+Added -replyProc and -postProc options the the SOAP::configure
+command.  These enable post-processing of the raw XML reply
+(-replyProc) or the parsed reply (-postProc) via a specified procedure.
+
+Added tests to soap.test for the post-processing feature.
+
 TclSOAP 1.3
 -----------
 

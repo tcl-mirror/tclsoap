@@ -2,7 +2,7 @@
 #
 # Provide a set of tests to excercise the SOAP package.
 #
-# @(#)$Id: soap.test,v 1.1 2001/03/17 01:38:47 pat Exp pat $
+# @(#)$Id: soap.test,v 1.2 2001/04/22 21:04:46 pat Exp $
 
 # Initialize the required packages
 
@@ -75,7 +75,7 @@ test soap-2.3 {XML generation with two arguments} {
     set failed [catch {::SOAP::configure ::soapTest \
             -params { "text" "string" "number" "double" }} result]
     if { ! $failed } {
-        set ok [catch {::soapTest textParam 1.3} result]
+        set failed [catch {::soapTest textParam 1.3} result]
     }
     if { ! $failed } {
         set result $::SOAP::testXML
@@ -83,6 +83,39 @@ test soap-2.3 {XML generation with two arguments} {
     set result
 } {<?xml version='1.0'?>
 <SOAP-ENV:Envelope xmlns:xsi="http://www.w3.org/1999/XMLSchema-instance" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" SOAP-ENV:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:xsd="http://www.w3.org/1999/XMLSchema"><SOAP-ENV:Body><ns:mySoapTest xmlns:ns="urn:new-soap-Test"><text xsi:type="xsd:string">textParam</text><number xsi:type="xsd:double">1.3</number></ns:mySoapTest></SOAP-ENV:Body></SOAP-ENV:Envelope>}
+
+# -------------------------------------------------------------------------
+
+test soap-3.1 {XML post processing via -replyProc} {
+    
+    proc replyProc { methodName xml } {
+        return {<Envelope><Body><result>FIXED</result></Body></Envelope>}
+    }
+    set failed [catch {::SOAP::configure ::soapTest \
+                           -replyProc [namespace current]::replyProc} result]
+    if { ! $failed } {
+        set failed [catch {::soapTest textParam 1.3} result]
+    }
+    set result
+} {FIXED}
+
+test soap-3.2 {SOAP reply post processing via -postProc} {
+    
+    proc postProc { methodName reply } {
+        return [lindex $reply 1]
+    }
+    set failed [catch {::SOAP::configure ::soapTest \
+                           -replyProc {} \
+                           -postProc [namespace current]::postProc} result]
+    if { ! $failed } {
+        set failed [catch {::soapTest textParam 1.3} result]
+    }
+    set result
+} {1.3}
+
+
+catch {rename replyProc {}}
+catch {rename postProc {}}
 
 # -------------------------------------------------------------------------
 
