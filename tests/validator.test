@@ -18,7 +18,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: validator.test,v 1.1 2001/08/01 23:39:12 patthoyts Exp $
+# @(#)$Id: validator.test,v 1.2 2001/08/28 23:11:02 patthoyts Exp $
 
 # Initialize the required packages
 
@@ -69,7 +69,7 @@ test validator-1.1 {SOAP echoStructTest} {
 test validator-1.2 {SOAP nestedStructTest} {
     set doc [domload soap/nestedStructTest.xml]
     set xml [SOAP::CGI::soap_call $doc]
-    set result [SOAP::parse_soap_response nestedStructTest $xml]
+    set result [SOAP::parse_soap_response ::SOAP::_nestedStructTest $xml]
     set result
 } {83}
 
