@@ -11,7 +11,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: soapinteropB.tcl,v 1.1 2001/08/28 22:43:20 patthoyts Exp $
+# @(#)$Id: soapinteropB.tcl,v 1.2 2001/10/11 22:40:37 patthoyts Exp $
 
 package require -exact soapinterop::base 1.0
 package provide soapinterop::B 1.0
@@ -73,13 +73,16 @@ proc soapinterop::create:proposalB {proxy args} {
 
 # -------------------------------------------------------------------------
 
-proc soapinterop::round2:proposalB {proxy} {
+proc soapinterop::round2:proposalB {proxy args} {
     if {$proxy != {}} {
         eval create:proposalB [list $proxy] $args
     }
 
     catch {validate.echoStructAsSimpleTypes} msg ; puts "$msg"
     catch {validate.echoSimpleTypesAsStruct} msg ; puts "$msg"
+    catch {validate.echoNestedArray} msg         ; puts "$msg"
+    catch {validate.echoNestedStruct} msg        ; puts "$msg"
+    catch {validate.echo2DStringArray} msg       ; puts "$msg"
 }
 
 # -------------------------------------------------------------------------
@@ -110,21 +113,69 @@ proc soapinterop::validate.echoSimpleTypesAsStruct {} {
     set i [rand_int]
     set f [rand_float]
     array set r [echoSimpleTypesAsStruct $s $i $f]
-    
-    if {![string match $s $r(varString)]} {
-        error "failed: varString \"$s\" != \"$r(varString)\""
+    if {[catch {validateSOAPStruct [array get q] [array get r]} err]} {
+        error "echoSimpleTypesAsStruct $err"
     }
-    if {$i != $r(varInt)} {
-        error "failed: varInt $i != $r(varInt)"
-    }
-    if {![float=? $f $r(varFloat)]} {
-        error "failed: varFloat $f != $r(varFloat)"
-    }
-
+    return "echoSimpleTypesAsStruct"
 }
 
 # -------------------------------------------------------------------------
 
+proc soapinterop::validate.echoNestedStruct {} {
+    array set q [list \
+                     varString [rand_string] \
+                     varFloat [rand_float] \
+                     varInt [rand_int] \
+                     varStruct [list \
+                                    varString [rand_string]\
+                                    varInt [rand_int]\
+                                    varFloat [rand_float]]]
+    array set r [echoNestedStruct [array get q]]
+    if {[catch {validateSOAPStruct [array get q] [array get r]} err]} {
+        error "echoNestedStruct $err"
+    }
+    array set aq $q(varStruct)
+    array set ar $r(varStruct)
+    if {[catch {validateSOAPStruct [array get aq] [array get ar]} err]} {
+        error "echoNestedStruct substruct $err"
+    }
+    return "echoNestedStruct"
+}
+
+# -------------------------------------------------------------------------
+
+proc soapinterop::validate.echoNestedArray {} {
+    array set q [list \
+                     varString [rand_string] \
+                     varFloat [rand_float] \
+                     varInt [rand_int] \
+                     varArray [list red green blue]]
+    array set r [echoNestedArray [array get q]]
+    if {[catch {validateSOAPStruct [array get q] [array get r]} err]} {
+        error "echoNestedArray $err"
+    }
+    if {[llength $r(varArray)] != [llength $q(varArray)]} {
+        error "echoNestedArray failed: lists are different:\
+                $q(varArray) != $r(varArray)"
+    }
+    set max [llength $q(varArray)]
+    for {set n 0} {$n < $max} {incr n} {
+	if {! [string match [lindex $q(varArray) $n] [lindex $r(varArray) $n]]} {
+	    error "echoNestedArray failed: element $n is different:\
+                   $q(varArray) != $r(varArray)"
+	}
+    }
+    return "echoNestedArray"
+}
+
+# -------------------------------------------------------------------------
+
+proc soapinterop::validate.echo2DStringArray {} {
+    set q [list r0c0 r0c1 r0c2 r1c0 r1c1 r1c2]
+    return -code error "echo2DStringArray not implemented"
+}
+
+# -------------------------------------------------------------------------
 #
 # Local variables:
 #   mode: tcl

@@ -3,7 +3,7 @@
 # Run the SOAP Interoperability Test Suite Round 2: Base tests.
 # Generates a html page of the results.
 #
-# $Id: silab.tcl,v 1.3 2001/10/11 22:40:37 patthoyts Exp $
+# $Id: silab.tcl,v 1.4 2001/10/15 11:56:44 patthoyts Exp $
 
 package require soapinterop::base
 package require soapinterop::B
@@ -137,10 +137,15 @@ proc silab:execute {filename title info servers procname} {
     global logdir
     global logfile
 
-    if {![file isdirectory $logdir]} {
+    if {$logdir != {} && ![file isdirectory $logdir]} {
 	file mkdir $logdir
     }
-    set logfile [open [file join $logdir $filename] w]
+    if {$filename != {}} {
+        set logfile [open [file join $logdir $filename] w]
+    } else {
+        set logfile stdout
+    }
+
     puts $logfile "<!doctype HTML public \"-//W3O//DTD W3 HTML 2.0//EN\">\
 	    <html><head><link href=\"../tclsoap.css\" rel=\"stylesheet\" type=\"text/css\">\
             <title>$title</title></head>"
@@ -277,6 +282,9 @@ proc proposalB {toolkit where action xmlns args} {
 
     perform $toolkit soapinterop::validate.echoStructAsSimpleTypes
     perform $toolkit soapinterop::validate.echoSimpleTypesAsStruct
+    perform $toolkit soapinterop::validate.echoNestedArray
+    perform $toolkit soapinterop::validate.echoNestedStruct
+    perform $toolkit soapinterop::validate.echo2DStringArray
 
     puts $logfile "</table><hr>\n\n"
     return {}
@@ -337,19 +345,23 @@ proc perform {toolkit procname {methodname {}} {prefix dump}} {
     
     puts $logfile "<tr><td>$name</td><td>$msg</td>"
 
-    set request [file join $logdir "${prefix}${logcount}.xml"] ; incr logcount
-    set reply   [file join $logdir "${prefix}${logcount}.xml"] ; incr logcount
+    if {$logdir != {}} {
+        set request [file join $logdir "${prefix}${logcount}.xml"]
+        incr logcount
+        set reply   [file join $logdir "${prefix}${logcount}.xml"]
+        incr logcount
 
-    set err [catch {SOAP::dump -req soapinterop::$name} xml]
-    set f [open $request w]
-    puts -nonewline $f $xml
-    close $f
+        set err [catch {SOAP::dump -req soapinterop::$name} xml]
+        set f [open $request w]
+        puts -nonewline $f $xml
+        close $f
+        
+        catch {SOAP::dump soapinterop::$name} xml
+        set f [open $reply w]
+        puts -nonewline $f $xml
+        close $f
 
-    catch {SOAP::dump soapinterop::$name} xml
-    set f [open $reply w]
-    puts -nonewline $f $xml
-    close $f
-
-    puts $logfile "<td><a href=\"[file tail $request]\">request</a></td>\
-	    <td><a href=\"[file tail $reply]\">reply</a></td></tr>"
+        puts $logfile "<td><a href=\"[file tail $request]\">request</a></td>\
+	               <td><a href=\"[file tail $reply]\">reply</a></td></tr>"
+    }
 }

@@ -15,7 +15,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: soapinterop.tcl,v 1.2 2001/10/10 02:57:38 patthoyts Exp $
+# @(#)$Id: soapinterop.tcl,v 1.3 2001/10/11 22:40:37 patthoyts Exp $
 
 package provide soapinterop::base 1.0
 
@@ -26,6 +26,8 @@ package require rpcvar
 namespace eval soapinterop {
     variable uri    "http://soapinterop.org/"
     variable action "http://soapinterop.org/"
+
+    namespace export rand_string rand_int rand_float
 
     rpcvar::typedef -namespace http://soapinterop.org/xsd { \
 	    varString string \
@@ -133,7 +135,19 @@ proc soapinterop::rand_string {} {
 proc soapinterop::float=? {lhs rhs {dp 4}} {
     set lhs [format %0.${dp}f $lhs]
     set rhs [format %0.${dp}f $rhs]
-    return [expr $lhs == $rhs]
+    return [expr {$lhs == $rhs}]
+}
+
+proc soapinterop::list=? {lhs rhs} {
+    if {[llength $lhs] != [llength $rhs]} {
+        return false
+    }
+    for {set n 0} {$n < $max} {incr n} {
+	if {[lindex $q $n] != [lindex $r $n]} {
+            return false
+	}
+    }
+    return true
 }
 
 # -------------------------------------------------------------------------
@@ -254,7 +268,7 @@ proc soapinterop::validateSOAPStruct {first second} {
 	    default { set r [string match $f($key) $s($key)] }
 	}
 	if {! $r} {
-	    error "echoStruct failed: mismatching \"$key\" element\
+	    error "failed: mismatching \"$key\" element\
 		    $f($key) != $s($key)"
 	}
     }
@@ -266,7 +280,9 @@ proc soapinterop::validate.echoStruct {} {
                varFloat  [rand_float] \
                varString [rand_string]]
     set r [echoStruct $q]
-    validateSOAPStruct $q $r
+    if {[catch {validateSOAPStruct $q $r} err]} {
+        error "echoStruct $err"
+    }
     return "echoStruct"
 }
 
@@ -282,7 +298,9 @@ proc soapinterop::validate.echoStructArray {} {
     
     set r [echoStructArray $q]
     for {set n 0} {$n < $max} {incr n} {
-	validateSOAPStruct [lindex $q $n] [lindex $r $n]
+	if {[catch {validateSOAPStruct [lindex $q $n] [lindex $r $n]} err]} {
+            error "echoStructArray $err"
+        }
     }
     return "echoStructArray"
 }
