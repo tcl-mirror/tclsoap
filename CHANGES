@@ -1,4 +1,20 @@
-** Added 'make test' as a Makefile target and fixed the tests to work
+** Re-added the SOAP::Domain package for tclhttpd support.
+   I've managed to leave this pretty much as it was before the CGI
+   work. The SOAP parsing now uses the same code as the CGI package
+   but we can load the service code into the interpreter properly
+   now. See samples/tclhttpd-sample.tcl
+
+** Interoperability Tests
+   Implemented 99% of the SOAP interop round 2 services. Only 2D arrays
+   to go.
+
+** Multiple return values from service methods
+   Enhanced the rpcvar code with a -paramlist option to permit
+   multiple result values. Added a test for this.
+   See cgi-bin/soap/soapinterop.tcl:echoStructAsSimpleTypes
+
+** make test target
+   Added 'make test' as a Makefile target and fixed the tests to work
    this way.
 
 
