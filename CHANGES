@@ -1,6 +1,10 @@
 * TclSOAP 1.6.8
 ---------------
 
+** Added XMLRPC support for tclhttpd
+   The SOAP::Domain code now recognises XMLRPC method calls and will
+   call the appropriate methods from SOAP::CGI to handle the call.
+
 ** SOAP Messages with Attachments
    The SOAP-Domain and SOAP-CGI code can now accept multipart/related
    mime data as per this spec. To send an attachment along with a SOAP

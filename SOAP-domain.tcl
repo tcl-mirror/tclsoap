@@ -6,7 +6,7 @@
 # SOAP::Domain::register to register the domain handler with the server.
 # ie: put the following in a file in tclhttpd/custom
 #    package require SOAP::Domain
-#    SOAP::Domain::register /soap
+#    SOAP::Domain::register -prefix /soap
 #
 # -------------------------------------------------------------------------
 # This software is distributed in the hope that it will be useful, but
@@ -22,7 +22,7 @@ package require log;                    # tcllib 1.0
 namespace eval ::SOAP::Domain {
     variable version 1.4  ;# package version number
     variable debug 0      ;# flag to toggle debug output
-    variable rcs_id {$Id: SOAP-domain.tcl,v 1.13.2.1 2003/02/07 01:31:17 patthoyts Exp $}
+    variable rcs_id {$Id: SOAP-domain.tcl,v 1.13.2.2 2004/03/04 00:40:39 patthoyts Exp $}
 
     namespace export register
 
@@ -137,7 +137,7 @@ proc ::SOAP::Domain::domain_handler {optsname sock args} {
     if { $failed } {
         set msg "Invalid SOAP request: not XML data"
         log::log debug $msg
-        Httpd_ReturnData $sock text/xml [SOAP::fault SOAP-ENV:Client $msg] 500
+        Httpd_ReturnData $sock text/html [html_fault SOAP-ENV:Client $msg] 500
         return $failed
     }
     
@@ -146,7 +146,7 @@ proc ::SOAP::Domain::domain_handler {optsname sock args} {
     if { $failed } {
         set msg "Invalid SOAP request: no data sent"
         log::log debug $msg
-        Httpd_ReturnData $sock text/xml [SOAP::fault SOAP-ENV:Client $msg] 500
+        Httpd_ReturnData $sock text/html [html_fault SOAP-ENV:Client $msg] 500
         return $failed
     }
 
@@ -154,7 +154,7 @@ proc ::SOAP::Domain::domain_handler {optsname sock args} {
     if { ! [info exists options] } {
         set msg "Internal server error: domain improperly registered"
         log::log debug $msg
-        Httpd_ReturnData $sock text/xml [SOAP::fault SOAP-ENV:Server $msg] 500
+        Httpd_ReturnData $sock text/html [html_fault SOAP-ENV:Server $msg] 500
         return 1
     }        
 
@@ -179,14 +179,42 @@ proc ::SOAP::Domain::domain_handler {optsname sock args} {
 
     if { $debug } { set ::doc $doc }
 
-    # Call the procedure and convert errors into SOAP Faults and the return
-    # data into a SOAP return packet.
-    set failed [catch {SOAP::CGI::soap_call $doc $options(-interp) $mime} msg]
-    Httpd_ReturnData $sock text/xml $msg [expr {$failed ? 500 : 200}]
-
+    # Identify the type of request - SOAP or XML-RPC, load the
+    # implementation and call.
+    if {[selectNode $doc "/Envelope"] != {}} {
+        # Call the SOAP procedure and convert errors into SOAP Faults and
+        # the return data into a SOAP return packet.
+        set failed [catch {
+            SOAP::CGI::soap_call $doc $mime \
+                $options(-interp) $options(-namespace)
+        } msg]
+        Httpd_ReturnData $sock text/xml $msg [expr {$failed ? 500 : 200}]
+    } elseif {[selectNode $doc "/methodCall"] != {}} {
+        # Call the XML-RPC procedure.
+        puts stderr "Calling xmlrpc methid with $query"
+        set failed [catch {
+            SOAP::CGI::xmlrpc_call $doc \
+                $options(-interp) $options(-namespace)
+        } msg]
+        Httpd_ReturnData $sock text/xml $msg [expr {$failed ? 500 : 200}]
+    } else {
+        # We didn't understand that.
+        set msg "Invalid webservice method call. \
+            The request was neither a SOAP call nor an XML-RPC call."
+        Httpd_ReturnData $sock text/html [html_fault SOAP-ENV:Client $msg] 500
+    }
+    
     catch {dom::DOMImplementation destroy $doc}
     if {$mime != {}} { mime::finalize $mime -subordinates all }
     return $failed
+}
+
+proc ::SOAP::Domain::html_fault {type msg} {
+    set html "<html><head>\
+        <title>Webservice Error</title></head><body>\
+        <h2>$msg</h2>\
+        </body></html>"
+    return $html
 }
 
 # -------------------------------------------------------------------------

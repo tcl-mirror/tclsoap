@@ -39,7 +39,7 @@ namespace eval ::SOAP {
 	# -----------------------------------------------------------------
 
 	variable rcsid {
-	    $Id: SOAP-CGI.tcl,v 1.12.2.2 2003/02/07 01:31:17 patthoyts Exp $
+	    $Id: SOAP-CGI.tcl,v 1.12.2.3 2004/03/04 00:40:39 patthoyts Exp $
 	}
 	variable methodName  {}
 	variable debugging   0
@@ -258,13 +258,12 @@ proc ::SOAP::CGI::do_encoding {xml} {
 # Parameters:
 #   doc - a DOM tree constructed from the input request XML data.
 #
-proc ::SOAP::CGI::xmlrpc_call {doc {interp {}}} {
+proc ::SOAP::CGI::xmlrpc_call {doc {interp {}} {methodNamespace {}}} {
     variable methodName
     if {[catch {
 	
 	set methodNode [selectNode $doc "/methodCall/methodName"]
 	set methodName [getElementValue $methodNode]
-	set methodNamespace {}
 
 	# Get the parameters.
 	set paramsNode [selectNode $doc "/methodCall/params"]
@@ -357,7 +356,7 @@ proc ::SOAP::CGI::soap_header {doc {mandate 0}} {
 # Parameters:
 #   doc - a DOM tree constructed from the input request XML data.
 #
-proc ::SOAP::CGI::soap_call {doc {interp {}} {mime {}}} {
+proc ::SOAP::CGI::soap_call {doc {mime {}} {interp {}} {ns ":x:"}} {
     variable methodName
     set headers {}
     if {[catch {
@@ -386,9 +385,15 @@ proc ::SOAP::CGI::soap_call {doc {interp {}} {mime {}}} {
 	set methodNodes [selectNode $doc "/Envelope/Body/*"]
         set methodNode [lindex $methodNodes 0]
 	set methodName [nodeName $methodNode]
+        set soapNamespace [namespaceURI $methodNode]
 
-	# Get the XML namespace for this method.
-	set methodNamespace [namespaceURI $methodNode]
+	# If we haven't overridden this, get the XML namespace for this
+        # method and use as the tcl namespace.
+        if {$ns != ":x:"} {
+            set methodNamespace $ns
+        } else {
+            set methodNamespace $soapNamespace
+        }
 	dtrace "methodinfo: ${methodNamespace}::${methodName}"
 
 	# Extract the parameters.
@@ -429,7 +434,7 @@ proc ::SOAP::CGI::soap_call {doc {interp {}} {mime {}}} {
 	# generate a reply packet
 	set reply [SOAP::reply \
 		[dom::DOMImplementation create] \
-		$methodNamespace "${methodName}Response" $msg]
+		$soapNamespace "${methodName}Response" $msg]
 	set xml [dom::DOMImplementation serialize $reply]
 	regsub "<!DOCTYPE\[^>\]+>\n" $xml {} xml
 	catch {dom::DOMImplementation destroy $reply}
@@ -577,7 +582,7 @@ proc ::SOAP::CGI::soap_invocation {doc {mime {}}} {
 	}
     }
     
-    set result [soap_call $doc $impl(interp) $mime]
+    set result [soap_call $doc $mime $impl(interp)]
     if {$impl(interp) != {}} {
 	safe::interpDelete $impl(interp)
     }
