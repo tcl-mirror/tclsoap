@@ -5,7 +5,7 @@
 #
 # Used by SOAP until I work out how to read the packets using DOM.
 #
-# @(#)$Id: SOAP-parse.tcl,v 1.5 2001/03/26 23:41:47 pat Exp pat $
+# @(#)$Id: SOAP-parse.tcl,v 1.6 2001/04/19 00:08:37 pat Exp pat $
 
 package provide SOAP::Parse 1.0
 
@@ -20,12 +20,15 @@ if { [catch {package require xml 2.0} msg] } {
 namespace eval SOAP::Parse {
     variable elt_path {}
     variable elt_data
+    variable elt_indx
     variable parser
 
     set parser [xml::parser soap \
             -elementstartcommand  SOAP::Parse::elt_start \
             -elementendcommand    SOAP::Parse::elt_end \
             -characterdatacommand SOAP::Parse::elt_data ]
+    
+    namespace export parse
 }
 
 # -------------------------------------------------------------------------
@@ -34,14 +37,14 @@ proc SOAP::Parse::parse { data } {
     variable elt_data
     variable parser
 
-    catch { unset elt_data }
+    set elt_data {}
     $parser parse $data
     
     set r {}
-    foreach { key val } [array get elt_data] {
-	append r $val 
+    foreach { key val } $elt_data {
+	lappend r $val 
     }
-
+    if {[llength $r] == 1} { set r [lindex $r 0] }
     return $r
 }
 
@@ -49,6 +52,9 @@ proc SOAP::Parse::parse { data } {
 
 proc SOAP::Parse::elt_start { name attributes args } {
     variable elt_path
+    variable elt_indx
+    variable elt_data
+    set elt_indx [llength $elt_data]
     lappend elt_path $name
 }
 
@@ -64,11 +70,21 @@ proc SOAP::Parse::elt_end { name args } {
 proc SOAP::Parse::elt_data data {
     variable elt_path
     variable elt_data
+    variable elt_indx
+
+    set d {}
+    set ndx [expr $elt_indx + 1]
+
     if { ! [regexp {^[ \t\n]*$} $data] } {
 	set path [join $elt_path {/}]
-	catch { set d $elt_data($path) } msg
-	append d $data
-	set elt_data($path) $d
+
+        set d [lindex $elt_data $ndx]
+        append d $data
+        if { [llength $elt_data] <= $elt_indx } {
+            lappend elt_data $path $d
+        } else {
+            set elt_data [lreplace $elt_data $ndx $ndx $d]
+        }
     }
 }
 
