@@ -1,0 +1,19 @@
+--------------------------------------------------------------------------
+> I do expect the SOAP method to always return the same type of result.
+> Looks like I was wrong. If this is a standard mechanism (and I suspect
+> it is) then it'll need to be fitted into the default parser which in
+> this case is SOAP::parse_soap_response which goes to
+> SOAP::Utils::decomposeSoap which retrieves the value for the element.
+> I guess in here we can put
+>
+>    if {$child_elements == {}} {
+>      set result [getElementValue $domElement]
+>  +    set encoding [getElementAttribute $domElement "xsi:type"]
+>  +    switch -exact -- $encoding {
+>  +       SOAP-ENC:base64 { set result [base64::decode $result] }
+>  +    }
+>    } else {
+>
+> Before I stick that into the package I'll check the specs to see if
+> this is normal or expected though...
+----------------------------------------------------------------------

@@ -1,0 +1,142 @@
+<!doctype tmml SYSTEM "c:/users/pat/lib/tcl/tmml/tmml.dtd">
+  <manpage id="SOAP" title="" cat="package" package="TclSOAP">
+    
+    <!--
+    Copyright (C) 2001 Pat Thoyts &lt;Pat.Thoyts@bigfoot.com&gt;
+    
+    This software is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+    or FITNESS FOR A PARTICULAR PURPOSE.  See the accompanying file `LICENSE'
+    for more details.
+    -->
+    
+    <namesection>
+      <name>TclSOAP</name>
+      <desc>
+     SOAP package for Tcl. Provides remote procedure calls
+     using the SOAP protocol over HTTP and utilities to provide Tcl
+     procedures as SOAP methods via the tclhttpd server.
+  </desc>
+    </namesection>
+    
+    <synopsis>
+      <syntax>package require SOAP</syntax>
+      <syntax>package require SOAP::http</syntax>
+    </synopsis>
+    
+    <section>
+      <title>DESCRIPTION</title>
+      <!-- include tutorial.xml :
+      <subdoc href="intro.xml" /> -->
+      <p>blah blah</p>
+      <p>Blah <b>blahb</b> <i>blah</i>.
+Also <b cat="AMBIGUOUS abiguous cmd">open</b> cmd or the <cmd>interp</cmd></p>
+    </section>
+    
+    <section>
+      <title>COMMANDS</title>
+      
+      <commandlist>
+
+        <!-- SOAP::create -->
+        <commanddef>
+          <command><cmd>SOAP::create</cmd> <m>method</m> <m>-proxy url</m>
+<o>option value ...</o></command>
+          
+          <desc>Create a Tcl binding for a remote procedure call using
+   SOAP. See <m>configure</m> for the permitted options. Some options
+   are also dependant upon the transport selected (FTP, HTTP etc). For
+   this reason the <m>-proxy</m> argument is required and its value
+   must be a valid URL. The scheme part of the URL will be used to
+   determine the SOAP transport to be used. Thus http://... will
+   create a SOAP over HTTP binding while a URL of the form
+   mailto:user@mailhost will create a SOAP over SMTP binding.</desc>
+          
+        </commanddef>
+        
+        <commanddef>
+          <command>SOAP::configure <m>-transport protocol</m>
+<o>option value ...</o></command>
+
+          <desc>Used for global configuration of the available
+    transports. The options passed in to this command are dependent on
+    the transport mechanism. The only transports currently available
+    are:<ul><li>HTTP</li><li>SMTP</li><li>FTP</li><li>BEEP</li></ul>
+
+    <p>The HTTP transport may require a proxy server and possibly
+    other headers to be included. This is where to add such
+    information. For example, to pass an authenticating proxy server I
+    need to provide the name of the server and a Proxy-Authorize HTTP
+    header using the Trf package to provide the base64 encoding
+    procedure.</p>
+
+    <example>
+SOAP::configure -transport http -proxy wwwproxy:8080 \ 
+       -headers { "Proxy-Authorize" "Basic [base64 -enc user:pass]" }
+    </example>
+
+</desc>
+        </commanddef>
+        
+        <commanddef>
+          <command><cmd>SOAP::configure</cmd> <m>methodName</m>
+          <o>option value ...</o></command>
+          <desc><optlist>
+              <optdef>
+                <optname>-uri</optname>
+                <optarg>URI</optarg>
+                <desc>The URI for the XML namespace in which this method is to be defined.</desc>
+              </optdef>
+              
+              <optdef>
+                <optname>-proxy</optname>
+                <optarg>URL</optarg>
+                <desc>Specify the URL of the server providing the
+                implementation of this method.</desc>
+              </optdef>
+
+              <optdef>
+                <optname>-params</optname>
+                <optarg>list</optarg>
+                <desc>Configure the parameters required for this
+                method. <i>list</i> should be a list of pairs
+                consisting of the parameter name and the parameter
+                type. The Tcl procedure will check the number of
+                parameters when constructing the SOAP request. For
+                instance
+<example>SOAP::configure getTemp -params { "zipcode" "string" }
+SOAP::configure c2f -params { "temperature" "float" }
+SOAP::configure hi -params {}</example>
+</desc>
+              </optdef>
+
+<!-- -transport -->
+<!-- -name -->
+              
+            </optlist>
+</desc>
+        </commanddef>
+        
+      </commandlist>
+    </section>
+    
+    <seealso>
+      <ref>http</ref>
+      <ref>ftp</ref>
+      <ref>smtp</ref>
+      <ref>beepcore-tcl</ref>
+    </seealso>
+    
+    <keywords>
+      <keyword>TclSOAP</keyword>
+      <keyword>SOAP</keyword>
+      <keyword>XMLRPC</keyword>
+      <keyword>RPC</keyword>
+      <keyword>XML</keyword>
+      <keyword>DOM</keyword>
+      <keyword>MIME</keyword>
+      <keyword>FTP</keyword>
+      <keyword>SMTP</keyword>
+      <keyword>BEEP</keyword>
+    </keywords>
+  </manpage>
