@@ -15,13 +15,14 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: soapinterop.tcl,v 1.3 2001/10/11 22:40:37 patthoyts Exp $
+# @(#)$Id: soapinterop.tcl,v 1.4 2001/11/01 23:55:36 patthoyts Exp $
 
 package provide soapinterop::base 1.0
 
 package require SOAP
 package require XMLRPC
 package require rpcvar
+package require SOAP::http
 
 namespace eval soapinterop {
     variable uri    "http://soapinterop.org/"
