@@ -19,11 +19,16 @@ package provide SOAP 1.2
 # -------------------------------------------------------------------------
 
 package require http 2.3
-package require dom 1.6
+
+if { [catch {package require dom 2.0}] } {
+    if { [catch {package require dom 1.6}] } {
+        error "require dom package greater than 1.6"
+    }
+}
 
 namespace eval SOAP {
     variable version 1.2
-    variable rcs_version { $Id: SOAP.tcl,v 1.8 2001/03/17 01:11:42 pat Exp pat $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.9 2001/03/17 01:31:54 pat Exp pat $ }
 }
 
 # -------------------------------------------------------------------------
