@@ -20,7 +20,7 @@ package provide rpcvar 1.1
 namespace eval rpcvar {
     variable version 1.1
     variable magic "rpcvar$version"
-    variable rcs_id {$Id: rpcvar.tcl,v 1.5 2001/08/24 22:02:32 patthoyts Exp $}
+    variable rcs_id {$Id: rpcvar.tcl,v 1.6 2001/08/28 23:12:28 patthoyts Exp $}
     variable typedefs
     variable typens
     variable enums
@@ -33,7 +33,8 @@ namespace eval rpcvar {
     }
 
     namespace export rpcvar is_rpcvar rpctype rpcsubtype rpcvalue \
-            rpcnamespace rpcattributes rpcvalidate rpcheaders typedef
+            rpcnamespace rpcattributes rpcvalidate rpcheaders typedef \
+            schema_set
 }
 
 # -------------------------------------------------------------------------
@@ -382,6 +383,25 @@ proc rpcvar::rpcvalidate {type value} {
 #    }
 
 # -------------------------------------------------------------------------
+
+proc rpcvar::default_schemas {soapenv} {
+
+    if {[string match $soapenv "http://schemas.xmlsoap.org/soap/encoding/"]} {
+        # SOAP 1.1
+        return [list \
+                    "xmlns:xsd"      "http://www.w3.org/1999/XMLSchema" \
+                    "xmlns:xsi"      "http://www.w3.org/1999/XMLSchema-instance" ]
+    }
+
+    if {[string match $soapenv "http://www.w3.org/2001/06/soap-encoding"]} {        
+        # SOAP 1.2
+        return [list \
+                    "xmlns:xsd"      "http://www.w3.org/2001/XMLSchema" \
+                    "xmlns:xsi"      "http://www.w3.org/2001/XMLSchema-instance" ]
+    }
+
+    return -code error "invalid soap version: \"$soapenv\" is not a valid SOAP URL"
+}
 
 # initialize with the SOAP 1.1 encodings for xsd and SOAP-ENC
 #
