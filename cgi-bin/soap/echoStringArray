@@ -1,0 +1,23 @@
+# echoStringArray - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+#
+# 4s4c interoperability test suite
+#
+# -------------------------------------------------------------------------
+# This software is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the accompanying file `LICENSE'
+# for more details.
+# -------------------------------------------------------------------------
+#
+# @(#)$Id$
+
+package require XMLRPC::TypedVariable
+
+proc echoStringArray {inputStringArray} {
+    return [XMLRPC::TypedVariable::create "array(string)" $inputStringArray]
+}
+
+#
+# Local variables:
+# mode: tcl
+# End:

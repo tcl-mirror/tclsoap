@@ -1,0 +1,50 @@
+# time - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+#
+# Sample SOAP method returning a single string value that is the servers
+# current time in iso8601 point in time format.
+#
+# -------------------------------------------------------------------------
+# This software is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the accompanying file `LICENSE'
+# for more details.
+# -------------------------------------------------------------------------
+#
+# @(#)$Id$
+
+proc methods {args} {
+    global soapdir ;# set by the CGI script
+    set result {}
+
+    if {[llength $args] < 1} {
+	error "wrong # args: should be \"methods option ?arg ...?\""
+    }
+
+    set command [lindex $args 0]
+    switch -- $command {
+	list {
+	    cd $soapdir
+	    set result [XMLRPC::TypedVariable::create "array" [glob *]]
+	}
+	info {
+	    set filename [lindex $args 1]
+	    set result [XMLRPC::TypedVariable::create "string" \
+		    [methodinfo $filename]]
+	}
+	default {
+	    error "bad option \"$command\": must be list, ..."
+	}
+    }
+
+    return $result
+}
+
+
+proc methodinfo {filename} {
+    return "<?xml version='1.0' ?><m>not done no really</m>"
+}
+
+#
+# Local variables:
+# mode: tcl
+# End:
