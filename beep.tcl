@@ -19,7 +19,7 @@ package require mime;                   # tcllib
 
 namespace eval SOAP::Transport::beep {
     variable version 1.0
-    variable rcsid {$Id: beep.tcl,v 1.2 2001/12/21 01:47:25 patthoyts Exp $}
+    variable rcsid {$Id: beep.tcl,v 1.3 2001/12/21 16:57:52 patthoyts Exp $}
     variable options
     variable sessions
 
@@ -29,10 +29,14 @@ namespace eval SOAP::Transport::beep {
     SOAP::register soap.beeps [namespace current]
 
     # Initialize the transport options.
+    #
+    # -mechanism anonymous|otp
+    #
     if {![info exists options]} {
         array set options {
             -logfile    /dev/null
             -logident   soap
+            -debug      0
         }
     }
 
@@ -139,6 +143,7 @@ proc SOAP::Transport::beep::method:create {procVarName args} {
                             -servername  $URL(host)]
     
     set procName [lindex [split $procVarName {_}] end]
+    set procFQName [string map {_ ::} $procVarName]
 
     # see if we have a session already cached
     set signature ""
@@ -233,14 +238,16 @@ proc SOAP::Transport::beep::method:create {procVarName args} {
 	    ::beepcore::log::entry $logT user \
 			 "beepcore::mixer::create $parse(code): $parse(diagnostic)"
 
-	    SOAP::destroy $procName
+            # We can't call SOAP::destroy because we havn't created a SOAP
+            # method yet. The local destroy proc will clean up for us.
+	    method:destroy $procVarName
 	    error $parse(diagnostic)
 	}
 
 	default {
 	    ::beepcore::log::entry $logT error beepcore::mixer::create $channelT
 
-	    SOAP::destroy $procName
+	    method:destroy $procVarName
 	    error $channelT
 	}
     }
@@ -249,13 +256,13 @@ proc SOAP::Transport::beep::method:create {procVarName args} {
     if { [catch { ::beepcore::peer::getprop $channelT datum } data] } {
 	::beepcore::log::entry $logT error beepcore::peer::getprop $data
 
-	SOAP::destroy $procName
+	method:destroy $procVarName
 	error $data
     }
     if { [catch { dom::DOMImplementation parse $data } doc] } {
 	::beepcore::log::entry $logT error dom::parse $doc
 
-	SOAP::destroy $procName
+	method:destroy $procVarName
 	error "bootrpy is invalid xml: $doc"
     }
     if { [set node [SOAP::selectNode $doc /bootrpy]] != {} } {
@@ -278,12 +285,12 @@ proc SOAP::Transport::beep::method:create {procVarName args} {
 
 	dom::DOMImplementation destroy $doc
 
-	SOAP::destroy $procName
+        method:destroy $procVarName
 	error "$code: $diagnostic"
     } else {
 	dom::DOMImplementation destroy $doc
 
-	SOAP::destroy $procName
+	method:destroy $procVarName
 	error "invalid protocol: the boot reply is invalid"
     }
 }
@@ -327,6 +334,7 @@ proc SOAP::Transport::beep::configure {args} {
 proc SOAP::Transport::beep::method:destroy {methodVarName} {
     variable sessions
     upvar $methodVarName procvar
+
     set procName [lindex [split $methodVarName {_}] end]
 
     set mixerT $procvar(mixerT)
