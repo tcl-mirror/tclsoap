@@ -20,11 +20,11 @@ package provide SOAP 1.1
 
 package require http 2.3
 package require dom 1.6
-package require xpath 0.1
+# package require SOAP::xpath 0.1
 
 namespace eval SOAP {
     variable version 1.0
-    variable rcs_version { $Id: SOAP.tcl,v 1.6 2001/03/02 13:23:08 pat Exp pat $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.7 2001/03/14 01:51:59 pat Exp pat $ }
 }
 
 # -------------------------------------------------------------------------
@@ -42,6 +42,29 @@ proc SOAP::get { nameSpace varName } {
 proc SOAP::get2 { nameSpace varName } {
     eval set r \$${nameSpace}::${varName}
     return $r
+}
+
+# -------------------------------------------------------------------------
+
+# Retrieve configuration variables
+
+proc SOAP::cget { args } {
+
+    if { [llength $args] != 2 } {
+        error "wrong # args: should be \"cget methodName optionName\""
+    }
+
+    set methodName [lindex $args 0]
+    set optionName [lindex $args 1]
+
+    set ok [catch {
+        set r [get2 Commands::$methodName [string trimleft $optionName "-"]]
+    } msg]
+    if { $ok == 1 } {
+        error "unknown option \"$option\""
+    }
+    return  $r
+
 }
 
 # -------------------------------------------------------------------------
@@ -99,7 +122,7 @@ proc SOAP::configure { procName args } {
         variable uri ; variable params ; variable reply; variable name
 
         if { [llength $args] != [expr [llength $params] / 2]} {
-            set msg "wrong # args: should be \"$procName\""
+            set msg "wrong # args: should be \"$procName"
             foreach { id type } $params {
                 append msg " " $id
             }
@@ -186,17 +209,17 @@ proc SOAP::invoke { procName args } {
     set reply [ $transport $procName $url $req ]
 
     # Parse the SOAP reply. ---- DO FAULT PROCESSING HERE ----
-    package require xpath
+    package require SOAP::xpath
     set dom [dom::DOMImplementation parse $reply]
-    set fault [catch { xpath::xpath $dom "Envelope/Body/Fault" }]
+    set fault [catch { SOAP::xpath::xpath $dom "Envelope/Body/Fault" }]
     if { $fault == 0 } {
         error [concat \
-                [xpath::xpath {Envelope/Body/Fault/faultcode}] \
-                [xpath::xpath {Envelope/Body/Fault/faultstring}] ]
+                [SOAP::xpath::xpath {Envelope/Body/Fault/faultcode}] \
+                [SOAP::xpath::xpath {Envelope/Body/Fault/faultstring}] ]
     } else {
         package require SOAP::Parse
         set not_dom [SOAP::Parse::parse $reply]
-        #set not_dom [xpath::xpath $dom "Envelope/Body//*"]
+        #set not_dom [SOAP::xpath::xpath $dom "Envelope/Body//*"]
     }
 
     return $not_dom
@@ -244,11 +267,11 @@ proc SOAP::transport_http { procName url request } {
     set Commands::${procName}::http $reply
 
     if { [::http::ncode $reply ] == 500 } {
-        package require xpath
+        package require SOAP::xpath
         set dr [dom::DOMImplementation parse [::http::data $reply]]
         set tr [concat \
-                [::xpath::xpath $dr {Envelope/Body/Fault/faultcode}] \
-                [::xpath::xpath $dr {Envelope/Body/Fault/faultstring}] ]
+                [SOAP::xpath::xpath $dr {Envelope/Body/Fault/faultcode}] \
+                [SOAP::xpath::xpath $dr {Envelope/Body/Fault/faultstring}] ]
         dom::DOMImplementation destroy $dr
         error $tr
     }
