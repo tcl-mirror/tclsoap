@@ -39,7 +39,7 @@ namespace eval SOAP {
 	# -----------------------------------------------------------------
 
 	variable rcsid {
-	    $Id: SOAP-CGI.tcl,v 1.3 2001/08/03 21:48:50 patthoyts Exp $
+	    $Id: SOAP-CGI.tcl,v 1.4 2001/08/07 11:36:23 patthoyts Exp $
 	}
 	variable methodName  {}
 	variable debugging   0
@@ -223,6 +223,28 @@ proc SOAP::CGI::dtrace args {
     if {$debugging} {
 	lappend debuginfo $args
     }
+}
+
+# -------------------------------------------------------------------------
+
+# Description:
+#   Handle UTF-8 and UTF-16 data and convert into unicode for DOM parsing
+#   as necessary.
+#
+proc SOAP::CGI::do_encoding {xml} {
+    binary scan $xml ccc c0 c1 c2
+    if {$c0 == -1 && $c1 == -2} {
+	dtrace "encoding: UTF-16 little endian"
+	set xml [encoding convertfrom unicode $xml]
+    } elseif {$c0 == -2 && $c1 == -1} {
+	dtrace "encoding: UTF-16 big endian"
+	binary scan $xml S* xml
+	set xml [encoding convertfrom unicode [binary format s* $xml]]
+    } elseif {$c0 == -17 && $c1 == -69 && $c2 == -65} {
+	dtrace "encoding: UTF-8"
+	set xml [encoding convertfrom utf-8 $xml]
+    }
+    return $xml
 }
 
 # -------------------------------------------------------------------------
@@ -580,14 +602,13 @@ proc SOAP::CGI::main {{xml {}} {debug 0}} {
     variable methodName
     variable debugging $debug
     variable debuginfo {}
-    variable interactive
+    variable interactive 1
 
     if { [catch {
 	
 	# Get the POSTed XML data and parse into a DOM tree.
-	set interactive 1
 	if {$xml == {}} {
-	    set xml [ncgi::query]
+	    set xml [ncgi::query]	    
 	    set interactive 0      ;# false if this is a CGI request
 
 	    # Debugging can be set by the HTTP header "SOAPDebug: 1"
@@ -596,7 +617,7 @@ proc SOAP::CGI::main {{xml {}} {debug 0}} {
 	    }
 	}
 
-	set doc [dom::DOMImplementation parse $xml]
+	set doc [dom::DOMImplementation parse [do_encoding $xml]]
 	
 	# Identify the type of request - SOAP or XML-RPC, load the
 	# implementation and call.
