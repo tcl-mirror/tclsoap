@@ -1,6 +1,6 @@
 <!doctype HTML public "-//W3O//DTD W3 HTML 2.0//EN">
   <head>
-    <title>SOAP 1.4 Package for Tcl 8.3</title>
+    <title>SOAP 1.5 Package for Tcl 8.3</title>
     <meta http-equiv="Description" name="Description"
       content="SOAP package for Tcl. Provides remote procedure calls
       using the SOAP protocol over HTTP and utilities to provide Tcl
@@ -52,7 +52,7 @@
     <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
            bgcolor="#c0c0c0"><tr><td align="left"><pre>
 % package require SOAP
-1.4
+1.5
 % SOAP::create getTemp \
 	-uri "urn:xmethods-Temperature" \
 	-proxy "http://services.xmethods.net/soap/servlet/rpcrouter" \
@@ -77,7 +77,7 @@
     <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
            bgcolor="#c0c0c0"><tr><td align="left"><pre>
 % package require SOAP
-1.4
+1.5
 % SOAP::create C2F \
 	-uri "http://www.soaplite.com/Temperatures" \
 	-proxy "http://services.soaplite.com/temper.cgi" \
@@ -104,7 +104,7 @@
     <table border="0" align="bottom" cellpadding="1" cellspacing = "0"
            bgcolor="#c0c0c0"><tr><td align="left"><pre>
 % package require SOAP
-1.4
+1.5
 % SOAP::configure -transport http -proxy proxyhost:8080 \
 	-headers { "Proxy-Authorization" "Basic dXNlcm5hbWUgOiBwYXNzd29yZA==" }
 % SOAP::create languages \
@@ -357,8 +357,8 @@ SOAP::configure hi -params {}
   <p>The package can be downloaded from the SourceForge project site
     at <a href="http://sourceforge.net/projects/tclsoap">SourceForge</a>
     or from the SourceForge anonymous FTP site at
-    <a href="TclSOAP-1.4.tar.gz">
-       ftp://tclsoap.sourceforge.net/pub/tclsoap/TclSOAP-1.4.tar.gz
+    <a href="TclSOAP-1.5.tar.gz">
+       ftp://tclsoap.sourceforge.net/pub/tclsoap/TclSOAP-1.5.tar.gz
     </a>.
     This file should be unpacked somewhere handy and you should set
     your TCLLIBPATH environment variable to suit. For windows users,
@@ -401,10 +401,10 @@ SOAP::configure hi -params {}
   <font size="2">
 <!-- Created: Wed Mar 14 00:26:30 GMT 2001 -->
 <!-- hhmts start -->
-Last modified: Thu Jun 21 00:37:01 BST 2001
+Last modified: Thu Jun 21 01:26:51 BST 2001
 <!-- hhmts end -->
 
-  <br><tt>$Id: TclSOAP.html,v 1.9 2001/06/15 01:00:27 patthoyts Exp $</tt>
+  <br><tt>$Id: TclSOAP.html,v 1.10 2001/06/21 00:20:08 patthoyts Exp $</tt>
   </font>
 
   </body>

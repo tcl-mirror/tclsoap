@@ -11,7 +11,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package provide SOAP 1.4
+package provide SOAP 1.5
 
 # -------------------------------------------------------------------------
 
@@ -28,7 +28,7 @@ if { [catch {package require dom 2.0} domVer]} {
 namespace eval SOAP {
     variable version 1.4
     variable domVersion $domVer
-    variable rcs_version { $Id: SOAP.tcl,v 1.18 2001/06/19 00:40:26 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.19 2001/06/21 00:18:47 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig
 }

@@ -1,4 +1,4 @@
-TclSOAP 1.4.1
+TclSOAP 1.5
 -------------
 
 Added support for asynchronous transports with the -command option to the
