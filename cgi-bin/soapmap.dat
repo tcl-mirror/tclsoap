@@ -29,5 +29,5 @@ urn:tclsoap:webservices	webservice.tcl
 # CGI script path. Mapping to an empty value causes the CGI framework to
 # treat this value as if "" was provided.
 cgi-bin/rpc		""
-
+/cgi-bin/rpc		""
 
