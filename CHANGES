@@ -1,3 +1,13 @@
+* TclSOAP 1.6.6
+---------------
+
+** Fixed the float recognition range
+   The float range is calculated as powers of 2 not 10.
+
+** Fixed avoidance of non-method child elements in SOAP-CGI.
+   If the client sends data as href'd elements - we shouldn't treat
+   these and method call elements.
+
 * TclSOAP 1.6.5
 ----------------
 ** Applied patches from Vico Klump
