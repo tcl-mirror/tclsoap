@@ -1,6 +1,9 @@
 * TclSOAP 1.6.6
 ---------------
 
+** Applied OSX build patch to Makefile.in
+   Use the DESTDIR environment variable in install-libraries.
+
 ** Fixed the float recognition range
    The float range is calculated as powers of 2 not 10.
 

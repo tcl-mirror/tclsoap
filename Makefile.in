@@ -11,7 +11,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.9 2002/03/26 23:35:41 patthoyts Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.10 2002/09/21 00:10:29 patthoyts Exp $
 
 FILES= \
 	SOAP.tcl		\
@@ -57,7 +57,7 @@ docdir = @docdir@
 
 DESTDIR =
 
-pkglibdir = $(prefix)/lib/@PACKAGE@@VERSION@
+pkglibdir = $(libdir)/@PACKAGE@@VERSION@
 
 top_builddir = .
 
@@ -125,20 +125,20 @@ install-binaries:
 #========================================================================
 
 install-libraries: libraries
-	$(mkinstalldirs) $(pkglibdir)
-	@echo "Installing TclSOAP in $(pkglibdir)"
+	$(mkinstalldirs) $(DESTDIR)$(pkglibdir)
+	@echo "Installing TclSOAP in $(DESTDIR)$(pkglibdir)"
 	@for i in $(FILES) ; do \
 	    if test -f $(srcdir)/$$i; then  \
-		echo "Installing $$i in $(pkglibdir)/$$i" ; \
-		    $(INSTALL_DATA) $(srcdir)/$$i $(pkglibdir)/$$i ; \
+		echo "Installing $$i in $(DESTDIR)$(pkglibdir)/$$i" ; \
+		    $(INSTALL_DATA) $(srcdir)/$$i $(DESTDIR)$(pkglibdir)/$$i ; \
 	    fi; \
 	done;
-	$(mkinstalldirs) $(interopdir)
-	@echo "Installing SOAP Interoperability Tests in $(interopdir)"
+	$(mkinstalldirs) $(DESTDIR)$(interopdir)
+	@echo "Installing SOAP Interoperability Tests in $(DESTDIR)$(interopdir)"
 	@for i in $(INTEROPFILES) ; do \
 	    if test -f $(srcdir)/interop/$$i; then  \
-		echo "Installing $$i in $(interopdir)/$$i" ; \
-		    $(INSTALL_DATA) $(srcdir)/interop/$$i $(interopdir)/$$i ; \
+		echo "Installing $$i in $(DESTDIR)$(interopdir)/$$i" ; \
+		    $(INSTALL_DATA) $(srcdir)/interop/$$i $(DESTDIR)$(interopdir)/$$i ; \
 	    fi; \
 	done;
 
@@ -159,9 +159,9 @@ depend:
 #   Code, doc's, and tests for all modules
 dist:
 	@echo We dont use this. What you do is tag the cvs repository with
-	@echo   cvs tag soap-a_b_c
+	@echo   cvs tag soapa_b_c
 	@echo then use the export command to create the release package.
-	@echo   cvs export -r soap-a_b_c -d soapa.b.c tclsoap
+	@echo   cvs export -r soapa_b_c -d tclsoapa.b.c tclsoap
 	@echo then package it up.
 
 frink:
