@@ -15,7 +15,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: soapinterop.tcl,v 1.1 2001/08/28 22:43:20 patthoyts Exp $
+# @(#)$Id: soapinterop.tcl,v 1.2 2001/10/10 02:57:38 patthoyts Exp $
 
 package provide soapinterop::base 1.0
 
@@ -50,7 +50,7 @@ proc soapinterop::round2 {{proxy {}}} {
 
 # ----------------------------------------------------------------------
 
-proc soapinterop::create:base {proxy} {
+proc soapinterop::create:base {proxy args} {
     variable uri
     variable action
     
@@ -78,13 +78,22 @@ proc soapinterop::create:base {proxy} {
         -params {inputDate timeInstant}
     SOAP::create echoVoid -proxy $proxy -uri $uri -action $action \
         -params {}
+
+    if {$args != {}} {
+        foreach method [list echoVoid echoDate echoBase64 \
+                            echoString echoInteger echoFloat echoStruct \
+                            echoStringArray echoIntegerArray echoFloatArray \
+                            echoStructArray] {
+         eval SOAP::configure $method $args
+     }
+    }
 }
 
-proc soapinterop::validate:base {proxy} {
+proc soapinterop::validate:base {proxy args} {
     set soapinterop::action urn:soapinterop
 
     if {$proxy != {}} {
-	create:base $proxy
+	eval create:base [list $proxy] $args
     }
 
     catch {validate.echoVoid} msg        ; puts "$msg"

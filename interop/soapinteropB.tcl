@@ -11,7 +11,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id$
+# @(#)$Id: soapinteropB.tcl,v 1.1 2001/08/28 22:43:20 patthoyts Exp $
 
 package require -exact soapinterop::base 1.0
 package provide soapinterop::B 1.0
@@ -42,7 +42,7 @@ namespace eval soapinterop {
 # -------------------------------------------------------------------------
 
 # Proposal B Methods
-proc soapinterop::create:proposalB {proxy} {
+proc soapinterop::create:proposalB {proxy args} {
     variable action
     variable uri
 
@@ -60,12 +60,24 @@ proc soapinterop::create:proposalB {proxy} {
     SOAP::create echoNestedArray -proxy $proxy -uri $uri -action $action \
 	-params {inputStruct SOAPArrayStruct}
 
+    if {$args != {}} {
+        foreach method [list echoStructAsSimpleTypes \
+                            echoSimpleTypesAsStruct\
+                            echo2DStringArray \
+                            echoNestedStruct \
+                            echoNestedArray] {
+           eval SOAP::configure $method $args
+       }
+    }
 }
 
 # -------------------------------------------------------------------------
 
 proc soapinterop::round2:proposalB {proxy} {
-    create:proposalB $proxt
+    if {$proxy != {}} {
+        eval create:proposalB [list $proxy] $args
+    }
+
     catch {validate.echoStructAsSimpleTypes} msg ; puts "$msg"
     catch {validate.echoSimpleTypesAsStruct} msg ; puts "$msg"
 }
@@ -105,7 +117,7 @@ proc soapinterop::validate.echoSimpleTypesAsStruct {} {
     if {$i != $r(varInt)} {
         error "failed: varInt $i != $r(varInt)"
     }
-    if {$f != $r(varFloat)} {
+    if {![float=? $f $r(varFloat)]} {
         error "failed: varFloat $f != $r(varFloat)"
     }
 
