@@ -1,6 +1,7 @@
-# dom.tcl - Copyright (C) 2002 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+# dom.tcl - Copyright (C) 2002 Pat Thoyts <patthoyts@users.sourceforge.net>
 #
-# Wrapper for tDOM 
+# A wrapper for the tDOM package to make it function as a replacement for
+# the TclDOM package.
 #
 # -------------------------------------------------------------------------
 # This software is distributed in the hope that it will be useful, but
@@ -9,8 +10,10 @@
 # for more details.
 # -------------------------------------------------------------------------
 
+package require tdom
+
 namespace eval SOAP::dom {
-    variable rcsid {$Id$}
+    variable rcsid {$Id: dom.tcl,v 1.1.2.1 2002/12/10 23:14:25 patthoyts Exp $}
     variable version 1.0
 
     namespace export DOMImplementation document node element \
@@ -23,30 +26,35 @@ namespace eval SOAP::dom {
 }
 
 proc SOAP::dom::DOMImplementation {method args} {
-    switch -- $method {
+    switch -glob -- $method {
         hasFeature {
             # bool hasFeature(String feature, String version)
-            if {[llength $args] != 2} {
-                return -code error "wrong # args"
-            }
-            set feature [
-        }
-        
+            return [eval [list dom hasFeature] $args]
+        }        
         create {
-            
+            return [dom createDocument TclSOAPDocElt]
+        }
+        destroy {
+            return {}
         }
         parse {
-            return [eval dom $args]
+            return [eval [list dom parse] $args]
         }
-        serialize {}
+        serialize {
+	    if {[llength $args] != 1} {
+		error "wrong # args: should be \"serialize tok\""
+	    }
+	    return [[[lindex $args 0] documentElement] asXML]
+        }
         default {
-            return -code error "invalid method name \"$method\""
+	    return -code error "bad option \"$method\": should be hasFeature,\
+		    create, destroy, parse or serialize"
         }
     }
 }
 
 proc SOAP::dom::document {method token args} {
-    switch -- $method {
+    switch -glob -- $method {
         
         cget {
             if {[llength $args] != 1} {
@@ -68,14 +76,19 @@ proc SOAP::dom::document {method token args} {
                 }
             }
         }
+	configure {error "notimpl"}
 
-        createElement  -
+        createElement {
+	    set elt [$token createElement $args]
+	    return [[$token documentElement] appendChild $elt]
+        }
         createTextNode -
         createComment  -
         createCDATASection {
             return [$token $method [lindex $args 0]]
         }
         createDocumentFragment -
+        createDocTypeDecl -
         createEntity -
         createEntityReference -
         createAttribute {
@@ -91,17 +104,38 @@ proc SOAP::dom::document {method token args} {
             return [$token $method [lindex $args 0]]
         }
         default {
-            return -code error "invalid method \"$method\""
+	    return -code error "bad option \"$method\": should be cget,\
+		    configure, createElement, createDocumentFragment,\
+		    createTextNode, createComment, ..."
         }
     }
 }
 
 proc SOAP::dom::node {method token args} {
-    notimplemented
+    switch -glob -- $method {
+	cg* {error "cget notimpl"}
+	co* {error "configure notimpl"}
+	in* {error "insertbefore notimpl"}
+	rep* {error "replaceChild notimpl"}
+	rem* {error "removeChild notimpl"}
+	ap* {error "appendChild notimpl"}
+	hasChildNodes {error "notimpl"}
+	cl* {error "cloneNode notimpl"}
+	ch* {error "children notimpl"}
+	pa* {error "parent notimpl"}
+	default {
+	    return -code error "bad option \"$method\": should be cget,\
+		    configure, ..."
+	}
+    }
 }
 
 proc SOAP::dom::element {method token args} {
-    notimplemented
+    switch -glob -- $method {
+	default {
+	    return -code error "not implmented"
+	}
+    }
 }
 
 proc SOAP::dom::processinginstruction {method token args} {
