@@ -5,11 +5,11 @@
 #
 # Used by SOAP until I work out how to read the packets using DOM.
 #
-# @(#)$Id: SOAP-parse.tcl,v 1.1 2001/02/15 23:21:37 pat Exp pat $
+# @(#)$Id: SOAP-parse.tcl,v 1.2 2001/02/19 00:44:46 pat Exp pat $
 
 package provide SOAP::Parse 1.0
 
-package require xml 1.9
+package require xml
 
 # -------------------------------------------------------------------------
 
@@ -42,14 +42,14 @@ proc SOAP::Parse::parse { data } {
 
 # -------------------------------------------------------------------------
 
-proc SOAP::Parse::elt_start { name attributes } {
+proc SOAP::Parse::elt_start { name attributes args } {
     variable elt_path
     lappend elt_path $name
 }
 
 # -------------------------------------------------------------------------
 
-proc SOAP::Parse::elt_end { name } {
+proc SOAP::Parse::elt_end { name args } {
     variable elt_path
     set elt_path [lreplace $elt_path end end ]
 }
