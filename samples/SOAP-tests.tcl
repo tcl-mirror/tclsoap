@@ -43,7 +43,7 @@ SOAP::create validator3 \
         -uri "urn:zsplat-Validator" \
         -action "urn:tclsoap-Test" \
         -proxy "http://www.soaptoolkit.com/soapvalidator/listener.asp" \
-        -params { msg string num integer }
+        -params {myStruct struct}
 
 # -------------------------------------------------------------------------
 #
@@ -178,10 +178,18 @@ SOAP::create mp3 \
 namespace eval Fortune {
     variable uri "urn:lemurlabs-Fortune"
     variable proxy "http://www.lemurlabs.com:80/rpcrouter"
-    SOAP::create getAnyFortune -uri $uri -proxy $proxy
+
+    proc unxml {methodVarName xml} {
+        regsub -all {&lt;} $xml {<} xml
+        regsub -all {&gt;} $xml {>} xml
+        regsub -all {&amp;} $xml {&} xml
+        return $xml
+    }
+
+    SOAP::create getAnyFortune -uri $uri -proxy $proxy -postProc unxml
     SOAP::create getDictionaryNameList -uri $uri -proxy $proxy
     SOAP::create getFortuneByDictionary -uri $uri -proxy $proxy \
-            -params { "dictionary" "string" }
+            -params { "dictionary" "string" } -postProc unxml
     namespace export getAnyFortune getDictionaryNameList \
             getFortuneByDictionary
 }
@@ -237,7 +245,16 @@ namespace eval uddi {
     SOAP::create get_bindingDetail -uri $uri -proxy $proxy -action {""} \
             -params {bindingKey string}
 
-    namespace export find_business
+
+    proc showBI {who} {
+        set bilist [find_business $who]
+        foreach {label biData} $bilist {
+            array set businessInfo $biData
+            puts "$businessInfo(name): $businessInfo(description)"
+        }
+    }
+
+    namespace export find_business get_serviceDetail get_bindingDetail
 }
 
 # -------------------------------------------------------------------------
@@ -250,28 +267,45 @@ namespace eval 4s4c {
 #    variable proxy  "http://soap.4s4c.com/ilab/soap.asp"
     variable proxy  "http://localhost/cgi-bin/rpc"
 
-    SOAP::create echoString  -proxy $proxy -uri $uri -action $action -params {inputString string}
-    SOAP::create echoInteger -proxy $proxy -uri $uri -action $action -params {inputInteger int}
-    SOAP::create echoFloat -proxy $proxy -uri $uri -action $action -params {inputFloat float}
+    proc create {{proxy http://soap.4s4c.com/ilab/soap.asp}} {
+        variable uri
+        variable action
+        
+        SOAP::create echoString  -proxy $proxy -uri $uri -action $action \
+                -params {inputString string}
+        SOAP::create echoInteger -proxy $proxy -uri $uri -action $action \
+                -params {inputInteger int}
+        SOAP::create echoFloat -proxy $proxy -uri $uri -action $action \
+                -params {inputFloat float}
+        
+        SOAP::create echoStringArray -proxy $proxy -uri $uri -action $action \
+                -params {inputStringArray array(string)}
+        SOAP::create echoIntegerArray -proxy $proxy -uri $uri -action $action \
+                -params {inputIntegerArray array(int)}
+        SOAP::create echoFloatArray -proxy $proxy -uri $uri -action $action \
+                -params {inputFloatArray array(float)}
+        SOAP::create echoBase64 -proxy $proxy -uri $uri -action $action \
+                -params {inputBase64 base64}
+        SOAP::create echoDate -proxy $proxy -uri $uri -action $action \
+                -params {inputDate dateTime}
+        SOAP::create echoVoid -proxy $proxy -uri $uri -action $action \
+                -params {}
+        
+        # {string varString; int varInt; float varFloat; }
+        SOAP::create echoStruct -proxy $proxy -uri $uri -action $action \
+                -params {inputStruct struct}
+        SOAP::create echoStructArray -proxy $proxy -uri $uri -action $action \
+                -params {inputStructArray struct}
+    }
 
-    SOAP::create echoStringArray -proxy $proxy -uri $uri -action $action \
-            -params {inputStringArray array(string)}
-    SOAP::create echoIntegerArray -proxy $proxy -uri $uri -action $action \
-            -params {inputIntegerArray array(int)}
-    SOAP::create echoFloatArray -proxy $proxy -uri $uri -action $action \
-            -params {inputFloatArray array(float)}
-    SOAP::create echoBase64 -proxy $proxy -uri $uri -action $action \
-            -params {inputBase64 base64}
-    SOAP::create echoDate -proxy $proxy -uri $uri -action $action \
-            -params {inputDate dateTime}
-    SOAP::create echoVoid -proxy $proxy -uri $uri -action $action -params {}
+    proc test_local {} {
+        create http://localhost/cgi-bin/rpc
+    }
+    proc test_4s4c {} {
+        create
+    }
 
-    # {string varString; int varInt; float varFloat; }
-    SOAP::create echoStruct -proxy $proxy -uri $uri -action $action \
-            -params {inputStruct struct}
-    SOAP::create echoStructArray -proxy $proxy -uri $uri -action $action \
-            -params {inputStructArray struct}
-
+    test_4s4c
 }
 
 # Local variables:

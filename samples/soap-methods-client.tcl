@@ -1,35 +1,67 @@
-# Create the commands for my SOAP-domain package
+# soap-methods-client.tcl 
+#                  - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+#
+#  Setup the client side of the sample services provided through the
+#  SOAP::Domain package.
+#
+# -------------------------------------------------------------------------
+# This software is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the accompanying file `LICENSE'
+# for more details.
+# -------------------------------------------------------------------------
+#
+# @(#)$Id$
 
 package require SOAP
-set methods {}
 
-lappend methods [ SOAP::create rcsid \
-	-name rcsid \
-	-uri zsplat-Test \
-	-proxy http://localhost:8015/soap/rcsid \
-	-params {} ]
+# Description:
+#   Setup the client methods for our sample services. Optionally specify the
+#   serving host.
+#
+proc define_domain_methods {{proxy http://localhost:8015/soap}} {
+    set uri urn:zsplat-Test
+    set methods {}
 
-lappend methods [ SOAP::create zbase64 \
-	-name base64 \
-	-uri zsplat-Test \
-	-proxy http://localhost:8015/soap/base64 \
-	-params {msg string} ]
+    set name rcsid
+    lappend methods [ SOAP::create $name -name rcsid -uri $uri \
+	    -proxy "${proxy}/${name}" -params {} ]
+    
+    set name zbase64
+    lappend methods [ SOAP::create $name -name base64 -uri $uri \
+	    -proxy "${proxy}/base64" -params {msg string} ]
 
-lappend methods [ SOAP::create ztime \
-	-name time \
-	-uri zsplat-Test \
-	-proxy http://localhost:8015/soap/time \
-	-params {} ]
+    set name ztime
+    lappend methods [ SOAP::create $name -name time -uri $uri \
+	    -proxy "${proxy}/time" -params {} ]
+    
+    set name square
+    lappend methods [ SOAP::create $name -name square -uri $uri \
+	    -proxy "${proxy}/${name}" -params {num double} ]
+    
+    set name sum
+    lappend methods [ SOAP::create $name -name sum -uri $uri \
+	    -proxy "${proxy}/${name}" -params {lhs double rhs double} ]
 
-lappend methods [ SOAP::create square \
-	-uri zsplat-Test \
-	-proxy http://localhost:8015/soap/square \
-	-params {num integer} ]
+    set name sort
+    lappend methods [ SOAP::create $name -name sort -uri $uri \
+	    -proxy "${proxy}/${name}" -params {myArray array} ]
 
-lappend methods [ SOAP::create sort \
-	-uri zsplat-Test \
-	-proxy http://localhost:8015/soap/sort \
-	-params { list string } ]
+    set name platform
+    lappend methods [ SOAP::create $name -name platform -uri $uri \
+	    -proxy "${proxy}/${name}" -params {} ]
 
-puts "$methods"
-unset methods
+    set name xml
+    lappend methods [ SOAP::create $name -name xml -uri $uri \
+	    -proxy "${proxy}/${name}" -params {} ]
+	
+    return $methods
+}
+
+define_domain_methods
+
+# -------------------------------------------------------------------------
+#
+# Local variables:
+# mode: tcl
+# End:
