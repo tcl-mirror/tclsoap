@@ -13,7 +13,7 @@ package require http;                   # tcl
 
 namespace eval SOAP::Transport::http {
     variable version 1.0
-    variable rcsid {$Id: http.tcl,v 1.4 2001/12/21 16:57:52 patthoyts Exp $}
+    variable rcsid {$Id: http.tcl,v 1.5 2002/02/27 21:29:14 patthoyts Exp $}
     variable options
 
     package provide SOAP::http $version
@@ -211,14 +211,16 @@ proc SOAP::Transport::http::xfer { procVarName url request } {
     }
 
     # Some other sort of error ...
-    switch -exact -- [::http::status $token] {
+    switch -exact -- [set status [::http::status $token]] {
         timeout {
             error "error: SOAP http transport timed out after $timeout ms"
         }
         ok {
         }
         default {
-            error "SOAP transport error: \"[::http::code $token]\""
+            return -code error  "SOAP transport error:\
+                token $token status is \"$status\" and HTTP result code is\
+                \"[::http::code $token]\""
         }
     }
 
