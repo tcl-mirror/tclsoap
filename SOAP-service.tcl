@@ -1,4 +1,4 @@
-# SOAP-service.tcl - Copyright (C) 2001 Pat Thoyts <pat@zsplat.freeserve.co.uk>
+# SOAP-service.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
 #
 # Provide a SOAP demo service.
 #
@@ -42,7 +42,7 @@ if { [catch {package require Trf}] } {
 
 namespace eval SOAP::Service {
     variable version 1.0
-    variable rcs_version { $Id: SOAP-service.tcl,v 1.3 2001/03/27 00:56:14 pat Exp pat $ }
+    variable rcs_version { $Id: SOAP-service.tcl,v 1.4 2001/04/10 00:22:18 pat Exp pat $ }
     variable socket
     variable port
     variable stats
