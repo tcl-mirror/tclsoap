@@ -17,7 +17,7 @@ package require SOAP::Utils;            # TclSOAP
 
 namespace eval SOAP::WSDL {
     variable version 1.0
-    variable rcsid {$Id: WSDL.tcl,v 1.1.2.3 2002/11/20 01:13:42 patthoyts Exp $}
+    variable rcsid {$Id: WSDL.tcl,v 1.1.2.4 2003/01/24 01:03:05 patthoyts Exp $}
     variable logLevel debug #warning
     
     #namespace export 
@@ -221,11 +221,45 @@ proc SOAP::WSDL::parse_types {definitionsNode typesNode arrayName} {
     upvar $arrayName types
     foreach schemaNode [getElementsByName $typesNode schema] {
         foreach typeNode [getElements $schemaNode] {
-            set typeName [getElementAttribute $typeNode name]
             # now shift to XML schema parser...
+            switch -exact -- [set def [getElementName $typeNode]] {
+                complexType { parse_complexType $typeNode $arrayName}
+                simpleType { parse_simpleType $typeNode $arrayName }
+                default {
+                    log::log warning "unrecognised schema type:\
+                        \"$def\" not handled"
+                }
+            }
         }
     }
     return 0
+}
+
+proc SOAP::WSDL::parse_simpleType {typeNode arrayName} {
+    set typeName [getElementAttribute $typeNode name]
+    log::log debug "simpleType $typeName"
+}
+
+proc SOAP::WSDL::parse_complexType {typeNode arrayName} {
+    set typeName [getElementAttribute $typeNode name]
+    log::log debug "complexType $typeName"
+
+    foreach contentNode [getElements $typeNode] {
+        switch -exact -- [set contentName [getElementName $contentNode]] {
+            all { xsd:content $contentNode arrayName }
+            sequence { log::log debug "content sequence" }
+            choice { log::log debug "content choice" }
+            complexContent {log::log debug "content complex" }
+            attribute { log::log debug "content attribute" }
+            default { log::log warning "unrecognised node \"$contentName\""}
+        }
+    }
+}
+
+proc SOAP::WSDL::xsd:content {contentNode arrayname} {
+    foreach elt [getElements $contentNode] {
+        # must recurse (could be all, sequence or choice again.)
+    }
 }
 
 proc SOAP::WSDL::qualifyNodeName {node} {
