@@ -36,7 +36,7 @@ if {[catch {
 namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
-    variable rcs_version { $Id: SOAP.tcl,v 1.34 2001/10/08 22:45:03 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.35 2001/10/10 02:55:32 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -821,7 +821,7 @@ proc SOAP::soap_request {procVarName args} {
 
     dom::element setAttribute $envx "xmlns:SOAP-ENV" $soapenv
     dom::element setAttribute $envx "xmlns:SOAP-ENC" $soapenc
-    dom::element setAttribute $envx "SOAP-ENC:encodingStyle" $soapenc
+    dom::element setAttribute $envx "SOAP-ENV:encodingStyle" $soapenc
 
     # The set of namespaces depends upon the SOAP encoding as specified by
     # the encoding option and the user specified set of relevant schemas.
