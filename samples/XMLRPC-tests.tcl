@@ -14,7 +14,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: XMLRPC-tests.tcl,v 1.1 2001/06/06 00:46:09 patthoyts Exp $
+# @(#)$Id: XMLRPC-tests.tcl,v 1.2 2001/06/09 12:52:21 patthoyts Exp $
 
 package require XMLRPC
 
@@ -35,6 +35,66 @@ lappend methods [ \
 	-name "examples.getStateList" \
 	-proxy "http://betty.userland.com/RPC2" \
 	-params { states array(int) } ]
+
+# Meerkat
+namespace eval Meerkat {
+    set proxy {http://www.oreillynet.com/meerkat/xml-rpc/server.php}
+
+    # returns array of meerkat method names
+    lappend methods [ \
+         XMLRPC::create listMethods \
+            -name "system.listMethods" \
+            -proxy $proxy \
+            -params {} ]
+
+    # returns an array of category structs: {int id; string title;}
+    lappend methods [ \
+         XMLRPC::create getCategories \
+            -name "meerkat.getCategories" \
+            -proxy $proxy \
+            -params {} ]
+
+    # returns an array of channel structs: { int id; string title; }
+    lappend methods [ \
+         XMLRPC::create getChannels \
+            -name "meerkat.getChannels" \
+            -proxy $proxy \
+            -params {} ]
+
+    # returns array of channel structs: {int id; string title;} given
+    # a category id.
+    lappend methods [ \
+         XMLRPC::create getChannelsByCategory \
+            -name "meerkat.getChannelsByCategory" \
+            -proxy $proxy \
+            -params {id int} ]
+
+    # requires a recipe struct and returns an array of structs:
+    # {string title; string link; string description; string dc_creator;
+    #  string dc_subject; string dc_publisher; string dc_date;
+    #  string dc_format; string dc_language; string dc_rights 
+    # }
+    # try getItems {search {/[Tt]cl/} num_items 5 descriptions 0}
+    #
+    # try: foreach item [Meerkat::getItems 2081] {
+    #          array set d $item
+    #          puts "$d(title)\n$d(link)\n$d(description)\n"
+    #      }
+    
+    lappend methods [ \
+         XMLRPC::create getItems \
+            -name "meerkat.getItems" \
+            -proxy $proxy \
+            -params { item struct } ]
+
+}
+
+# Userland RSS server
+lappend methods [ \
+        XMLRPC::create getServiceInfo \
+           -name "aggregator.getServiceInfo" \
+           -proxy "http://aggregator.userland.com/RPC2" \
+           -params { id int } ]
 
 # -------------------------------------------------------------------------
 
