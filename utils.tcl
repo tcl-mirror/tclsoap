@@ -12,7 +12,7 @@
 namespace eval ::SOAP {
     namespace eval Utils {
         variable version 1.0.1
-        variable rcsid {$Id: utils.tcl,v 1.7.2.4 2003/02/07 01:31:18 patthoyts Exp $}
+        variable rcsid {$Id: utils.tcl,v 1.7.2.5 2003/06/12 22:51:08 patthoyts Exp $}
         namespace export getElements getElementsByName \
                 getElementValue getElementName \
                 getElementValues getElementNames \
@@ -93,6 +93,16 @@ proc ::SOAP::Utils::decomposeSoap {domElement} {
     # if no child element - return the value.
     if {$child_elements == {}} {
 	set result [getElementValue $domElement]
+        set encoding [getElementAttribute $domElement "xsi:type"]
+        set ndx [string last : $encoding]
+        set bs [string trimleft [string range $encoding $ndx end] :]
+        if {$bs == "base64"} {
+            set ns [string trimright [string range $encoding 0 $ndx] :]
+            set ns [SOAP::Utils::find_namespaceURI $domElement $ns]
+            if {$ns == "http://schemas.xmlsoap.org/soap/encoding/"} {
+                set result [base64::decode $result]
+            }
+        }
     } else {
 	# decide if this is an array or struct
 	if {[is_array $domElement] == 1} {
