@@ -36,7 +36,7 @@ if {[catch {
 namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
-    variable rcs_version { $Id: SOAP.tcl,v 1.30 2001/08/28 22:54:30 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.31 2001/08/29 00:08:01 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -148,7 +148,7 @@ proc SOAP::configure { procName args } {
     # The list of valid options, used in the error messsage
     set options { uri proxy params name transport action \
                   wrapProc replyProc parseProc postProc \
-                  command errorCommand }
+                  command errorCommand schema }
 
     if { $procName == "-transport" } {
         return [eval "transport_configure $args"]
@@ -181,6 +181,7 @@ proc SOAP::configure { procName args } {
             -transport { set [subst $procVarName](transport) $value }
             -name      { set [subst $procVarName](name) $value }
             -action    { set [subst $procVarName](action) $value }
+            -schema    { set [subst $procVarName](action) $value }
             -wrapProc  { set [subst $procVarName](wrapProc) \
                     [qualifyNamespace $value] }
             -replyProc { set [subst $procVarName](replyProc) \
@@ -220,9 +221,10 @@ proc SOAP::configure { procName args } {
                 [namespace current]::soap_request
     }
 
+    # Create the Tcl procedure that maps to this RPC method.
     uplevel 1 "proc $procName { args } {eval [namespace current]::invoke $procVarName \$args}"
 
-    # return the fully qualified command created.
+    # return the fully qualified command name created.
     return [uplevel 1 "namespace which $procName"]
 }
 
@@ -254,6 +256,7 @@ proc SOAP::create { args } {
     array set $varName {command   {}} ;# asynchronous reply handler
     array set $varName {errorCommand {}} ;# asynchronous error handler
     array set $varName {headers   {}} ;# SOAP Header information of last call
+    array set $varName {schema    {}} ;# SOAP Schema in force
 
     # call configure from the callers level so it can get the namespace.
     return [uplevel 1 "[namespace current]::configure $procName $args"]
@@ -288,10 +291,11 @@ proc SOAP::invoke { procVarName args } {
     # Get the URL
     set url [set [subst $procVarName](proxy)]
 
-    # Get the XML data containing our request
+    # Get the XML data containing our request by calling the -wrapProc 
+    # procedure
     set req [eval "[set [subst $procVarName](wrapProc)] $procVarName $args"]
 
-    # Send the SOAP packet (req) using the configured transport.
+    # Send the SOAP packet (req) using the configured transport procedure
     set transport [set [subst $procVarName](transport)]
     set reply [$transport $procVarName $url $req]
 
@@ -727,6 +731,7 @@ proc SOAP::reply { doc uri methodName result } {
 
 # Description:
 #   Procedure to generate the XML data for a configured SOAP procedure.
+#   This is the default SOAP -wrapProc procedure
 # Parameters:
 #   procVarName - the path of the SOAP method configuration variable
 #   args        - the arguments for this SOAP method
@@ -926,7 +931,7 @@ proc SOAP::parse_soap_response { procVarName xml } {
     
     set result {}
 
-    if {[info exists $procVarName]} {
+    if {[info exists [subst $procVarName](name)]} {
         set responseName "[set [subst $procVarName](name)]Response"
     } else {
         set responseName "*"
@@ -994,7 +999,7 @@ proc SOAP::parse_xmlrpc_response { procVarName xml } {
 
 # -------------------------------------------------------------------------
 
-### NB: the code below this comment needs to be moved into XMLRPC namespace
+### NB: this procedure needs to be moved into XMLRPC namespace
 
 # Description:
 #   Retrieve the value under the given <value> node.
