@@ -1,7 +1,7 @@
-# SOAP.tcl - Copyright (C) 2001 Pat Thoyts <pat@zsplat.freeserve.co.uk>
+# SOAP.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
 #
 # Provide Tcl access to SOAP 1.1 methods.
-# See http://www.zsplat.freeserve.co.uk/soap1.0/doc/TclSOAP.html
+# See http://www.zsplat.freeserve.co.uk/soap/doc/TclSOAP.html
 # for usage details.
 #
 # -------------------------------------------------------------------------
@@ -14,7 +14,7 @@
 # Todo:
 # - Needs testing using SOAP::Lite's services esp. the object access demo.
 
-package provide SOAP 1.2
+package provide SOAP 1.3
 
 # -------------------------------------------------------------------------
 
@@ -27,10 +27,10 @@ if { [catch {package require dom 2.0}] } {
 }
 
 namespace eval SOAP {
-    variable version 1.2
-    variable rcs_version { $Id: SOAP.tcl,v 1.10 2001/04/10 00:22:33 pat Exp pat $ }
+    variable version 1.3
+    variable rcs_version { $Id: SOAP.tcl,v 1.11 2001/04/13 12:13:39 pat Exp pat $ }
 
-    namespace export create cget dump configure
+    namespace export create cget dump configure proxyconfig
 }
 
 # -------------------------------------------------------------------------
@@ -346,6 +346,58 @@ proc SOAP::transport_configure { transport args } {
         }
     }
 }
+
+# -------------------------------------------------------------------------
+
+# Setup SOAP HTTP transport for an authenticating proxy HTTP server.
+# This is used for me to test at work.
+
+proc SOAP::proxyconfig {} {
+    if { [catch {package require base64}] } {
+        if { [catch {package require Trf}] } {
+            error "proxyconfig requires either tcllib or Trf packages."
+        } else {
+            set local64 "base64 -mode enc"
+        }
+    } else {
+        set local64 "base64::encode"
+    }
+
+    toplevel .t
+    wm title .t "Proxy Configuration"
+    set m [message .t.m1 -relief groove -justify left -width 6c -aspect 200 \
+            -text "Enter details of your proxy server (if any) and your username and password if it is needed by the proxy."]
+    set f1 [frame .t.f1]
+    set f2 [frame .t.f2]
+    button $f2.b -text "OK" -command {destroy .t}
+    pack $f2.b -side right
+    label $f1.l1 -text "Proxy (host:port)"
+    label $f1.l2 -text "Username"
+    label $f1.l3 -text "Password"
+    entry $f1.e1 -textvariable SOAP::conf_proxy
+    entry $f1.e2 -textvariable SOAP::conf_userid
+    entry $f1.e3 -textvariable SOAP::conf_passwd -show {*}
+    grid $f1.l1 -column 0 -row 0 -sticky e
+    grid $f1.l2 -column 0 -row 1 -sticky e
+    grid $f1.l3 -column 0 -row 2 -sticky e
+    grid $f1.e1 -column 1 -row 0 -sticky news
+    grid $f1.e2 -column 1 -row 1 -sticky news
+    grid $f1.e3 -column 1 -row 2 -sticky news
+    grid columnconfigure $f1 1 -weight 1
+    pack $f2 -side bottom -fill x
+    pack $m  -side top -fill x -expand 1
+    pack $f1 -side top -anchor n -fill both -expand 1
+    tkwait window .t
+    SOAP::configure -transport http -proxy $SOAP::conf_proxy
+    if { [info exists SOAP::conf_userid] } {
+        SOAP::configure -transport http \
+            -headers [list "Proxy-Authorization" \
+            "Basic [lindex [$local64 ${SOAP::conf_userid}:${SOAP::conf_passwd}] 0]" ]
+    }
+    unset SOAP::conf_passwd
+}
+
+# -------------------------------------------------------------------------
 
 # Local variables:
 #    indent-tabs-mode: nil
