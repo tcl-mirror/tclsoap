@@ -1,9 +1,20 @@
 # beep.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
 #
-# Provide an BEEP transport for the SOAP package.
+# Provide an BEEP transport for the SOAP package, e.g.,
+#
+#     SOAP::configure -transport soap.beep \
+#         -debug true                      \
+#         -logfile ...                     \
+#         -logident ...                    \
+#         -option-for-mixer::init ...
+#
+#     SOAP::create echoInteger
+#         -uri    http://soapinterop.org/                         \
+#         -proxy  soap.beep://qawoor.dbc.mtview.ca.us/soapinterop \
+#         -params { inputInteger int }
 #
 # BEEP support using the beepcore-tcl code from 
-# http://sourceforge.net/projects/beepcore-tcl provided my M Rose.
+# http://sourceforge.net/projects/beepcore-tcl provided by M Rose.
 #
 # -------------------------------------------------------------------------
 # This software is distributed in the hope that it will be useful, but
@@ -19,7 +30,7 @@ package require mime;                   # tcllib
 
 namespace eval SOAP::Transport::beep {
     variable version 1.0
-    variable rcsid {$Id: beep.tcl,v 1.3 2001/12/21 16:57:52 patthoyts Exp $}
+    variable rcsid {$Id: beep.tcl,v 1.4 2001/12/21 23:44:12 patthoyts Exp $}
     variable options
     variable sessions
 
@@ -29,14 +40,10 @@ namespace eval SOAP::Transport::beep {
     SOAP::register soap.beeps [namespace current]
 
     # Initialize the transport options.
-    #
-    # -mechanism anonymous|otp
-    #
     if {![info exists options]} {
         array set options {
             -logfile    /dev/null
             -logident   soap
-            -debug      0
         }
     }
 
@@ -45,12 +52,15 @@ namespace eval SOAP::Transport::beep {
 
     # Declare the additional SOAP method options provided by this transport.
     variable method:options [list \
-        logT \
+        debug \
         logfile \
         logident \
+        logT \
         mixerT \
         channelT \
         features \
+        destroy \
+        wait \
     ]
 }
 
@@ -61,11 +71,17 @@ namespace eval SOAP::Transport::beep {
 #  for this transport.
 #  
 proc SOAP::Transport::beep::method:configure {procVarName opt value} {
+    variable options
+
     upvar $procVarName procvar
     switch -glob -- $opt {
-        -logT - 
+        -debug - 
         -logfile - 
-        -logident - 
+        -logident {
+            set options($opt) $value
+	}
+
+        -logT - 
         -mixerT - 
         -channelT -
         -features - 
@@ -82,9 +98,9 @@ proc SOAP::Transport::beep::method:configure {procVarName opt value} {
 # -------------------------------------------------------------------------
 
 # Description:
-#  Transport defined SOAP method creation hook. We initialize the method:options
-#  that were declared above and do any transport specific initialization for the
-#  method.
+#  Transport defined SOAP method creation hook. We initialize the 
+#  method:options that were declared above and do any transport specific
+#  initialization for the method.
 # Parameters:
 #  procVarName - the name of the method configuration array
 #  args        - the argument list that was given to SOAP::create
@@ -217,7 +233,7 @@ proc SOAP::Transport::beep::method:create {procVarName args} {
 
     set doc [dom::DOMImplementation create]
     set bootmsg [dom::document createElement $doc bootmsg]
-    dom::element setAttribute $bootmsg resource $URL(path)
+    dom::element setAttribute $bootmsg resource /$URL(path)
     set data [dom::DOMImplementation serialize $doc]
     if { [set x [string first [set y "<!DOCTYPE bootmsg>\n"] $data]] >= 0 } {
 	set data [string range $data [expr $x+[string length $y]] end]
@@ -298,29 +314,16 @@ proc SOAP::Transport::beep::method:create {procVarName args} {
 # -------------------------------------------------------------------------
 
 # Description:
-#  Configure any http transport specific settings.
+#  Configure any beep transport specific settings.
+#  Anything that works for mixer::init works for us...
 #
 proc SOAP::Transport::beep::configure {args} {
-    if {[llength $args] == 0} {
-        set r {}
-        foreach {opt value} [array get options] {
-            lappend r "-$opt" $value
-        }
-        return $r
-    }
+    variable options
 
-    foreach {opt value} $args {
-        switch -- $opt {
-            -logfile - 
-            -logident {
-                set procvar([string trimleft $opt -]) $value
-            }
-            default {
-                error "invalid option \"$opt\": must be \
-                     \"-logfile\" or \"-logident\""
-            }
-        }
+    if {[llength $args] == 0} {
+	return [array get options]
     }
+    array set options $args
     return {}
 }
 

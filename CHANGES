@@ -4,6 +4,11 @@
 **  Beep Transport (patch #464013)
    Implemented patch #464013 to provide SOAP over BEEP using the
    beepcore-tcl package.
+   Applied additional patch from Marshall Rose to beep.tcl (5Jan02)
+
+** HTTP Timeout
+   Fixed -timeout option for http transport. Added a SOAP::wait method
+   to allow user code to synchronise with asynchronous SOAP calls.
 
 * TclSOAP 1.6.2
 ---------------
