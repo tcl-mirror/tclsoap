@@ -61,6 +61,7 @@ proc soapinterop::validate {{proxy {}}} {
 
     catch {validate.echoVoid} msg        ; puts "$msg"
     catch {validate.echoDate} msg        ; puts "$msg"
+    catch {validate.echoBase64} msg      ; puts "$msg"
     catch {validate.echoInteger} msg     ; puts "$msg"
     catch {validate.echoFloat} msg       ; puts "$msg"
     catch {validate.echoString} msg      ; puts "$msg"
@@ -95,6 +96,15 @@ proc soapinterop::validate.echoDate {} {
 	error "echoDate failed: $d != $r"
     }
     return "echoDate"
+}
+
+proc soapinterop::validate.echoBase64 {} {
+    set q [base64::encode [array get ::tcl_platform]]
+    set r [echoBase64 $q]
+    if {![string match $q $r]} {
+	error "echoBase64 failed: strings do not match"
+    }
+    return "echoBase64"
 }
 
 proc soapinterop::validate.echoInteger {} {
