@@ -20,17 +20,9 @@
 > Before I stick that into the package I'll check the specs to see if
 > this is normal or expected though...
 
-** SOAP with Attachments
-
-Marshal Rose is after getting general SOAP-with-attachments done.
-
 ** tDOM Support
 
 de? was after tDOM shim. I seem to have lost the file though. :(
-
-** XMLRPC::Domain
-
-Looks like I forgot about XML-RPC when re-adding the SOAP::Domain package.
 
 Local variables:
   mode: outline
