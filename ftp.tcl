@@ -10,7 +10,6 @@
 #          -action urn:tclsoap:Purchase
 #          -uri urn:tclsoap:Purchase
 #          -params {code string auth string}
-#          -command error
 #
 # -------------------------------------------------------------------------
 # This software is distributed in the hope that it will be useful, but
@@ -23,25 +22,53 @@ package require ftp;                    # tcllib
 
 namespace eval SOAP::Transport::ftp {
     variable version 1.0
-    variable rcsid {$Id$}
+    variable rcsid {$Id: ftp.tcl,v 1.1 2001/12/20 00:08:24 patthoyts Exp $}
     variable options
     
- ##   package provide SOAP::ftp $version
+    package provide SOAP::ftp $version
 
     SOAP::register ftp [namespace current]
 
+    # Initialize the transport options.
     if {![info exists options]} {
-        array set options [list \
-            headers  {} \
-            auth     "$::tcl_platform(user)@[info hostname]" \
-        ]
+        array set options {}
     }
+
+    # Declare the additional SOAP method options provided by this transport.
+    variable method:options [list \
+        username \
+        password \
+    ]
 
     #proc ::ftp::DisplayMsg {handle msg state} {
     #    # log
     #}       
 }
 
+# -------------------------------------------------------------------------
+
+# Description:
+#  Implement the additional SOAP method configuration options provide
+#  for this transport.
+# Notes:
+#  username - username to login on (can also be part of the URL)
+#  password - password for server (can also be part of the URL)
+#
+proc SOAP::Transport::ftp::method:configure {procVarName opt value} {
+    upvar $procVarName procvar
+    switch -glob -- $opt {
+        -user* {
+            set procvar(username) $value
+        }
+        -pass* {
+            set procvar(password) $value
+        }
+        default {
+            # not reached.
+            error "unknown option \"$opt\""
+        }
+    }
+}
 # -------------------------------------------------------------------------
 
 # Description:
@@ -60,15 +87,8 @@ proc SOAP::Transport::ftp::configure {args} {
 
     foreach {opt value} $args {
         switch -- $opt {
-            -auth {
-                set options(auth) $value
-            }
-            -headers {
-                set options(headers) $value
-            }
             default {
-                error "invalid option \"$opt\": must be \
-                      \"-auth\" or \"-headers\""
+                error "invalid option \"$opt\": no transport configuration options"
             }
         }
     }
@@ -77,14 +97,41 @@ proc SOAP::Transport::ftp::configure {args} {
 # -------------------------------------------------------------------------
 
 # Description:
+#   Perform a remote procedure call using FTP as the transport protocol.
+#   This uses the tcllib ftp package to do the work. FTP transports will
+#   be asynchronous in that no answer is available.
+#
+#   We should deal with FTP proxies some time soon. Can the FTP package
+#   handle this?
+#
+# Parameters:
+#   procVarName - the name of the SOAP config array for this method.
+#   url         - the SOAP endpoint URL
+#   request     - the XML data making up the SOAP request
+# Result:
+#   The data payload is uploaded to the server using FTP. No
+#   response is available.
 #
 proc SOAP::Transport::ftp::xfer {procVarName url soap} {
     variable options
+    upvar $procVarName procvar
 
-    array set u [uri::split $url]
+    set username {} ; set password {}
 
-    set tok [ftp::Open $u(host) $u(user) $u(pwd)]
-    set r [ftp::Append $tok -data $soap $u(path)]
+    if {[info exists procvar(username)]} {
+        set username $procvar(username)
+    }
+    if {[info exists procvar(password)]} {
+        set password $procvar(password)
+    }
+
+    array set URL [uri::split $url]
+
+    if {$URL(user) != {}} { set username $URL(user) }
+    if {$URL(pwd)  != {}} { set password $URL(pwd) }
+
+    set tok [ftp::Open $URL(host) $username $password]
+    set r [ftp::Append $tok -data $soap $URL(path)]
     ftp::Close $tok
 
     if {! $r} {
@@ -101,12 +148,9 @@ proc SOAP::Transport::ftp::xfer {procVarName url soap} {
 # Parameters:
 #  methodVarName - the name of the SOAP method configuration array
 #
-proc SOAP::Transport::ftp::cleanup {methodVarName} {
-    upvar $methodVarName procvar
-    #if {[info exists procvar(http)] && $procvar(http) != {}} {
-    #    catch {::http::cleanup $procvar(http)}
-    #}
-}
+#proc SOAP::Transport::ftp::method:destroy {methodVarName} {
+#    upvar $methodVarName procvar
+#}
 
 # -------------------------------------------------------------------------
 

@@ -13,17 +13,14 @@ package require http;                   # tcl
 
 namespace eval SOAP::Transport::http {
     variable version 1.0
-    variable rcsid {$Id: http.tcl,v 1.1 2001/12/08 01:19:02 patthoyts Exp $}
+    variable rcsid {$Id: http.tcl,v 1.2 2001/12/20 00:09:29 patthoyts Exp $}
     variable options
 
     package provide SOAP::http $version
 
     SOAP::register http [namespace current]
 
-    variable method:options {
-        httpheaders
-    }
-
+    # Initialize the transport options.
     if {![info exists options]} {
         array set options {
             headers  {}
@@ -31,6 +28,11 @@ namespace eval SOAP::Transport::http {
             progress {}
         }
     }
+
+    # Declare the additional SOAP method options provided by this transport.
+    variable method:options [list \
+        httpheaders \
+    ]
     
     # Provide missing code for http < 2.3
     if {[info proc ::http::ncode] == {}} {
@@ -44,6 +46,14 @@ namespace eval SOAP::Transport::http {
 
 # -------------------------------------------------------------------------
 
+# Description:
+#  Implement the additional SOAP method configuration options provide
+#  for this transport.
+# Notes:
+#  -httpheaders - additional HTTP headers may be defined for specific
+#       SOAP methods. Argument should be a two element list made of
+#       the header name and value eg: [list Cookie $cookiedata]
+#
 proc SOAP::Transport::http::method:configure {procVarName opt value} {
     upvar $procVarName procvar
     switch -glob -- $opt {
@@ -51,6 +61,7 @@ proc SOAP::Transport::http::method:configure {procVarName opt value} {
             set procvar(httpheaders) $value
         }
         default {
+            # not reached.
             error "unknown option \"$opt\""
         }
     }
@@ -262,12 +273,13 @@ proc SOAP::Transport::http::asynchronous2 {procVarName token} {
 # -------------------------------------------------------------------------
 
 # Description:
-#   Handle a proxy server.
+#   Handle a proxy server. If the -proxy options is set then this is used
+#   to override the http package configuration.
 # Notes:
 #   Needs expansion to use a list of non-proxied sites or a list of
 #   {regexp proxy} or something.
 #   The proxy variable in this namespace is set up by 
-#   configure -transport http.
+#   SOAP::configure -transport http.
 #
 proc SOAP::Transport::http::filter {host} {
     variable options
@@ -281,6 +293,8 @@ proc SOAP::Transport::http::filter {host} {
 # -------------------------------------------------------------------------
 
 # Description:
+#   Support asynchronous transactions and permit waiting for completed
+#   calls.
 # Parameters:
 #
 proc SOAP::Transport::http::wait {procVarName} {

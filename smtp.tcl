@@ -8,14 +8,6 @@
 #          -action urn:tclsoap:Purchase
 #          -uri urn:tclsoap:Purchase
 #          -params {code string auth string}
-#          -transport SOAP::Transport::smtp::xfer
-#          -command error
-# Given this sort of command the -transport option looks pretty redundant.
-# I think the framework can be re-arranged to work out the transport protocol
-# based upon the url scheme (http, beep, mailto, ftp, https, ... others?)
-#
-# I suggest looking for a SOAP::Transport::<scheme>::xfer and configure.
-# This would make adding new transports much more simple.
 #
 # -------------------------------------------------------------------------
 # This software is distributed in the hope that it will be useful, but
@@ -24,18 +16,19 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package require mime;                   # tcllib
-package require smtp;                   # tcllib
+package require mime;                   # tcllib 1.0
+package require smtp;                   # tcllib 1.0
 
 namespace eval SOAP::Transport::smtp {
     variable version 1.0
-    variable rcsid {$Id: smtp.tcl,v 1.1 2001/12/08 01:19:02 patthoyts Exp $}
+    variable rcsid {$Id: smtp.tcl,v 1.2 2001/12/20 00:09:29 patthoyts Exp $}
     variable options
     
     package provide SOAP::smtp $version
 
     SOAP::register mailto [namespace current]
 
+    # Initialize the transport options.
     if {![info exists options]} {
         array set options [list \
             servers  {} \
@@ -45,15 +38,24 @@ namespace eval SOAP::Transport::smtp {
 
     }
 
-    variable method:options {
-        mimeheaders
-        attachments
-    }
-
+    # Declare the additional SOAP method options provided by this transport.
+    variable method:options [list \
+        mimeheaders \
+        attachments \
+    ]
 }
 
 # -------------------------------------------------------------------------
 
+# Description:
+#  Implement the additional SOAP method configuration options provide
+#  for this transport.
+# Notes:
+#  -mimeheaders - specify extra MIME headers for use with this SOAP
+#       method. eg: -mimeheaders [list X-Face $facedata X-Abuse $ab]
+#  -attach      - implements SOAP Messages with attachments spec.
+#       The argument should be a MIME token returned by mime::initialize.
+#
 proc SOAP::Transport::smtp::method:configure {procVarName opt value} {
     upvar $procVarName procvar
     switch -glob -- $opt {
@@ -61,13 +63,10 @@ proc SOAP::Transport::smtp::method:configure {procVarName opt value} {
             set procvar(mimeheaders) $value
         }
         -attach* {
-            if {![info exists procvar(attachments)]} {
-                set procvar(attachments) $value
-            } else {
-                set procvar(attachments) [concat $procvar(attachments) $value]
-            }
+            set procvar(attachments) $value
         }
         default {
+            # not reached
             error "unknown option \"$opt\""
         }
     }

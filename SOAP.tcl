@@ -18,7 +18,7 @@ package provide SOAP 1.6
 package require http 2.0;               # tcl 8.n
 package require log;                    # tcllib 1.0
 package require uri;                    # tcllib 1.0
-catch {package require uri::urn};       # tcllib 1.1
+catch {package require uri::urn};       # tcllib 1.2
 package require SOAP::Utils;            # TclSOAP
 package require rpcvar;                 # TclSOAP 
 
@@ -44,7 +44,7 @@ namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.38 2001/12/08 01:19:02 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.39 2001/12/20 00:09:29 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -87,6 +87,25 @@ proc SOAP::schemeloc {scheme} {
     }
 }
 
+# Description:
+#  Check for the existence of a SOAP Transport specific procedure.
+#  If the named proc exists then the fully qualified name is returned
+#  otherwise an empty string is returned.
+#  Used by SOAP::destroy, SOAP::wait and others.
+#
+proc SOAP::transportHook {procVarName cmdname} {
+    upvar $procVarName procvar
+    
+    array set URL [uri::split $procvar(proxy)]
+    if {$URL(scheme) == "urn"} {
+        set URL(scheme) "$a(scheme):$a(nid)"
+    }
+    set cmd [schemeloc $URL(scheme)]::$cmdname
+    if {[info command $cmd] == {}} {
+        set cmd {}
+    }
+    return $cmd
+}
 # -------------------------------------------------------------------------
 
 # Description:
@@ -194,9 +213,9 @@ proc SOAP::dump {args} {
     }
 
     # call the transports 'dump' proc if found
-    set dumpproc ::[namespace qualifiers [cget $methodName transport]]::dump
-    if {[info command $dumpproc] != {}} {
-        return [eval $dumpproc [list $methodName] [list $type]]
+    set procVarName [methodVarName $methodName]
+    if {[set cmd [transportHook $procVarName dump]] != {}} {
+        $cmd $methodName $type
     } else {
         error "no dump available: the configured transport has no 'dump'\
               procedure defined"
@@ -252,30 +271,15 @@ proc SOAP::configure { procName args } {
     }
     upvar $procVarName procvar
 
-    # Identify the transport protocol so we can include transport specific
-    # configuration
-    set uri {}
-    set scheme {}
-    if {$procvar(proxy) != {}} {
-        set uri $procvar(proxy)
-    } elseif {[set n [lsearch -exact $args -proxy]] != -1} {
-        incr n
-        set uri [lindex $args $n]
-    }
-    if {$uri != {}} {
-        array set a [uri::split $uri]
-        if {$a(scheme) == "urn"} {
-            set a(scheme) $a(scheme):$a(nss)
-        }
-        set scheme $a(scheme)
-    }
-    catch {unset uri}
+    # Add in transport plugin defined options and locate the
+    # configuration hook procedure if one exists.
+    set scheme [eval getTransportFromArgs $procVarName $args]
     if {$scheme != {}} {
         set transport_opts "[schemeloc $scheme]::method:options"
         if {[info exists $transport_opts]} {
             set options [concat $options [set $transport_opts]]
         }
-        set transport_conf "[schemeloc $scheme]::method:configure"
+        set transportHook "[schemeloc $scheme]::method:configure"
     }
 
     # if no args - print out the current settings.
@@ -312,9 +316,9 @@ proc SOAP::configure { procName args } {
                 # might be better to delete the args as we process them
                 # and then call this once with all the remaining args.
                 # Still - this will work fine.
-                if {[info exists transport_conf] 
-                    && [info command $transport_conf] != {}} {
-                    if {[catch {eval $transport_conf $procVarName \
+                if {[info exists transportHook] 
+                    && [info command $transportHook] != {}} {
+                    if {[catch {eval $transportHook $procVarName \
                                     [list $opt] [list $value]}]} {
                         error "unknown option \"$opt\":\
                             must be one of ${options}"
@@ -333,15 +337,11 @@ proc SOAP::configure { procName args } {
     # If the transport proc is not overridden then set based upon the proxy
     # scheme registered by SOAP::register.
     if { $procvar(transport) == {} } {
-        array set a [uri::split $procvar(proxy)]
-        if {$a(scheme) == "urn"} {
-            set a(scheme) "$a(scheme):$a(nid)"
-        }
-        set ns [schemeloc $a(scheme)]
-        if {[info command ${ns}::xfer] != {}} {
-            set procvar(transport) ${ns}::xfer
+        set xferProc "[schemeloc $scheme]::xfer"
+        if {[info command $xferProc] != {}} {
+            set procvar(transport) $xferProc
         } else {
-            error "invalid transport: \"$a(scheme)\" is improperly registered"
+            error "invalid transport: \"$scheme\" is improperly registered"
         }
     } 
     
@@ -425,8 +425,45 @@ proc SOAP::create { args } {
     array set $varName {version   {}} ;# SOAP Version in force (URI)
     array set $varName {encoding  {}} ;# SOAP Encoding (URI)
 
+    set scheme [eval getTransportFromArgs $varName $args]
+    if {$scheme != {}} {
+        # Add any transport defined method options
+        set transportOptions "[schemeloc $scheme]::method:options"
+        foreach opt [set $transportOptions] {
+            array set $varName [list $opt {}]
+        }
+        
+        # Call any transport defined construction proc
+        set createHook "[schemeloc $scheme]::method:create"
+        if {[info command $createHook] != {}} {
+            eval $createHook $varName $args
+        }
+    }
+
     # call configure from the callers level so it can get the namespace.
     return [uplevel 1 "[namespace current]::configure $procName $args"]
+}
+
+# Identify the transport protocol so we can include transport specific
+# creation code.
+proc getTransportFromArgs {procVarName args} {
+    upvar $procVarName procvar
+    set uri {}
+    set scheme {}
+    if {$procvar(proxy) != {}} {
+        set uri $procvar(proxy)
+    } elseif {[set n [lsearch -exact $args -proxy]] != -1} {
+        incr n
+        set uri [lindex $args $n]
+    }
+    if {$uri != {}} {
+        array set URL [uri::split $uri]
+        if {$URL(scheme) == "urn"} {
+            set URL(scheme) $URL(scheme):$URL(nid)
+        }
+        set scheme $URL(scheme)
+    }
+    return $scheme
 }
 
 # -------------------------------------------------------------------------
@@ -457,18 +494,12 @@ proc SOAP::export {args} {
 #
 proc SOAP::destroy {methodName} {
     set procVarName [methodVarName $methodName]
-    upvar $procVarName procvar
 
     # Delete the SOAP command
     uplevel rename $methodName {{}}
 
     # Call the transport specific method destructor (if any)
-    array set a [uri::split $procvar(proxy)]
-    if {$a(scheme) == "urn"} {
-        set a(scheme) "$a(scheme):$a(nid)"
-    }
-    set cmd [schemeloc $a(scheme)]::method:destroy
-    if {[info command $cmd] != {}} {
+    if {[set cmd [transportHook $procVarName method:destroy]] != {}} {
         $cmd $procVarName
     }
 
@@ -485,15 +516,9 @@ proc SOAP::destroy {methodName} {
 #
 proc SOAP::wait {methodName} {
     set procVarName [methodVarName $methodName]
-    upvar $procVarName procvar
 
     # Call the transport specific method wait proc (if any)
-    array set a [uri::split $procvar(proxy)]
-    if {$a(scheme) == "urn"} {
-        set a(scheme) "$a(scheme):$a(nid)"
-    }
-    set cmd [schemeloc $a(scheme)]::wait
-    if {[info command $cmd] != {}} {
+    if {[set cmd [transportHook $procVarName wait]] != {}} {
         $cmd $procVarName
     }
 }
