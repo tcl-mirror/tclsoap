@@ -173,16 +173,17 @@ proc SOAP::transport_print { url soap } {
     <dd><p>Used for global configuration of the available
     transports. The options passed in to this command are dependent on
     the transport mchanism. The only transports currently available<p>
-    <p>The HTTP
-    transport may require a proxy server and possible other headers to
-    be included. This is where to add this information. For example,
-    to pass an authenticating proxy server I need to provide the name
-    of the server and a Proxy-Authorize HTTP header using the Trf
-    package to provide the base64 encoding procedure.
-    <tt><pre>
+
+    <p>The HTTP transport may require a proxy server and possible
+    other headers to be included. This is where to add this
+    information. For example, to pass an authenticating proxy server I
+    need to provide the name of the server and a Proxy-Authorize HTTP
+    header using the Trf package to provide the base64 encoding
+    procedure.
+<pre>
 SOAP::configure -transport http -proxy wwwproxy:8080 \ 
        -headers { "Proxy-Authorize" "Basic [base64 -enc user:pass]" }
-       </pre></tt></p>
+</pre></p>
     </dd>
 
 <!-- SOAP::configure -->
@@ -261,7 +262,7 @@ SOAP::configure hi -params {}
        being the XML text of the reply. The hook procedure should
        return the new XML text suitable for processing by the
        <i>-parseProc</i> procedure. For example:
-      <pre>proc my_reply_hook { methodName xml } {
+<pre>proc my_reply_hook { methodName xml } {
    puts "$xml"
    return $xml
 }</pre>
@@ -283,6 +284,19 @@ SOAP::configure hi -params {}
        the SOAP method name and the second the result value extracted
        from the XML. The procedure should return the new result value.
        By default no procedure is defined.</dd>
+
+    <dt>-command <i>callback</i></dt>
+       <dd>Provide support for asynchronous methods. This option
+       causes the SOAP method invocation to return immediately and the
+       <i>callback</i> procedure is called once the round trip finally
+       completes. The procedure will be called with an additional
+       argument that is the data returned by the remote method. The
+       callback procedure must exist before the SOAP method is
+       configured as the procedure name is namespace qualified during
+       configuration.
+<pre>   proc gotInfo {window data} { ... }
+   SOAP::configure getInfo -command {gotInfo .frame1.edit} ...
+</pre></dd>
 
     </dl></dd><br>
 
@@ -387,10 +401,10 @@ SOAP::configure hi -params {}
   <font size="2">
 <!-- Created: Wed Mar 14 00:26:30 GMT 2001 -->
 <!-- hhmts start -->
-Last modified: Fri Jun 15 01:59:27 BST 2001
+Last modified: Thu Jun 21 00:37:01 BST 2001
 <!-- hhmts end -->
 
-  <br><tt>$Id: TclSOAP.html,v 1.8 2001/06/15 00:49:37 patthoyts Exp $</tt>
+  <br><tt>$Id: TclSOAP.html,v 1.9 2001/06/15 01:00:27 patthoyts Exp $</tt>
   </font>
 
   </body>
