@@ -1,3 +1,19 @@
+* TclSOAP 1.6.2
+---------------
+
+** Implemented SOAP Version support - TODOL Test
+   SOAP::configure now has a -version option taking the uri of the
+   SOAP envelope namespace.
+
+** Implemented SOAP Encoding support - TODO: Test
+   SOAP::configure now has a -encoding option taking the uri of the
+   SOAP encoding namespace.
+
+** General method attribute support
+   Added a -attribute option to the SOAP method call code to allow the
+   user to add additional attributes to the method element. Required for
+   UDDI support.
+
 * TclSOAP 1.6.1
 ---------------
 

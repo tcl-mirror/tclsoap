@@ -36,7 +36,7 @@ if {[catch {
 namespace eval SOAP {
     variable version 1.6
     variable domVersion $domVer
-    variable rcs_version { $Id: SOAP.tcl,v 1.33 2001/10/07 22:28:08 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.34 2001/10/08 22:45:03 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -148,7 +148,8 @@ proc SOAP::configure { procName args } {
     # The list of valid options, used in the error messsage
     set options { uri proxy params name transport action \
                   wrapProc replyProc parseProc postProc \
-                  command errorCommand schema }
+                  command errorCommand schemas version \
+                  encoding }
 
     if { $procName == "-transport" } {
         return [eval "transport_configure $args"]
@@ -181,7 +182,9 @@ proc SOAP::configure { procName args } {
             -transport { set [subst $procVarName](transport) $value }
             -name      { set [subst $procVarName](name) $value }
             -action    { set [subst $procVarName](action) $value }
-            -schema    { set [subst $procVarName](action) $value }
+            -schemas   { set [subst $procVarName](schemas) $value }
+            -version   { set [subst $procVarName](version) $value }
+            -encoding  { set [subst $procVarName](encoding) $value }
             -wrapProc  { set [subst $procVarName](wrapProc) \
                     [qualifyNamespace $value] }
             -replyProc { set [subst $procVarName](replyProc) \
@@ -209,6 +212,29 @@ proc SOAP::configure { procName args } {
                 [namespace current]::Transport::http::xfer
     } 
     
+    # The default version is SOAP 1.1
+    set soapver [set [subst $procVarName](version)]
+    if { $soapver == {} } {
+        set soapver SOAP1.1
+    }
+    # Canonicalize the SOAP version URI
+    switch -glob -- $soapver {
+        SOAP1.1 - 1.1 { set soapver "http://schemas.xmlsoap.org/soap/envelope/" }
+        SOAP1.2 - 1.2 { set soapver "http://www.w3.org/2001/06/soap-envelope" }
+    }
+    set [subst $procVarName](version) $soapver
+
+    # Default SOAP encoding is SOAP 1.1
+    set soapenc [set [subst $procVarName](encoding)]
+    if { $soapenc == {} } {
+        set soapenc SOAP1.1
+    }
+    switch -glob -- $soapenc {
+        SOAP1.1 - 1.1 { set soapenc "http://schemas.xmlsoap.org/soap/encoding/" }
+        SOAP1.2 - 1.2 { set soapenc "http://www.w3.org/2001/06/soap-encoding" }
+    }
+    set [subst $procVarName](encoding) $soapenc
+
     # Select the default parser unless one is specified
     if { [set [subst $procVarName](parseProc)] == {} } {
         set [subst $procVarName](parseProc) \
@@ -256,7 +282,9 @@ proc SOAP::create { args } {
     array set $varName {command   {}} ;# asynchronous reply handler
     array set $varName {errorCommand {}} ;# asynchronous error handler
     array set $varName {headers   {}} ;# SOAP Header information of last call
-    array set $varName {schema    {}} ;# SOAP Schema in force
+    array set $varName {schemas   {}} ;# List of SOAP Schemas in force
+    array set $varName {version   {}} ;# SOAP Version in force (URI)
+    array set $varName {encoding  {}} ;# SOAP Encoding (URI)
 
     # call configure from the callers level so it can get the namespace.
     return [uplevel 1 "[namespace current]::configure $procName $args"]
@@ -744,13 +772,19 @@ proc SOAP::soap_request {procVarName args} {
     set params [set [subst $procVarName](params)]
     set name [set [subst $procVarName](name)]
     set uri [set [subst $procVarName](uri)]
+    set soapenv [set [subst $procVarName](version)]
+    set soapenc [set [subst $procVarName](encoding)]
 
     # Check for options (ie: -header)
-    array set opts {-headers {}}
+    array set opts {-headers {} -attributes {}}
     while {[string match -* [lindex $args 0]]} {
         switch -glob -- [lindex $args 0] {
             -header* {
-                append opts(-headers) [lindex $args 1]
+                set opts(-headers) [concat $opts(-headers) [lindex $args 1]]
+                set args [lreplace $args 0 0]
+            }
+            -attr* {
+                set opts(-attributes) [concat $opts(-attributes) [lindex $args 1]]
                 set args [lreplace $args 0 0]
             }
             -- {
@@ -784,16 +818,16 @@ proc SOAP::soap_request {procVarName args} {
 
     set doc [dom::DOMImplementation create]
     set envx [dom::document createElement $doc "SOAP-ENV:Envelope"]
-    dom::element setAttribute $envx \
-            "xmlns:SOAP-ENV" "http://schemas.xmlsoap.org/soap/envelope/"
-    dom::element setAttribute $envx \
-            "xmlns:xsi"      "http://www.w3.org/1999/XMLSchema-instance"
-    dom::element setAttribute $envx \
-            "xmlns:xsd"      "http://www.w3.org/1999/XMLSchema"
-    dom::element setAttribute $envx \
-            "xmlns:SOAP-ENC" "http://schemas.xmlsoap.org/soap/encoding/"
-    dom::element setAttribute $envx "SOAP-ENV:encodingStyle" \
-            "http://schemas.xmlsoap.org/soap/encoding/"
+
+    dom::element setAttribute $envx "xmlns:SOAP-ENV" $soapenv
+    dom::element setAttribute $envx "xmlns:SOAP-ENC" $soapenc
+    dom::element setAttribute $envx "SOAP-ENC:encodingStyle" $soapenc
+
+    # The set of namespaces depends upon the SOAP encoding as specified by
+    # the encoding option and the user specified set of relevant schemas.
+    foreach {nsname url} [rpcvar::default_schemas $soapenc] {
+        dom::element setAttribute $envx $nsname $url
+    }
 
     # Insert the Header elements (if any)
     if {$opts(-headers) != {}} {
@@ -812,6 +846,13 @@ proc SOAP::soap_request {procVarName args} {
     } else {
         set cmd [dom::document createElement $bod "ns:$name" ]
         dom::element setAttribute $cmd "xmlns:ns" $uri
+    }
+
+    # Insert any method attributes
+    if {$opts(-attributes) != {}} {
+        foreach {atname atvalue} $opts(-attributes) {
+            dom::element setAttribute $cmd $atname $atvalue
+        }
     }
 
     # insert the parameters.
