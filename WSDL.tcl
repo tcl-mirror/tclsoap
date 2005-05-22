@@ -18,7 +18,7 @@ package require SOAP::Schema;           # TclSOAP 1.6.7
 
 namespace eval ::SOAP::WSDL {
     variable version 1.0
-    variable rcsid {$Id: WSDL.tcl,v 1.1.2.8 2003/07/26 12:26:38 patthoyts Exp $}
+    variable rcsid {$Id: WSDL.tcl,v 1.1.2.9 2004/04/30 00:54:50 patthoyts Exp $}
     variable logLevel warning
     
     #namespace export 
@@ -100,7 +100,7 @@ proc ::SOAP::WSDL::parse_service {defNode serviceNode} {
     output "namespace eval $serviceName {"
 
     foreach type [array names types] {
-        output "typedef $types($type) $type"
+        output "rpcvar::typedef $types($type) $type"
     }
 
     foreach portNode [getElementsByName $serviceNode port] {
@@ -227,11 +227,13 @@ proc ::SOAP::WSDL::parse_portType {definitionsNode portTypeNode arrayName} {
 
 proc ::SOAP::WSDL::parse_types {definitionsNode typesNode} {
     variable types
-    foreach schemaNode [getElementsByName $typesNode schema] {
-        set t [::SOAP::Schema::parse $schemaNode]
-        foreach typedef $t {
-            foreach {typelist typename} $typedef {}
-            set types($typename) $typelist
+    foreach schemaNode [getElements $typesNode] {
+        if {[string equal [nodeName $schemaNode] "schema"]} {
+            set t [::SOAP::Schema::parse $schemaNode]
+            foreach typedef $t {
+                foreach {typelist typename} $typedef {}
+                set types($typename) $typelist
+            }
         }
     }
 }

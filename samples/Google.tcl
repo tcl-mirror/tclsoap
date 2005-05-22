@@ -13,7 +13,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 #
-# @(#)$Id: Google.tcl,v 1.1.2.1 2003/02/04 22:56:49 patthoyts Exp $
+# @(#)$Id: Google.tcl,v 1.1.2.2 2003/09/06 16:39:06 patthoyts Exp $
 
 package require SOAP
 package require uri
@@ -114,7 +114,11 @@ proc setup_from_wsdl {} {
     # Also at 
     set wsdl_url http://api.google.com/GoogleSearch.wsdl
     set wsdl_name [file tail $wsdl_url]
-    if {[file exists [set fname [file join $::env(TEMP) $wsdl_name]]]} {
+    set tmp /tmp
+    if {[info exists ::env(TEMP)]} {
+        set tmp $::env(TEMP)
+    }
+    if {[file exists [set fname [file join $tmp $wsdl_name]]]} {
         set f [open $fname r]
         set wsdl [read $f]
         close $f
@@ -184,16 +188,12 @@ proc setup_manually {} {
 #
 
 proc setup {} {
-    set need_setup 1
-
-    catch {package require SOAP::WSDL}
-    if {[package provide SOAP::WSDL] != {}} {
-        if {[set need_setup [catch {setup_from_wsdl} msg]]} {
-            puts stderr "failed to parse wsdl: $msg"
-        }
-    }
-    
-    if {$need_setup} {
+    if {[catch {
+        package require SOAP::WSDL
+        setup_from_wsdl
+    } err]} {
+        puts stderr "warning: using built-in service description"
+        puts stderr "$err"
         setup_manually
     }
 }

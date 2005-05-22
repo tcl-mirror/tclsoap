@@ -1,4 +1,4 @@
-# xmlschema.tcl - Copyright (C) 2002 Pat Thoyts <patthoyts@users.sf.net>
+# schema.tcl - Copyright (C) 2002 Pat Thoyts <patthoyts@users.sf.net>
 #
 # Process XML Schema documents for WSDL types
 # http://www.w3.org/TR/2001/REC-xmlschema-1-20010502/
@@ -23,7 +23,7 @@ package require SOAP::Utils;            # TclSOAP
 
 namespace eval ::SOAP::Schema {
     variable version 0.1
-    variable rcsid {$Id: schema.tcl,v 1.1.2.2 2003/06/12 22:51:08 patthoyts Exp $}
+    variable rcsid {$Id: schema.tcl,v 1.1.2.3 2004/03/04 00:40:39 patthoyts Exp $}
 
     catch {namespace import -force [namespace parent]::Utils::*}
 }
@@ -35,7 +35,7 @@ proc ::SOAP::Schema::parse {schemaNode} {
     set defs {}
     foreach typeNode [getElements $schemaNode] {
         # now shift to XML schema parser...
-        switch -exact -- [set def [getElementName $typeNode]] {
+        switch -exact -- [set def [nodeName $typeNode]] {
             complexType { lappend defs [parse_complexType $typeNode] }
             simpleType { lappend defs [parse_simpleType $typeNode] }
             import  {
@@ -79,7 +79,7 @@ proc SOAP::Schema::parse_complexType {typeNode} {
 }
 
 proc SOAP::Schema::parse_content {contentNode} {
-    set contentName [getElementName $contentNode]
+    set contentName [nodeName $contentNode]
     switch -exact -- $contentName {
         complexContent -
         all {
@@ -119,7 +119,7 @@ proc ::SOAP::Schema::element {element} {
     array set elt {name {} type {} maxOccurs 1 minOccurs 1 nillable 0\
                        children {}}
     set elt(name) [getElementName $elt]
-    if {[parent type] eq all && value != 1} {
+    if {[string equal [parent type] all] && value != 1} {
         return -code error "invalid attribute"
     }
     set elt(maxOccurs) $maxOccurs
