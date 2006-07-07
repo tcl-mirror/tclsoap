@@ -12,15 +12,16 @@
 namespace eval ::SOAP {
     namespace eval Utils {
         variable version 1.0.1
-        variable rcsid {$Id: utils.tcl,v 1.7.2.6 2004/04/28 23:38:16 patthoyts Exp $}
+        variable rcsid {$Id: utils.tcl,v 1.1.1.1 2005/09/09 22:24:16 patthoyts Exp $}
         namespace export getElements getElementsByName \
                 getElementValue getElementName \
                 getElementValues getElementNames \
                 getElementNamedValues \
                 getElementAttributes getElementAttribute \
                 decomposeSoap decomposeXMLRPC selectNode \
-                namespaceURI targetNamespaceURI \
-                nodeName baseElementName
+                namespaceURI targetNamespaceURI qualify qualifyTarget qualifyNodeName \
+                nodeName baseQName \
+                splitQName joinQName
     }
 }
 
@@ -409,7 +410,7 @@ proc ::SOAP::Utils::namespaceURI {node} {
         set ndx [string last : $nodeName]
         set nodeNS [string range $nodeName 0 $ndx]
         set nodeNS [string trimright $nodeNS :]
-        
+
         set result [find_namespaceURI $node $nodeNS]
     }
     return $result
@@ -427,6 +428,33 @@ proc ::SOAP::Utils::targetNamespaceURI {node value} {
     return [find_namespaceURI $node $ns 1]
 }
 
+proc ::SOAP::Utils::qualifyNodeName {node} {
+    #if {[dom::DOMImplementation hasFeature query 1.0]} {
+    #    return [dom::node cget $node -namespaceURI]
+    #}
+    foreach {nodeNS nodeName} [splitQName [dom::node cget $node -nodeName]] break
+    if {[catch {dom::node cget $node -namespaceURI} qns]} {
+        set qns [find_namespaceURI $node $nodeNS]
+    }
+    return $qns:$nodeName
+}
+
+proc ::SOAP::Utils::qualifyTarget {node what} {
+    set r [qualify $node $what 1]
+    #log::log notice "qualifyTarget ('$what' -> '$r' for [info level -1])"
+    return $r
+}
+
+proc ::SOAP::Utils::qualify {node name {target 0}} {
+    foreach {nodeNS nodeBase} [SOAP::Utils::splitQName $name] break
+    set nodeNSQ [SOAP::Utils::find_namespaceURI $node $nodeNS $target]
+    #log::log notice "qualify ( '$nodeNS' '$nodeBase' '$nodeNSQ')"
+    if {[string length $nodeNSQ] < 1} {
+        return $nodeBase
+    }
+    return $nodeNSQ:$nodeBase
+}
+
 # -------------------------------------------------------------------------
 
 # Description:
@@ -438,14 +466,36 @@ proc ::SOAP::Utils::targetNamespaceURI {node value} {
 #
 proc ::SOAP::Utils::nodeName {node} {
     set nodeName [dom::node cget $node -nodeName]
-    set nodeName [string range $nodeName [string last : $nodeName] end]
-    return [string trimleft $nodeName :]
+    foreach {ns nm} [splitQName $nodeName] break
+    return $nm
+}
+
+proc ::SOAP::Utils::baseQName {QName} {
+    return [lindex [splitQName $QName] 1]
 }
 
 proc ::SOAP::Utils::baseElementName {nodeName} {
-    set nodeName [string range $nodeName [string last : $nodeName] end]
-    return [string trimleft $nodeName :]
+    foreach {ns nm} [splitQName $nodeName] break
+    return $nm
 }
+
+proc ::SOAP::Utils::splitQName {nodeName} {
+    set ndx [string last : $nodeName]
+    if {$ndx == -1} {
+        return [list [list] $nodeName]
+    } else {
+        return [list [string range $nodeName 0 [incr ndx -1]] \
+                    [string range $nodeName [incr ndx 2] end]]
+    }
+}
+
+proc ::SOAP::Utils::joinQName {ns nm} {
+    if {[string length $ns] < 1} {
+        return $nm
+    }
+    return $ns:$nm
+}
+
 # -------------------------------------------------------------------------
 
 # Description:
@@ -457,8 +507,13 @@ proc ::SOAP::Utils::baseElementName {nodeName} {
 # Result:
 #   Returns the namespace uri or an empty string.
 #
-proc ::SOAP::Utils::find_namespaceURI {node nsname {find_targetNamespace 0}} {
-    if {$node == {}} { return {} }
+proc ::SOAP::Utils::find_namespaceURI {node nsname {find_targetNamespace 0} {trace 0}} {
+    if {$trace} {
+        log::log notice "find $node $nsname [dom::node cget $node -nodeName]"
+    }
+    if {$node == {} || [string equal [dom::node cget $node -nodeType] "document"]} { 
+        return {} 
+    }
     set atts [dom::node cget $node -attributes]
     upvar #0 $atts Atts
 
@@ -476,6 +531,9 @@ proc ::SOAP::Utils::find_namespaceURI {node nsname {find_targetNamespace 0}} {
     } else {
     
         # check the defined namespace names.
+        if {$trace && [dom::node cget $node -nodeName] eq "definitions"} {
+            log::log notice "find [array get [dom::node cget $node -attributes]]"
+        }
         foreach {attname attvalue} [array get $atts] {
             if {[string match "xmlns:$nsname" $attname]} {
                 return $attvalue
@@ -492,6 +550,21 @@ proc ::SOAP::Utils::find_namespaceURI {node nsname {find_targetNamespace 0}} {
     return [find_namespaceURI $parent $nsname $find_targetNamespace]
 }
 
+# Return a list of a nodes parents from botom to top
+proc ::SOAP::Utils::getElementParents {node} {
+    set parents {}
+    while {1} {
+        set node [dom::node cget $node -parent]
+        log::log debug "getElementParents $node"
+        if {[llength $node] < 1 || [dom::node cget $node -nodeType] eq "document"} {
+            break
+        } else {
+            lappend parents $node
+        }
+    }
+    return $parents
+}
+
 # -------------------------------------------------------------------------
 
 # Description:
@@ -504,13 +577,81 @@ proc ::SOAP::Utils::getElementsByName {domNode name} {
     set elements {}
     if {$domNode != {}} {
         foreach node [dom::node children $domNode] {
-            if {[dom::node cget $node -nodeType] == "element"
-                && [string match $name [dom::node cget $node -nodeName]]} {
-                lappend elements $node
+            if {[dom::node cget $node -nodeType] == "element"} {
+                set nodename [nodeName $node]
+                if {[string match $name $nodename]} {
+                    lappend elements $node
+                }
             }
         }
     }
     return $elements
+}
+
+proc ::SOAP::Utils::get_url {url} {
+    global env
+    set data {}
+    array set parts [uri::split $url file]
+    if {[string equal "file" $parts(scheme)]} {
+        set path [file normalize $parts(path)]
+        set f [open $path r]
+        set data [read $f]
+        close $f
+    } elseif {[string equal "http" $parts(scheme)]} {
+        set tmp /tmp
+        if {[info exists env(TEMP)]} { set tmp $env(TEMP) }
+        if {[file isdirectory $tmp]} {
+            set tmpname [file join $tmp [file tail $parts(path)]]
+            if {[file exists $tmpname]} {
+                set f [open $tmpname r]
+                set data [read $f]
+                close $f
+                return $data
+            }
+        }
+            
+        set tok [http::geturl $url -timeout 30000]
+        if {[string equal [http::status $tok] "ok"]} {
+            set data [http::data $tok]
+            http::cleanup $tok
+            if {[file isdirectory $tmp]} {
+                set f [open [file join $tmp [file tail $parts(path)]] w]
+                puts -nonewline $f $data
+                close $f
+            }
+        } else {
+            set err [http::error $tok]
+            http::cleanup $tok
+            return -code error $err
+        }
+    } else {
+        return -code error "scheme \"$parts(scheme)\" not supported"
+    }
+    return $data
+}
+
+# Normalize the path for a file url. Note that joining [pwd] to an
+# absolute path results in the [pwd] being ignored (at least in 8.4).
+proc ::SOAP::Utils::normalize_url {url {base {}}} {
+    if {![uri::isrelative $url]} {
+        return $url
+    }
+    if {[string length $base] != 0} {
+        return [uri::resolve $base $url]
+    }
+
+    # Try and deal with file names sensibly when no base was provided.
+    array set parts [uri::split $url file]
+    if {[string equal "file" $parts(scheme)]} {
+        set parts(path) [file normalize [file join [pwd] $parts(path)]]
+    }
+    return [eval [linsert [array get parts] 0 uri::join]]
+}
+
+proc ::SOAP::Utils::baseurl {url} {
+    array set parts [uri::split [normalize_url $url]]
+    set parts(path) [file dirname $parts(path)]/
+    return [eval [linsert [array get parts] 0 uri::join]]
 }
 
 # -------------------------------------------------------------------------       

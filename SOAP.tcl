@@ -15,6 +15,7 @@ package require http 2.0;               # tcl 8.n
 package require log;                    # tcllib 1.0
 package require uri;                    # tcllib 1.0
 package require mime;                   # tcllib 1.0
+package require autoproxy;              # tcllib 1.7
 catch {package require uri::urn};       # tcllib 1.2
 package require SOAP::Utils;            # TclSOAP
 package require rpcvar;                 # TclSOAP 
@@ -40,7 +41,7 @@ if {[catch {package require SOAP::dom 1.0} ::SOAP::domVersion]} {
 namespace eval ::SOAP {
     variable version 1.6.8
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.44.2.10 2004/03/09 01:13:07 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.1.1.1 2005/09/09 22:24:16 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -334,14 +335,12 @@ proc ::SOAP::configure { procName args } {
     if { $procvar(name) == {} } { 
         set procvar(name) $procName
     }
-
-    # If the transport proc is not overridden then set based upon the proxy
-    # scheme registered by SOAP::register.
+    
+    # If the transport proc is not overridden then check we have something
+    # available registered with the scheme set for the proxy option.
     if { $procvar(transport) == {} } {
         set xferProc "[schemeloc $scheme]::xfer"
-        if {[info command $xferProc] != {}} {
-            set procvar(transport) $xferProc
-        } else {
+        if {[llength [info command $xferProc]] != 1} {
             return -code error "invalid transport:\
                 \"$scheme\" is improperly registered"
         }
@@ -567,7 +566,16 @@ proc ::SOAP::invoke { procVarName args } {
     }
 
     # Send the SOAP packet (req) using the configured transport procedure
+    # (a null transport option means use the one registered for this scheme)
+    set scheme [eval getTransportFromArgs $procVarName $args]
     set transport $procvar(transport)
+    if { [string length $transport] == 0 } {
+        set transport "[schemeloc $scheme]::xfer"
+        if {[llength [info command $transport]] != 1} {
+            return -code error "invalid transport:\
+                \"$scheme\" is improperly registered"
+        }
+    } 
     set reply [$transport $procVarName $url $req]
 
     # Check for an async command handler. If async then return now,
@@ -654,6 +662,12 @@ namespace eval SOAP::Transport::reflect {
 #   Setup SOAP HTTP transport for an authenticating proxy HTTP server.
 #   At present the SOAP package only supports Basic authentication and this
 #   dialog is used to configure the proxy information.
+#
+#   NOTE: this is no longer needed -- instead we have the autoproxy package
+#         which will read proxy details from Internet Explorer settings
+#         or the http_proxy, http_proxy_user and http_proxy_pass environment
+#         variables.
+#
 # Parameters:
 #   none
 
@@ -1373,7 +1387,7 @@ proc ::SOAP::insert_value {node value} {
 # -------------------------------------------------------------------------
 
 package require SOAP::http;             # TclSOAP 1.6.2+
-
+autoproxy::init
 package provide SOAP $::SOAP::version
 
 # -------------------------------------------------------------------------

@@ -18,7 +18,7 @@
 namespace eval ::rpcvar {
     variable version 1.2
     variable magic "rpcvar$version"
-    variable rcs_id {$Id: rpcvar.tcl,v 1.9.2.4 2003/06/12 22:51:08 patthoyts Exp $}
+    variable rcs_id {$Id: rpcvar.tcl,v 1.1.1.1 2005/09/09 22:24:14 patthoyts Exp $}
     variable typedefs
     variable typens
     variable enums

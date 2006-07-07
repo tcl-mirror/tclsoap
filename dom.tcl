@@ -10,10 +10,10 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package require tdom
+package require tdom 0.8.1
 
 namespace eval ::SOAP::dom {
-    variable rcsid {$Id: dom.tcl,v 1.1.2.3 2003/02/04 01:56:55 patthoyts Exp $}
+    variable rcsid {$Id: dom.tcl,v 1.1.1.1 2005/09/09 22:24:13 patthoyts Exp $}
     variable version 1.0
 
     namespace export DOMImplementation document node element \
@@ -35,22 +35,26 @@ proc ::SOAP::dom::DOMImplementation {method args} {
     switch -glob -- $method {
         hasFeature {
             # bool hasFeature(String feature, String version)
-            return [eval [list dom hasFeature] $args]
+            return [eval [linsert $args 0 dom hasFeature]]
         }        
         create {
-            return [dom createDocument TclSOAPDocElt]
+            return [dom createDocumentNode]
         }
         destroy {
-            return {}
+            return [[lindex $args 0] delete]
         }
         parse {
-            return [eval [list dom parse] $args]
+            return [eval [linsert $args 0 dom parse]]
         }
         serialize {
 	    if {[llength $args] != 1} {
-		error "wrong # args: should be \"serialize tok\""
+		return -code error "wrong # args: should be \"serialize tok\""
 	    }
-	    return [[[lindex $args 0] documentElement] asXML]
+            set doc [lindex $args 0]
+            if {[catch {[$doc documentElement] asXML} res]} {
+                set res [$doc asXML]
+            }
+	    return $res
         }
         default {
 	    return -code error "bad option \"$method\": should be hasFeature,\
@@ -87,6 +91,13 @@ proc ::SOAP::dom::document {method token args} {
         createElement {
 	    set elt [$token createElement $args]
 	    return [[$token documentElement] appendChild $elt]
+        }
+        createElementNS {
+            if {[llength $args] != x} {
+                return -code error "wrong \# args: should be\
+                    createElementNS token uri qname"
+            }
+            return [$token 
         }
         createTextNode -
         createComment  -

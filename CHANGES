@@ -1,6 +1,11 @@
 * TclSOAP 1.6.8
 ---------------
 
+** Continuing WSDL work (still incomplete)
+
+** Proxy support
+   Use the autoproxy package to determine proxying requirements.
+
 ** Included XMLRPC-domain.tcl
    Jacob Levy provided a wrapper around the SOAP-domain code for registering
    XMLRPC methods in tclhttpd.
