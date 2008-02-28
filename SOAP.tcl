@@ -39,7 +39,7 @@ if {[catch {package require SOAP::dom 1.0} ::SOAP::domVersion]} {
 namespace eval ::SOAP {
     variable version 1.6.7
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.47 2003/01/26 01:57:33 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.48 2003/09/06 17:08:46 patthoyts Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -1324,9 +1324,11 @@ proc ::SOAP::insert_value {node value} {
 
 # -------------------------------------------------------------------------
 
-package require SOAP::http;             # TclSOAP 1.6.2+
-
 package provide SOAP $::SOAP::version
+
+if {[catch {package present SOAP::http}]} {
+    package require SOAP::http;             # TclSOAP 1.6.2+
+}
 
 # -------------------------------------------------------------------------
 

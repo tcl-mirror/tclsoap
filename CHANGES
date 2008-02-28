@@ -1,3 +1,13 @@
+* TclSOAP 1.6.7 /AS
+-------------------
+
+** Makefile fix (Missing SOAP-service.tcl added).
+
+** Rework the circular requirements to break the cycle at runtime.
+   (Provide a package before going to load the requirements, and check
+    for the presence of a circular requirement before loading it.
+    SOAP -> SOAP::http -> SOAP)
+
 * TclSOAP 1.6.7
 ---------------
 

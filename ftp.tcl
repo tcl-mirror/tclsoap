@@ -18,11 +18,12 @@
 # for more details.
 # -------------------------------------------------------------------------
 
+package require SOAP
 package require ftp;                    # tcllib
 
 namespace eval ::SOAP::Transport::ftp {
     variable version 1.0
-    variable rcsid {$Id: ftp.tcl,v 1.2.2.2 2003/06/12 22:51:08 patthoyts Exp $}
+    variable rcsid {$Id: ftp.tcl,v 1.3 2003/09/06 17:08:46 patthoyts Exp $}
     variable options
     
     ::SOAP::register ftp [namespace current]

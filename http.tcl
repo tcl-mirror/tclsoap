@@ -9,11 +9,17 @@
 # for more details.
 # -------------------------------------------------------------------------
 
+package provide SOAP::http 1.0
+
+if {[catch {package present SOAP}]} {
+    package require SOAP
+}
+
 package require http 2;                 # tcl
 
 namespace eval ::SOAP::Transport::http {
     variable version 1.0
-    variable rcsid {$Id: http.tcl,v 1.5.2.2 2003/02/07 01:31:17 patthoyts Exp $}
+    variable rcsid {$Id: http.tcl,v 1.6 2003/09/06 17:08:46 patthoyts Exp $}
     variable options
 
     SOAP::register http [namespace current]
@@ -362,10 +368,6 @@ proc ::SOAP::Transport::http::dump {methodName type} {
 
     return $result
 }
-
-# -------------------------------------------------------------------------
-
-package provide SOAP::http $::SOAP::Transport::http::version
 
 # -------------------------------------------------------------------------
 # Local variables:

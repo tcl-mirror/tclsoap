@@ -14,12 +14,13 @@
 # for more details.
 # -------------------------------------------------------------------------
 
+package require SOAP
 package require http;                   # tcl
 package require tls;			# Required for SSL support
 
 namespace eval ::SOAP::Transport::https {
     variable version 1.0
-    variable rcsid {$Id: https.tcl,v 1.1 2002/03/26 23:35:41 patthoyts Exp $}
+    variable rcsid {$Id: https.tcl,v 1.2 2003/09/06 17:08:46 patthoyts Exp $}
     variable options
 
     ::SOAP::register https [namespace current]

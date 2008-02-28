@@ -16,12 +16,13 @@
 # for more details.
 # -------------------------------------------------------------------------
 
+package require SOAP
 package require mime;                   # tcllib 1.0
 package require smtp;                   # tcllib 1.0
 
 namespace eval ::SOAP::Transport::smtp {
     variable version 1.0
-    variable rcsid {$Id: smtp.tcl,v 1.3.2.1 2003/02/07 01:31:18 patthoyts Exp $}
+    variable rcsid {$Id: smtp.tcl,v 1.4 2003/09/06 17:08:46 patthoyts Exp $}
     variable options
     
     SOAP::register mailto [namespace current]
