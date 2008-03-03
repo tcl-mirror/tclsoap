@@ -1,0 +1,10 @@
+2008-03-03  Andreas Kupries  <andreask@activestate.com>
+
+	* utils.tcl: Added a number of DOM accessors missing from the
+	* pkgIndex.tcl: package (document construction, destruction,
+	  conversion from and to XML, node/attribute creation). Light
+	  internal cleanup, i.e. a number of procedures could and now do
+	  use abstract dom accessors instead of using direct DOM
+	  commands. Moved package to version 1.1.
+
+

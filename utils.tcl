@@ -1,6 +1,9 @@
 # utils.tcl - Copyright (C) 2001 Pat Thoyts <patthoyts@users.sourceforge.net>
+#             Copyright (C) 2008 Andreas Kupries <andreask@activestate.com>
 #
 # DOM data access utilities for use in the TclSOAP package.
+# This is the only place which has to be modified to switch
+# between different dom implementations, like TclDOM and tDOM.
 #
 # -------------------------------------------------------------------------
 # This software is distributed in the hope that it will be useful, but
@@ -9,10 +12,12 @@
 # for more details.
 # -------------------------------------------------------------------------
 
+package require tdom
+
 namespace eval ::SOAP {
     namespace eval Utils {
-        variable version 1.0.1
-        variable rcsid {$Id: utils.tcl,v 1.8 2003/01/26 01:57:33 patthoyts Exp $}
+        variable version 1.1
+        variable rcsid {$Id: utils.tcl,v 1.9 2003/09/06 17:08:46 patthoyts Exp $}
         namespace export getElements getElementsByName \
                 getElementValue getElementName \
                 getElementValues getElementNames \
@@ -20,8 +25,53 @@ namespace eval ::SOAP {
                 getElementAttributes getElementAttribute \
                 decomposeSoap decomposeXMLRPC selectNode \
                 namespaceURI targetNamespaceURI \
-                nodeName baseElementName
+                nodeName baseElementName \
+                newDocument deleteDocument \
+                parseXML generateXML \
+                addNode addTextNode setElementAttribute
     }
+}
+
+# -------------------------------------------------------------------------
+
+proc ::SOAP::Utils::createDocument {name} {
+    return [addNode [newDocument] $name]
+}
+
+proc ::SOAP::Utils::newDocument {} {
+    return [dom::DOMImplementation create]
+}
+
+proc ::SOAP::Utils::deleteDocument {doc} {
+    dom::DOMImplementation destroy $doc
+    return
+}
+
+# -------------------------------------------------------------------------
+
+proc ::SOAP::Utils::parseXML {xml} {
+    return [dom::DOMImplementation parse $xml]
+}
+
+proc ::SOAP::Utils::generateXML {doc} {
+    set xml [dom::DOMImplementation serialize $doc]
+    regsub "<!DOCTYPE\[^>\]+>\n" $xml {} xml
+    return $xml
+}
+
+# -------------------------------------------------------------------------
+
+proc ::SOAP::Utils::addNode {parent tag} {
+   return [dom::document createElement $parent $tag]
+}
+
+proc ::SOAP::Utils::addTextNode {parent value} {
+   return [dom::document createTextNode $parent $value]
+}
+
+proc ::SOAP::Utils::setElementAttribute {node name value} {
+    dom::element setAttribute $node $name $value
+    return
 }
 
 # -------------------------------------------------------------------------
@@ -59,8 +109,7 @@ proc ::SOAP::Utils::is_array {domElement} {
     # FIX ME
     # This code should check the namespace using namespaceURI code (CGI)
     #
-    set attr [dom::node cget $domElement -attributes]
-    upvar #0 attr Attr
+    array set Attr [getElementAttributes $domElement]
     if {[info exists Attr(SOAP-ENC:arrayType)]} {
         return 1
     }
@@ -166,8 +215,8 @@ proc ::SOAP::Utils::getXMLRPCValue {value_elt} {
 proc ::SOAP::Utils::getElements {domNode} {
     set elements {}
     if {$domNode != {}} {
-        foreach node [dom::node children $domNode] {
-            if {[dom::node cget $node -nodeType] == "element"} {
+        foreach node [Children $domNode] {
+            if {[IsElement $node]} {
                 lappend elements $node
             }
         }
@@ -264,7 +313,7 @@ proc ::SOAP::Utils::getElementNamedValues {domElement} {
 #
 proc ::SOAP::Utils::getElementValue {domElement} {
     set r {}
-    set dataNodes [dom::node children $domElement]
+    set dataNodes [Children $domElement]
     if {[set href [href $domElement]] != {}} {
         if {[string match "\#*" $href]} {
             set href [string trimleft $href "\#"]
@@ -275,7 +324,7 @@ proc ::SOAP::Utils::getElementValue {domElement} {
                 [getDocumentElement $domElement] $href]]
     }
     foreach dataNode $dataNodes {
-        append r [dom::node cget $dataNode -nodeValue]
+        append r [NodeValue $dataNode]
     }
     return $r
 }
@@ -292,8 +341,7 @@ proc ::SOAP::Utils::proc:name {} {
 # -------------------------------------------------------------------------
 
 proc ::SOAP::Utils::href {node} {
-    set a [dom::node cget $node -attributes]
-    upvar #0 $a A
+    array set A [getElementAttributes $node]
     if {[info exists A(href)]} {
         return $A(href)
     }
@@ -303,8 +351,7 @@ proc ::SOAP::Utils::href {node} {
 # -------------------------------------------------------------------------
 
 proc ::SOAP::Utils::id {node} {
-    set a [dom::node cget $node -attributes]
-    upvar #0 $a A
+    array set A [getElementAttributes $node]
     if {[info exists A(id)]} {
         return $A(id)
     }
@@ -332,7 +379,7 @@ proc ::SOAP::Utils::getNodeById {base id} {
         return $base
     }
     set r {}
-    set children [dom::node children $base]
+    set children [Children $base]
     foreach child $children {
         set r [getNodeById $child $id]
         if {$r != {}} { return $r }
@@ -361,7 +408,7 @@ proc ::SOAP::Utils::getDocumentElement {node} {
 #
 proc ::SOAP::Utils::getElementAttribute {node attrname} {
     set r {}
-    set attrs [array get [dom::node cget $node -attributes]]
+    set attrs [getElementAttributes $node]
     if {[set ndx [lsearch -exact $attrs $attrname]] == -1} {
         set ndx [lsearch -regexp $attrs ":${attrname}\$"]
     }
@@ -394,12 +441,14 @@ proc ::SOAP::Utils::namespaceURI {node} {
     #if {[dom::DOMImplementation hasFeature query 1.0]} {
     #    return [dom::node cget $node -namespaceURI]
     #} 
-    if {[catch {dom::node cget $node -namespaceURI} result]} {
-        set nodeName [dom::node cget $node -nodeName]
+    if {[catch {
+        dom::node cget $node -namespaceURI
+    } result]} {
+        set nodeName [getElementName $node]
         set ndx [string last : $nodeName]
         set nodeNS [string range $nodeName 0 $ndx]
         set nodeNS [string trimright $nodeNS :]
-        
+
         set result [find_namespaceURI $node $nodeNS]
     }
     return $result
@@ -449,8 +498,7 @@ proc ::SOAP::Utils::baseElementName {nodeName} {
 #
 proc ::SOAP::Utils::find_namespaceURI {node nsname {find_targetNamespace 0}} {
     if {$node == {}} { return {} }
-    set atts [dom::node cget $node -attributes]
-    upvar #0 atts Atts
+    array set Atts [getElementAttributes $node]
 
     # check for the default namespace or targetNamespace
     if {$nsname == {}} {
@@ -475,7 +523,7 @@ proc ::SOAP::Utils::find_namespaceURI {node nsname {find_targetNamespace 0}} {
     }
     
     # recurse through the parents.
-    return [find_namespaceURI [dom::node parent $node] $nsname $find_targetNamespace]
+    return [find_namespaceURI [Parent $node] $nsname $find_targetNamespace]
 }
 
 # -------------------------------------------------------------------------
@@ -489,14 +537,32 @@ proc ::SOAP::Utils::find_namespaceURI {node nsname {find_targetNamespace 0}} {
 proc ::SOAP::Utils::getElementsByName {domNode name} {
     set elements {}
     if {$domNode != {}} {
-        foreach node [dom::node children $domNode] {
-            if {[dom::node cget $node -nodeType] == "element"
-                && [string match $name [dom::node cget $node -nodeName]]} {
+        foreach node [Children $domNode] {
+            if {[IsElement $node]
+                && [string match $name [getElementName $node]]} {
                 lappend elements $node
             }
         }
     }
     return $elements
+}
+
+# -------------------------------------------------------------------------       
+
+proc ::SOAP::Utils::IsElement {domNode} {
+    return [string equal [dom::node cget $node -nodeType] "element"]
+}
+
+proc ::SOAP::Utils::Children {domNode} {
+    return [dom::node children $domNode]
+}
+
+proc ::SOAP::Utils::NodeValue {domNode} {
+    return [dom::node cget $domNode -nodeValue]
+}
+
+proc ::SOAP::Utils::Parent {domNode} {
+    return [dom::node parent $node]
 }
 
 # -------------------------------------------------------------------------       
