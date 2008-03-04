@@ -12,6 +12,8 @@
 # for more details.
 # -------------------------------------------------------------------------
 
+package require SOAP::xpath
+
 namespace eval ::SOAP {
     namespace eval Utils {
         variable version 1.1
@@ -87,7 +89,6 @@ proc ::SOAP::Utils::setElementAttribute {node name value} {
 #   if no match.
 #
 proc ::SOAP::Utils::selectNode {node path} {
-    package require SOAP::xpath
     if {[catch {SOAP::xpath::xpath -node $node $path} r]} {
         set r {}
     }

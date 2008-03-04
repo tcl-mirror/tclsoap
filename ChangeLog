@@ -2,6 +2,15 @@
 
 	* = TAG = soap1_6_7_as_tdom_centralized_dom_access
 
+	* utils.tcl: Made require SOAP::xpath global to force load of the
+	  dom packages.
+
+	* tests/all.tcl: Rewritten to ensure loading of the current
+	  sources for testing, instead of some TclSOAP installation.
+
+	* tests/validator.test: Fixed direct dom access, now using
+	  SOAP::Utils commands instead.
+
 	* tests/xmlrpc.test: Fixed quotation differences in the current
 	  vs. expected output.
 
