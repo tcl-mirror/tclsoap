@@ -1,11 +1,18 @@
 2008-03-04  Andreas Kupries  <andreask@activestate.com>
 
+	* SOAP-service.tcl (SOAP::Service::base64_service): Resolved the
+	  remaining problemzone by rewriting the xpath invokation to a
+	  selectNode node call followed by use of the new accessor
+	  'getSimpleElementValue' to perform the parts of xpath call the
+	  selectNode doesn't do on its own, to make the whole sequence
+	  equivalent. The SOAP::xpath dependency is no more.
+
 	* SOAP.tcl (::SOAP::insert_headers): Resolved the remaining
 	  problem zone through use of the new 'documentElement' accessor
 	  command.
 
-	* utils.tcl: Two additional accessors (documentElement,
-	  getSimpleElementValue), fixed typos in the new internal
+	* utils.tcl: Created two additional accessors (documentElement,
+	  getSimpleElementValue), and fixed typos in the new internal
 	  'IsElement' and 'Parent' acessors.
 
 2008-03-03  Andreas Kupries  <andreask@activestate.com>
