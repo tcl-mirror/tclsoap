@@ -12,12 +12,10 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package require tdom
-
 namespace eval ::SOAP {
     namespace eval Utils {
         variable version 1.1
-        variable rcsid {$Id: utils.tcl,v 1.9.2.1 2008/03/03 23:48:55 andreas_kupries Exp $}
+        variable rcsid {$Id: utils.tcl,v 1.9.2.2 2008/03/04 18:39:51 andreas_kupries Exp $}
         namespace export getElements getElementsByName \
                 getElementValue getElementName \
                 getElementValues getElementNames \

@@ -1,5 +1,7 @@
 2008-03-04  Andreas Kupries  <andreask@activestate.com>
 
+	* = TAG = soap1_6_7_as_tdom_centralized_dom_access
+
 	* tests/xmlrpc.test: Fixed quotation differences in the current
 	  vs. expected output.
 
@@ -53,4 +55,4 @@
 	  use abstract dom accessors instead of using direct DOM
 	  commands. Moved the package to version 1.1.
 
-
+	= BRANCH = soap1_6_7_as_tdom
