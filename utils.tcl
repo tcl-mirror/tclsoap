@@ -17,7 +17,7 @@ package require tdom
 namespace eval ::SOAP {
     namespace eval Utils {
         variable version 1.1
-        variable rcsid {$Id: utils.tcl,v 1.9 2003/09/06 17:08:46 patthoyts Exp $}
+        variable rcsid {$Id: utils.tcl,v 1.9.2.1 2008/03/03 23:48:55 andreas_kupries Exp $}
         namespace export getElements getElementsByName \
                 getElementValue getElementName \
                 getElementValues getElementNames \
@@ -28,7 +28,8 @@ namespace eval ::SOAP {
                 nodeName baseElementName \
                 newDocument deleteDocument \
                 parseXML generateXML \
-                addNode addTextNode setElementAttribute
+                addNode addTextNode setElementAttribute \
+                documentElement getSimpleElementValue
     }
 }
 
@@ -329,6 +330,15 @@ proc ::SOAP::Utils::getElementValue {domElement} {
     return $r
 }
 
+proc ::SOAP::Utils::getSimpleElementValue {domElement} {
+    set r {}
+    set dataNodes [Children $domElement]
+    foreach dataNode $dataNodes {
+        append r [NodeValue $dataNode]
+    }
+    return $r
+}
+
 # -------------------------------------------------------------------------
 
 # Description:
@@ -397,6 +407,10 @@ proc ::SOAP::Utils::getDocumentElement {node} {
     } else {
         return [getDocumentElement $parent]
     }
+}
+
+proc ::SOAP::Utils::documentElement {domNode} {
+    return [dom::document cget $domNode -documentElement]
 }
 
 # -------------------------------------------------------------------------
@@ -550,7 +564,7 @@ proc ::SOAP::Utils::getElementsByName {domNode name} {
 # -------------------------------------------------------------------------       
 
 proc ::SOAP::Utils::IsElement {domNode} {
-    return [string equal [dom::node cget $node -nodeType] "element"]
+    return [string equal [dom::node cget $domNode -nodeType] "element"]
 }
 
 proc ::SOAP::Utils::Children {domNode} {
@@ -562,7 +576,7 @@ proc ::SOAP::Utils::NodeValue {domNode} {
 }
 
 proc ::SOAP::Utils::Parent {domNode} {
-    return [dom::node parent $node]
+    return [dom::node parent $domNode]
 }
 
 # -------------------------------------------------------------------------       

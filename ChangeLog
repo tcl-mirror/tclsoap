@@ -1,3 +1,9 @@
+2008-03-04  Andreas Kupries  <andreask@activestate.com>
+
+	* utils.tcl: Two additional accessors (documentElement,
+	  getSimpleElementValue), fixed typos in the new internal
+	  'IsElement' and 'Parent' acessors.
+
 2008-03-03  Andreas Kupries  <andreask@activestate.com>
 
 	* SOAP-domain.tcl: Removed dependency on TclDOM and changed all
