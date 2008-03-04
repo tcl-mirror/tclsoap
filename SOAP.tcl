@@ -28,7 +28,7 @@ namespace eval ::SOAP {variable domVersion}
 namespace eval ::SOAP {
     variable version 1.6.7.1
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.49.2.1 2008/03/04 00:14:36 andreas_kupries Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.49.2.2 2008/03/04 18:42:53 andreas_kupries Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -985,7 +985,7 @@ proc ::SOAP::parse_soap_response { procVarName xml } {
         }
     }
 
-    set faultNode [selectNode $doc "/Envelope/Body/Fault"]
+    set faultNode [selectNode $doc "/SENV:Envelope/SENV:Body/SENV:Fault"]
     if {$faultNode != {}} {
         array set fault [decomposeSoap $faultNode]
         deleteDocument $doc
@@ -995,7 +995,7 @@ proc ::SOAP::parse_soap_response { procVarName xml } {
     }
 
     # If there is a header element then make it available via SOAP::getHeader
-    set headerNode [selectNode $doc "/Envelope/Header"]
+    set headerNode [selectNode $doc "/SENV:Envelope/SENV:Header"]
     if {$headerNode != {} \
             && [string match \
                     "http://schemas.xmlsoap.org/soap/envelope/" \
@@ -1012,9 +1012,9 @@ proc ::SOAP::parse_soap_response { procVarName xml } {
     } else {
         set responseName "*"
     }
-    set responseNode [selectNode $doc "/Envelope/Body/$responseName"]
+    set responseNode [selectNode $doc "/SENV:Envelope/SENV:Body/$responseName"]
     if {$responseNode == {}} {
-        set responseNode [lindex [selectNode $doc "/Envelope/Body/*"] 0]
+        set responseNode [lindex [selectNode $doc "/SENV:Envelope/SENV:Body/*"] 0]
     }
 
     set nodes [getElements $responseNode]
@@ -1181,7 +1181,7 @@ proc ::SOAP::xmlrpc_value_from_node {valueNode} {
 
 proc ::SOAP::insert_headers {node headers} {
     set doc [getDocumentElement $node]
-    if {[set h [selectNode $doc /Envelope/Header]] == {}} {
+    if {[set h [selectNode $doc /SENV:Envelope/SENV:Header]] == {}} {
         set e [documentElement $doc]
         set h [addNode $e "SOAP-ENV:Header"]
     }

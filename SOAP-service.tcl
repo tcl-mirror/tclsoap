@@ -38,7 +38,7 @@ if { [catch {package require Trf}] } {
 
 namespace eval SOAP::Service {
     variable version 0.5
-    variable rcs_version { $Id: SOAP-service.tcl,v 1.6.2.1 2008/03/04 00:14:36 andreas_kupries Exp $ }
+    variable rcs_version { $Id: SOAP-service.tcl,v 1.6.2.2 2008/03/04 18:49:37 andreas_kupries Exp $ }
     variable socket
     variable port
     variable stats
@@ -247,7 +247,7 @@ proc SOAP::Service::base64_service { request } {
     set req [parseXML $request]
     set failed [catch {
         set value {}
-        foreach node [selectNode $req "Envelope/Body/zsplat-Base64/*"] {
+        foreach node [selectNode $req "SENV:Envelope/SENV:Body/zsplat-Base64/*"] {
             lappend value [getSimpleElementValue $node]
         }
         set value

@@ -20,10 +20,10 @@ set ::tcltest::testsDirectory [file dir [info script]]
 
 set srcdir [file dirname [file dirname [file normalize [info script]]]]
 
-package require dom
+package require tdom
 
 source $srcdir/rpcvar.tcl
-source $srcdir/xpath.tcl
+#source $srcdir/xpath.tcl
 source $srcdir/utils.tcl
 source $srcdir/SOAP.tcl    ;# Implies SOAP::http
 source $srcdir/XMLRPC.tcl

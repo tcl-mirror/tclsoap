@@ -45,7 +45,7 @@ namespace eval ::SOAP {
 	# -----------------------------------------------------------------
 
 	variable rcsid {
-	    $Id: SOAP-CGI.tcl,v 1.15 2003/09/06 17:08:46 patthoyts Exp $
+	    $Id: SOAP-CGI.tcl,v 1.15.2.1 2008/03/04 00:14:36 andreas_kupries Exp $
 	}
 	variable methodName  {}
 	variable debugging   0
@@ -262,7 +262,7 @@ proc ::SOAP::CGI::do_encoding {xml} {
 proc ::SOAP::CGI::xmlrpc_call {doc {interp {}}} {
     variable methodName
     if {[catch {
-	
+
 	set methodNode [selectNode $doc "/methodCall/methodName"]
 	set methodName [getElementValue $methodNode]
 	set methodNamespace {}
@@ -320,7 +320,7 @@ proc ::SOAP::CGI::xmlrpc_call {doc {interp {}}} {
 proc ::SOAP::CGI::soap_header {doc {mandate 0}} {
     dtrace "Handling SOAP Header"
     set result {}
-    foreach elt [selectNode $doc "/Envelope/Header/*"] {
+    foreach elt [selectNode $doc "SENV:/Envelope/SENV:Header/*"] {
 	set eltName [getElementName $elt]
 	set actor [getElementAttribute $elt actor]
 	dtrace "SOAP actor $eltName = $actor"
@@ -364,7 +364,7 @@ proc ::SOAP::CGI::soap_call {doc {interp {}}} {
     if {[catch {
 
 	# Check SOAP version by examining the namespace of the Envelope elt.
-	set envnode [selectNode $doc "/Envelope"]
+	set envnode [selectNode $doc "/SENV:Envelope"]
 	if {$envnode != {}} {
 	    #set envns [dom::node cget $envnode -namespaceURI]
 	    set envns [namespaceURI $envnode]
@@ -377,14 +377,14 @@ proc ::SOAP::CGI::soap_call {doc {interp {}}} {
 	}
 
 	# Check for Header elements
-	if {[set headerNode [selectNode $doc "/Envelope/Header"]] != {}} {
+	if {[set headerNode [selectNode $doc "/SENV:Envelope/SENV:Header"]] != {}} {
 	    set headers [soap_header $doc 0]
 	    dtrace "headers: $headers"
 	}
 
 	# Get the method name from the XML request.
         # Ensure we only select the first child element (Vico.Klump@risa.de)
-	set methodNodes [selectNode $doc "/Envelope/Body/*"]
+	set methodNodes [selectNode $doc "/SENV:Envelope/SENV:Body/*"]
         set methodNode [lindex $methodNodes 0]
 	set methodName [nodeName $methodNode]
 
@@ -393,7 +393,7 @@ proc ::SOAP::CGI::soap_call {doc {interp {}}} {
 	dtrace "methodinfo: ${methodNamespace}::${methodName}"
 
 	# Extract the parameters.
-	set argNodes [selectNode $doc "/Envelope/Body/${methodName}/*"]
+	set argNodes [selectNode $doc "/SENV:Envelope/SENV:Body/${methodName}/*"]
 	set argValues {}
 	foreach node $argNodes {
 	    lappend argValues [decomposeSoap $node]
@@ -618,7 +618,7 @@ proc ::SOAP::CGI::main {{xml {}} {debug 0}} {
 	
 	# Identify the type of request - SOAP or XML-RPC, load the
 	# implementation and call.
-	if {[selectNode $doc "/Envelope"] != {}} {
+	if {[selectNode $doc "/SENV:Envelope"] != {}} {
 	    set result [soap_invocation $doc]
 	    log "SOAP" $methodName "ok"
 	} elseif {[selectNode $doc "/methodCall"] != {}} {
@@ -643,7 +643,7 @@ proc ::SOAP::CGI::main {{xml {}} {debug 0}} {
 		write $msg text/xml "500 SOAP Error"
 		catch {
 		    set doc [parseXML $msg]
-		    set r [decomposeSoap [selectNode $doc /Envelope/Body/*]]
+		    set r [decomposeSoap [selectNode $doc /SENV:Envelope/SENV:Body/*]]
 		} msg
 		log "SOAP" [list $methodName $msg] "error" 
 	    }

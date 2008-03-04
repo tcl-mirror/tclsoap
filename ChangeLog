@@ -1,5 +1,31 @@
 2008-03-04  Andreas Kupries  <andreask@activestate.com>
 
+	* = TAG = soap1_6_7_as_tdom_complete
+
+	* utils.tcl: Converted all places using TclDOM commands over to
+	  tDOM. Additionally rewrote the 'getDocumentElement' accessor to
+	  be iterative instead of recursive.
+
+	* SOAP.tcl: More conversions. tDOM's XPath handling is strict,
+	* SOAP-CGI.tcl: standard compliant, i.e. expects us to properly
+	* SOAP-service.tcl: declare and use XML namespaces for the SOAP
+	  elements. Rewrote all SOAP-specific selectNode calls. The XMLRPC
+	  selectNode calls are left unchanged, as XMLRPC doesn't use
+	  namespaced elements.
+
+	* test/all.tcl: Disabled xpath.tcl and switched TclDOM over to
+	  tDOM.
+	
+	* tests/xmlrpc.test: Rewrote the expected XML results, tDOM
+	  generates a different textual layout than TlDOM when serializing
+	  a DOM tree.
+	
+	* tests/soap.test: Fixed regexp based tests to handle the changed
+	  serialized XML (different layout), and fixed one test not using
+	  proper XML namespaces for the SOAP elements.
+
+2008-03-04  Andreas Kupries  <andreask@activestate.com>
+
 	* = TAG = soap1_6_7_as_tdom_centralized_dom_access
 
 	* utils.tcl: Made require SOAP::xpath global to force load of the

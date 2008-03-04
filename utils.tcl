@@ -12,7 +12,7 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package require SOAP::xpath
+package require tdom
 
 namespace eval ::SOAP {
     namespace eval Utils {
@@ -40,38 +40,50 @@ proc ::SOAP::Utils::createDocument {name} {
 }
 
 proc ::SOAP::Utils::newDocument {} {
-    return [dom::DOMImplementation create]
+    return [NamespaceSetup [dom createDocumentNode]]
 }
 
 proc ::SOAP::Utils::deleteDocument {doc} {
-    dom::DOMImplementation destroy $doc
+    $doc delete
     return
 }
 
 # -------------------------------------------------------------------------
 
 proc ::SOAP::Utils::parseXML {xml} {
-    return [dom::DOMImplementation parse $xml]
+    return [NamespaceSetup [dom parse -keepEmpties $xml]]
 }
 
 proc ::SOAP::Utils::generateXML {doc} {
-    set xml [dom::DOMImplementation serialize $doc]
-    regsub "<!DOCTYPE\[^>\]+>\n" $xml {} xml
+    set    xml "<?xml version=\"1.0\"?>\n"
+    append xml [$doc asXML -indent 0]
     return $xml
 }
 
 # -------------------------------------------------------------------------
 
+proc ::SOAP::Utils::NamespaceSetup {doc} {
+    $doc selectNodesNamespaces [list \
+         SENC  "http://schemas.xmlsoap.org/soap/encoding/" \
+         SENV  "http://schemas.xmlsoap.org/soap/envelope/" \
+         xsd   "http://www.w3.org/1999/XMLSchema"          \
+         xsi   "http://www.w3.org/1999/XMLSchema-instance" \
+    ]
+    return $doc
+}
+
+# -------------------------------------------------------------------------
+
 proc ::SOAP::Utils::addNode {parent tag} {
-   return [dom::document createElement $parent $tag]
+   return [$parent appendChild [[$parent ownerDocument] createElement $tag]]
 }
 
 proc ::SOAP::Utils::addTextNode {parent value} {
-   return [dom::document createTextNode $parent $value]
+   return [$parent appendChild [[$parent ownerDocument] createTextNode $value]]
 }
 
 proc ::SOAP::Utils::setElementAttribute {node name value} {
-    dom::element setAttribute $node $name $value
+    $node setAttribute $name $value
     return
 }
 
@@ -89,10 +101,7 @@ proc ::SOAP::Utils::setElementAttribute {node name value} {
 #   if no match.
 #
 proc ::SOAP::Utils::selectNode {node path} {
-    if {[catch {SOAP::xpath::xpath -node $node $path} r]} {
-        set r {}
-    }
-    return $r
+    return [$node selectNodes $path]
 }
 
 # -------------------------------------------------------------------------
@@ -369,15 +378,19 @@ proc ::SOAP::Utils::id {node} {
 # -------------------------------------------------------------------------
 
 proc ::SOAP::Utils::getElementName {domElement} {
-    return [dom::node cget $domElement -nodeName]
+    return [$domElement nodeName]
 }
 
 # -------------------------------------------------------------------------
 
 proc ::SOAP::Utils::getElementAttributes {domElement} {
-    set attr [dom::node cget $domElement -attributes]
-    set attrlist [array get $attr]
-    return $attrlist
+    set res {}
+    foreach item [$domElement attributes] {
+        foreach {name prefix ns} $item break
+        if {[catch {$domElement getAttributeNS $ns $name} r]} continue
+        lappend res $name $r
+    }
+    return $res
 }
 
 # -------------------------------------------------------------------------
@@ -400,16 +413,17 @@ proc ::SOAP::Utils::getNodeById {base id} {
 
 # Walk up the DOM until you get to the top.
 proc ::SOAP::Utils::getDocumentElement {node} {
-    set parent [dom::node parent $node]
-    if {$parent == {}} {
-        return $node
-    } else {
-        return [getDocumentElement $parent]
+    while {1} {
+        set parent [Parent $node]
+        if {$parent == {}} {
+            return $node
+        }
+        set node $parent
     }
 }
 
 proc ::SOAP::Utils::documentElement {domNode} {
-    return [dom::document cget $domNode -documentElement]
+    return [$domNode documentElement]
 }
 
 # -------------------------------------------------------------------------
@@ -451,11 +465,8 @@ proc ::SOAP::Utils::getElementAttribute {node attrname} {
 #  method so we'll use this test for now.
 #
 proc ::SOAP::Utils::namespaceURI {node} {
-    #if {[dom::DOMImplementation hasFeature query 1.0]} {
-    #    return [dom::node cget $node -namespaceURI]
-    #} 
     if {[catch {
-        dom::node cget $node -namespaceURI
+        $node namespaceURI
     } result]} {
         set nodeName [getElementName $node]
         set ndx [string last : $nodeName]
@@ -489,7 +500,7 @@ proc ::SOAP::Utils::targetNamespaceURI {node value} {
 #   the node name without any namespace prefix.
 #
 proc ::SOAP::Utils::nodeName {node} {
-    set nodeName [dom::node cget $node -nodeName]
+    set nodeName [$node nodeName]
     set nodeName [string range $nodeName [string last : $nodeName] end]
     return [string trimleft $nodeName :]
 }
@@ -563,19 +574,19 @@ proc ::SOAP::Utils::getElementsByName {domNode name} {
 # -------------------------------------------------------------------------       
 
 proc ::SOAP::Utils::IsElement {domNode} {
-    return [string equal [dom::node cget $domNode -nodeType] "element"]
+    return [string equal [$domNode nodeType] ELEMENT_NODE]
 }
 
 proc ::SOAP::Utils::Children {domNode} {
-    return [dom::node children $domNode]
+    return [$domNode childNodes]
 }
 
 proc ::SOAP::Utils::NodeValue {domNode} {
-    return [dom::node cget $domNode -nodeValue]
+    return [$domNode nodeValue]
 }
 
 proc ::SOAP::Utils::Parent {domNode} {
-    return [dom::node parent $domNode]
+    return [$domNode nodeParent]
 }
 
 # -------------------------------------------------------------------------       
