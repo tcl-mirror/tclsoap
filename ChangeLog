@@ -1,5 +1,9 @@
 2008-03-04  Andreas Kupries  <andreask@activestate.com>
 
+	* SOAP.tcl (::SOAP::insert_headers): Resolved the remaining
+	  problem zone through use of the new 'documentElement' accessor
+	  command.
+
 	* utils.tcl: Two additional accessors (documentElement,
 	  getSimpleElementValue), fixed typos in the new internal
 	  'IsElement' and 'Parent' acessors.

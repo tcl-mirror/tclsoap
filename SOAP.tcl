@@ -28,7 +28,7 @@ namespace eval ::SOAP {variable domVersion}
 namespace eval ::SOAP {
     variable version 1.6.7.1
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.49 2008/02/28 22:05:55 andreas_kupries Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.49.2.1 2008/03/04 00:14:36 andreas_kupries Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -1180,9 +1180,9 @@ proc ::SOAP::xmlrpc_value_from_node {valueNode} {
 # -------------------------------------------------------------------------
 
 proc ::SOAP::insert_headers {node headers} {
-    set doc [SOAP::Utils::getDocumentElement $node]
+    set doc [getDocumentElement $node]
     if {[set h [selectNode $doc /Envelope/Header]] == {}} {
-        set e [dom::document cget $doc -documentElement]
+        set e [documentElement $doc]
         set h [addNode $e "SOAP-ENV:Header"]
     }
     foreach {name value} $headers {
