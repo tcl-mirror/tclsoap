@@ -1,4 +1,5 @@
 # SOAP-CGI.tcl - Copyright (C) 2001 Pat Thoyts <patthoyts@users.sf.net>
+#                Copyright (C) 2008 Andreas Kupries <andreask@activestate.com>
 #
 # A CGI framework for SOAP and XML-RPC services from TclSOAP
 #
@@ -10,7 +11,12 @@
 # -------------------------------------------------------------------------
 #
 
-package provide SOAP::CGI 1.0
+package require SOAP
+package require XMLRPC
+package require SOAP::Utils
+package require SOAP::http
+
+package provide SOAP::CGI 1.0.1
 
 namespace eval ::SOAP {
     namespace eval CGI {
@@ -39,18 +45,13 @@ namespace eval ::SOAP {
 	# -----------------------------------------------------------------
 
 	variable rcsid {
-	    $Id: SOAP-CGI.tcl,v 1.14 2002/09/23 23:49:04 patthoyts Exp $
+	    $Id: SOAP-CGI.tcl,v 1.15 2003/09/06 17:08:46 patthoyts Exp $
 	}
 	variable methodName  {}
 	variable debugging   0
 	variable debuginfo   {}
 	variable interactive 0
 	
-	package require dom
-	package require SOAP
-	package require XMLRPC
-	package require SOAP::Utils
-        package require SOAP::http
 	catch {namespace import -force [namespace parent]::Utils::*}
 
 	namespace export log main
@@ -272,7 +273,7 @@ proc ::SOAP::CGI::xmlrpc_call {doc {interp {}}} {
 	if {$paramsNode != {}} {
 	    set argValues [decomposeXMLRPC $paramsNode]
 	}
-	catch {dom::DOMImplementation destroy $doc}
+	catch {deleteDocument $doc}
 
 	# Check for a permitted methodname. This is defined by being in the
 	# XMLRPC::export list for the given namespace. We must do this to
@@ -291,11 +292,11 @@ proc ::SOAP::CGI::xmlrpc_call {doc {interp {}}} {
 
 	# generate a reply packet
 	set reply [XMLRPC::reply \
-		[dom::DOMImplementation create] \
-		{urn:xmlrpc-cgi} "${methodName}Response" $msg]
-	set xml [dom::DOMImplementation serialize $reply]
-	regsub "<!DOCTYPE\[^>\]+>\n" $xml {} xml
-	catch {dom::DOMImplementation destroy $reply}
+		       [newDocument] \
+		       {urn:xmlrpc-cgi} "${methodName}Response" $msg]
+
+	set xml [generateXML  $reply]
+	catch {deleteDocument $reply}
 
     } msg]} {
 	set detail [list "errorCode" $::errorCode "stackTrace" $::errorInfo]
@@ -320,7 +321,7 @@ proc ::SOAP::CGI::soap_header {doc {mandate 0}} {
     dtrace "Handling SOAP Header"
     set result {}
     foreach elt [selectNode $doc "/Envelope/Header/*"] {
-	set eltName [dom::node cget $elt -nodeName]
+	set eltName [getElementName $elt]
 	set actor [getElementAttribute $elt actor]
 	dtrace "SOAP actor $eltName = $actor"
 
@@ -423,12 +424,11 @@ proc ::SOAP::CGI::soap_call {doc {interp {}}} {
 
 	# generate a reply packet
 	set reply [SOAP::reply \
-		[dom::DOMImplementation create] \
+		[newDocument] \
 		$methodNamespace "${methodName}Response" $msg]
-	set xml [dom::DOMImplementation serialize $reply]
-	regsub "<!DOCTYPE\[^>\]+>\n" $xml {} xml
-	catch {dom::DOMImplementation destroy $reply}
-	catch {dom::DOMImplementation destroy $doc}
+	set xml [generateXML $reply]
+	catch {deleteDocument $reply}
+	catch {deleteDocument $doc}
 	
     } msg]} {
 	# Handle errors the SOAP way.
@@ -614,7 +614,7 @@ proc ::SOAP::CGI::main {{xml {}} {debug 0}} {
 	    }
 	}
 
-	set doc [dom::DOMImplementation parse [do_encoding $xml]]
+	set doc [parseXML [do_encoding $xml]]
 	
 	# Identify the type of request - SOAP or XML-RPC, load the
 	# implementation and call.
@@ -625,7 +625,7 @@ proc ::SOAP::CGI::main {{xml {}} {debug 0}} {
 	    set result [xmlrpc_invocation $doc]
 	    log "XMLRPC" $methodName "ok"
 	} else {
-	    dom::DOMImplementation destroy $doc
+	    deleteDocument $doc
 	    error "invalid protocol: the XML data is neither SOAP not XML-RPC"
 	}
 
@@ -642,7 +642,7 @@ proc ::SOAP::CGI::main {{xml {}} {debug 0}} {
 	    SOAP   {
 		write $msg text/xml "500 SOAP Error"
 		catch {
-		    set doc [dom::DOMImplementation parse $msg]
+		    set doc [parseXML $msg]
 		    set r [decomposeSoap [selectNode $doc /Envelope/Body/*]]
 		} msg
 		log "SOAP" [list $methodName $msg] "error" 
@@ -650,7 +650,7 @@ proc ::SOAP::CGI::main {{xml {}} {debug 0}} {
 	    XMLRPC {
 		write $msg text/xml "500 XML-RPC Error"
 		catch {
-		    set doc [dom::DOMImplementation parse $msg]
+		    set doc [parseXML $msg]
 		    set r [getElementNamedValues [selectNode $doc \
 			    /methodResponse/*]]
 		} msg
