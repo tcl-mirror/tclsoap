@@ -37,9 +37,9 @@ if {[catch {package require SOAP::dom 1.0} ::SOAP::domVersion]} {
 # -------------------------------------------------------------------------
 
 namespace eval ::SOAP {
-    variable version 1.6.7
+    variable version 1.6.8
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.48 2003/09/06 17:08:46 patthoyts Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.49 2008/02/28 22:05:55 andreas_kupries Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -236,7 +236,7 @@ proc ::SOAP::configure { procName args } {
     set options { uri proxy params name transport action \
                   wrapProc replyProc parseProc postProc \
                   command errorCommand schemas version \
-                  encoding }
+                  encoding}
 
     if { $procName == "-transport" } {
         set scheme [lindex $args 0]
@@ -293,6 +293,7 @@ proc ::SOAP::configure { procName args } {
 
     foreach {opt value} $args {
         switch -glob -- $opt {
+            -rpcprot*  { set procvar(rpcprotocol) $value }
             -uri       { set procvar(uri) $value }
             -proxy     { set procvar(proxy) $value }
             -param*    { set procvar(params) $value }
@@ -302,6 +303,7 @@ proc ::SOAP::configure { procName args } {
             -schema*   { set procvar(schemas) $value }
             -ver*      { set procvar(version) $value }
             -enc*      { set procvar(encoding) $value }
+            -namedpar* { set procvar(namedparams) $value }
             -wrap*     { set procvar(wrapProc) [qualifyNamespace $value] }
             -rep*      { set procvar(replyProc) [qualifyNamespace $value] }
             -parse*    { set procvar(parseProc) [qualifyNamespace $value] }
@@ -345,17 +347,20 @@ proc ::SOAP::configure { procName args } {
         }
     } 
     
-    # The default version is SOAP 1.1
-    if { $procvar(version) == {} } {
-        set procvar(version) SOAP1.1
-    }
-    # Canonicalize the SOAP version URI
-    switch -glob -- $procvar(version) {
-        SOAP1.1 - 1.1 {
-            set procvar(version) "http://schemas.xmlsoap.org/soap/envelope/" 
+        
+    if {$procvar(rpcprotocol) eq "SOAP"} {
+        # The default version is SOAP 1.1
+        if { $procvar(version) == {} } {
+            set procvar(version) SOAP1.1
         }
-        SOAP1.2 - 1.2 {
-            set procvar(version) "http://www.w3.org/2001/06/soap-envelope" 
+        # Canonicalize the SOAP version URI
+        switch -glob -- $procvar(version) {
+            SOAP1.1 - 1.1 {
+                set procvar(version) "http://schemas.xmlsoap.org/soap/envelope/" 
+            }
+            SOAP1.2 - 1.2 {
+                set procvar(version) "http://www.w3.org/2001/06/soap-envelope" 
+            }
         }
     }
 
@@ -409,6 +414,7 @@ proc ::SOAP::create { args } {
     regsub -all {::+} $ns {_} varName
     set varName [namespace current]::$varName
     array set $varName {}
+    array set $varName {rpcprotocol SOAP} ;# SOAP, XMLRPC or JSONRPC
     array set $varName {uri       {}} ;# the XML namespace URI for this method 
     array set $varName {proxy     {}} ;# URL for the location of a provider
     array set $varName {params    {}} ;# name/type pairs for the parameters
@@ -425,6 +431,7 @@ proc ::SOAP::create { args } {
     array set $varName {schemas   {}} ;# List of SOAP Schemas in force
     array set $varName {version   {}} ;# SOAP Version in force (URI)
     array set $varName {encoding  {}} ;# SOAP Encoding (URI)
+    array set $varName {namedparams false}; # Use named or positional params ?
 
     set scheme [eval getTransportFromArgs $varName $args]
     if {$scheme != {}} {
@@ -458,6 +465,7 @@ proc getTransportFromArgs {procVarName args} {
         incr n
         set uri [lindex $args $n]
     }
+
     if {$uri != {}} {
         array set URL [uri::split $uri]
         if {$URL(scheme) == "urn"} {
