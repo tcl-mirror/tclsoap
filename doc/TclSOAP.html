@@ -475,6 +475,23 @@ SOAP::configure hi -params {}
       draft specifications. Currently, the package implements only
       client side interfaces.</p>
 
+    <p>
+      The simple example below shows a remote call to a echo service
+      method hosted at jsolait.net.
+    </p>
+    <pre>% package require JSONRPC
+0.1.0
+% JSONRPC::create echo -proxy "http://jsolait.net/services/test.jsonrpc" -params { val string }
+::echo
+% echo "This is a test"
+This is a test</pre>
+    <p>
+      The JSONRPC package makes use of the JSON package from tcllib
+      which in turn uses the <b>dict</b> Tcl data type and therefore
+      requires either Tcl 8.5 or the backported <b>dict</b> package
+      for earlier Tcl versions.
+    </p>
+
      <p>The JSONRPC package usage follows the same idiom as
        the <a href="#introduction">SOAP package</a>. The sample code
        and examples described there will work with
@@ -571,7 +588,7 @@ SOAP::configure hi -params {}
 </td></tr>
 <tr class="footer">
 <td class="footer" colspan="3">
-$Id: TclSOAP.html,v 1.22 2003/09/06 17:08:46 patthoyts Exp $
+$Id: TclSOAP.html,v 1.23 2008/07/04 18:01:11 apnadkarni Exp $
 </td></tr>
 
     </table>
