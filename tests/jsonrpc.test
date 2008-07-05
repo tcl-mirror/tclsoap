@@ -2,7 +2,7 @@
 #
 # Provide a set of tests to excercise the JSONRPC package.
 #
-# @(#)$Id: soap.test,v 1.9 2003/01/26 01:57:33 patthoyts Exp $
+# @(#)$Id: jsonrpc.test,v 1.1 2008/07/05 14:05:41 apnadkarni Exp $
 
 # Initialize the required packages
 
@@ -224,6 +224,23 @@ test jsonrpc-encode_value-5.1 {
     JSONRPC::encode_value [rpcvar::rpcvar string() [list 1 2 abc 2.0 No]]
 } {["1","2","abc","2.0","No"]}
 
+test jsonrpc-encode_value-5.2 {
+    Encoding of an array of typedef'ed structs
+} {
+    rpcvar::typedef {
+        i int
+        j string
+        b boolean 
+    } teststruct;
+    JSONRPC::encode_value [rpcvar::rpcvar teststruct() {{i 1 j 2 b Yes} {i 100 j 200 b No}}]
+} {[{"i":1,"j":"2","b":true},{"i":100,"j":"200","b":false}]}
+
+test jsonrpc-encode_value-5.3 {
+    Encoding of an array of any
+} {
+    JSONRPC::encode_value [rpcvar::rpcvar any() {1 abc Yes 2.0}]
+} {[1,"abc",true,2.0]}
+
 
 test jsonrpc-encode_value-6.0 {
     Encoding of generic struct without a typedef
@@ -249,6 +266,121 @@ test jsonrpc-encode_value-6.2 {
     JSONRPC::encode_value [rpcvar::rpcvar teststruct {i 1 j 2 b Yes}]
 } {{"i":1,"j":"2","b":true}}
 
+test jsonrpc-encode_value-6.3 {
+    Encoding of generic struct with a typedef
+} {
+    rpcvar::typedef {
+        i int
+        j string
+        b boolean 
+        a int()
+    } teststruct;
+    # Note 2 is an integer but should show as a string in output
+    JSONRPC::encode_value [rpcvar::rpcvar teststruct {i 1 j 2 b Yes a {100 200 300}}]
+} {{"i":1,"j":"2","b":true,"a":[100,200,300]}}
+
+test jsonrpc-encode_value-6.4 {
+    Encoding of nested struct with a typedef
+} {
+    rpcvar::typedef {
+        i int
+        j string
+        b boolean 
+        a int()
+    } teststruct
+
+    rpcvar::typedef {
+        s teststruct
+        i string
+    } outerstruct
+
+    JSONRPC::encode_value [rpcvar::rpcvar outerstruct {s {i 1 j 2 b Yes a {100 200 300}} i 500}]
+} {{"s":{"i":1,"j":"2","b":true,"a":[100,200,300]},"i":"500"}}
+
+test jsonrpc-command_with_no_arguments-1.0 {
+    RPC a method with no arguments
+} {
+    JSONRPC::create counter -proxy http://www.raboof.com/Projects/Jayrock/demo.ashx
+    counter
+} 1
+
+test jsonrpc-command_with_one_string_argument-1.0 {
+    RPC a method with one string argument
+} {
+    JSONRPC::create echo -proxy http://www.raboof.com/Projects/Jayrock/demo.ashx -params {s string}
+    echo "This is a test\b\\/\""
+} "This is a test\b\\/\""
+
+test jsonrpc-command_with_array_argument-1.0 {
+    RPC a method with an array as an argument
+} {
+    JSONRPC::create echoArgs -proxy http://www.raboof.com/Projects/Jayrock/demo.ashx -params {s any()}
+    echoArgs [list a b {c d} 555]
+} {a b {c d} 555}
+
+test jsonrpc-command_with_array_argument-1.1 {
+    RPC a method with an array as an argument
+} {
+    JSONRPC::create total -proxy http://www.raboof.com/Projects/Jayrock/demo.ashx -params {s int()}
+    total [list 1 2 3 4]
+} 10
+
+test jsonrpc-command_with_object_argument-1.0 {
+    RPC a method with an object as an argument
+} {
+    rpcvar::typedef {
+        i int
+        j string
+        b boolean 
+        a int()
+    } teststruct
+
+    rpcvar::typedef {
+        s teststruct
+        i string
+    } outerstruct
+
+    JSONRPC::create echoObject -proxy http://www.raboof.com/Projects/Jayrock/demo.ashx -params {o outerstruct}
+
+    array set _result [echoObject {s {i 1 j 2 b Yes a {100 200 300}} i 500}]
+    set outcome [expr {
+                       ($_result(i) == 500) &&
+                       ([dict get $_result(s) i] == 1) &&
+                       ([dict get $_result(s) j] == 2) &&
+                       ([dict get $_result(s) b] eq "true") &&
+                       ([dict get $_result(s) a] eq "100 200 300")
+                   }]
+    unset _result
+    set outcome
+} 1
+
+test jsonrpc-command_with_remote_error-1.0 {
+    RPC a method that is not implemented remotely
+} {
+    JSONRPC::create nosuchmethod -proxy http://www.raboof.com/Projects/Jayrock/demo.ashx
+
+    set status [catch {nosuchmethod} msg]
+    expr {($status == 1) &&
+          [string match "Error response from server*" $msg] &&
+          ([lindex $::errorCode 0] eq "JSONRPC") &&
+          ([lindex $::errorCode 1] eq "remote")}
+} 1
+
+test jsonrpc-command_with_nested_object_result-1.0 {
+    RPC a method that returns a nested object
+} {
+    JSONRPC::create getCouple -proxy http://www.raboof.com/Projects/Jayrock/demo.ashx
+
+    dict get [getCouple] husband firstName
+} Mickey
+
+test jsonrpc-command_with_array_of_objects_result-1.0 {
+    RPC a method that returns an array of objects
+} {
+    JSONRPC::create getDataTable -proxy http://www.raboof.com/Projects/Jayrock/demo.ashx
+
+    dict get [lindex [getDataTable] 0] FirstName
+} Nancy
 
 
 
