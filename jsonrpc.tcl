@@ -21,7 +21,7 @@ package require json
 
 namespace eval ::JSONRPC {
     variable version 0.1.0;     # Software version
-    variable rcs_version { $Id$ }
+    variable rcs_version { $Id: jsonrpc.tcl,v 1.1 2008/07/04 15:17:34 apnadkarni Exp $ }
 
     variable jsonrpc_state;           # Array to hold global stuff
     set jsonrpc_state(request_id) 0;         # Used to identify requests
@@ -146,7 +146,7 @@ proc ::JSONRPC::encode_value {value} {
                 lappend acc [JSONRPC::encode_value [rpcvar::rpcvar $itemtype $elt]]
             }
         }
-        return "\[ [join $acc ,] \]"
+        return "\[[join $acc ,]\]"
     } elseif {[llength $typeinfo] > 1} {
         # a typedef'd struct (object in json)
         array set ti $typeinfo
@@ -173,9 +173,12 @@ proc ::JSONRPC::encode_value {value} {
         return "{[join $acc ,]}"
     } elseif {[string equal $type "string"]} {
         return "\"[JSONRPC::escape $value]\""
-    } elseif {$type eq "number" || $type eq "int" || $type eq "float"} {
-        # Convert hex and octal to standard decimal
+    } elseif {$type eq "number" || $type eq "int" || $type eq "float" || $type eq "double"} {
+        # Convert hex and octal to standard decimal. Also 
+        # canonicalizes floating point
         return [expr $value]
+    } elseif {[string match bool* $type]} {
+        return [expr {$value ? true : false}]
     } else {
         # All other simple types
         return $value
