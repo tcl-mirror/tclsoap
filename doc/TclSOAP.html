@@ -309,7 +309,7 @@ SOAP::configure -transport http -proxy wwwproxy:8080 \
        <dd>Specify the URL of the server providing the
        implementation of this method.</dd>
 
-    <dt>-params <i>list</i></dt>
+    <dt><a name="soapconfigureparams">-params</a> <i>list</i></dt>
        <dd>Configure the parameters required for this
        method. <i>list</i> should be a list of pairs consisting of the
        parameter name and the parameter type. The Tcl procedure will
@@ -537,6 +537,17 @@ This is a test</pre>
             JSON-RPC 1.0 data formats. Any other results in JSON-RPC 2.0
             data formats.</p>
         </dd>
+        <dt>-params <i>list</i></dt>
+        <dd>
+          <p>This option has the same form and function as the
+          <a href="#soapconfigureparams">SOAP::configure <i>METHOD</i> -params</a>
+          option except that the only types supported are <i>boolean</i>,
+          <i>int</i> or <i>integer</i>, <i>float</i>, <i>double</i>,
+          <i>string</i>, <i>struct</i>, <i>array</i> and <i>any</i>.
+          The <i>any</i> type can be specified when an <i>array</i>
+          has mixed type elements or when a <i>struct</i> member
+          may hold data of multiple types.</p>
+        </dd>
       </dl>
     </dd>      
 
@@ -588,7 +599,7 @@ This is a test</pre>
 </td></tr>
 <tr class="footer">
 <td class="footer" colspan="3">
-$Id: TclSOAP.html,v 1.23 2008/07/04 18:01:11 apnadkarni Exp $
+$Id: TclSOAP.html,v 1.24 2008/07/05 14:07:24 apnadkarni Exp $
 </td></tr>
 
     </table>
