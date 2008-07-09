@@ -2,7 +2,7 @@
 #
 # Provide a set of tests to excercise the XMLRPC package.
 #
-# @(#)$Id: xmlrpc.test,v 1.1 2001/06/21 00:15:13 patthoyts Exp $
+# @(#)$Id: xmlrpc.test,v 1.2.4.2 2008/03/04 23:12:55 andreas_kupries Exp $
 
 # Initialize the required packages
 
@@ -67,8 +67,18 @@ test xmlrpc-2.2 {XML generation with one argument} {
         set result $::XMLRPC::testXML
     }
     set result
-} {<?xml version='1.0'?>
-<methodCall><methodName>tests.xmlrpcTest</methodName><params><param><value><string>testParameter</string></value></param></params></methodCall>}
+} {<?xml version="1.0"?>
+<methodCall>
+<methodName>tests.xmlrpcTest</methodName>
+<params>
+<param>
+<value>
+<string>testParameter</string>
+</value>
+</param>
+</params>
+</methodCall>
+}
 
 test xmlrpc-2.3 {XML generation with two arguments} {
     set failed [catch {::XMLRPC::configure ::xmlrpcTest \
@@ -80,8 +90,23 @@ test xmlrpc-2.3 {XML generation with two arguments} {
         set result $::XMLRPC::testXML
     }
     set result
-} {<?xml version='1.0'?>
-<methodCall><methodName>tests.xmlrpcTest</methodName><params><param><value><string>textParam</string></value></param><param><value><double>1.3</double></value></param></params></methodCall>}
+} {<?xml version="1.0"?>
+<methodCall>
+<methodName>tests.xmlrpcTest</methodName>
+<params>
+<param>
+<value>
+<string>textParam</string>
+</value>
+</param>
+<param>
+<value>
+<double>1.3</double>
+</value>
+</param>
+</params>
+</methodCall>
+}
 
 test xmlrpc-2.4 {XML generation with array argument} {
     set failed [catch {::XMLRPC::configure ::xmlrpcTest \
@@ -93,8 +118,30 @@ test xmlrpc-2.4 {XML generation with array argument} {
         set result $::XMLRPC::testXML
     }
     set result
-} {<?xml version='1.0'?>
-<methodCall><methodName>tests.xmlrpcTest</methodName><params><param><value><array><data><value><int>1</int></value><value><int>2</int></value><value><int>3</int></value></data></array></value></param></params></methodCall>}
+} {<?xml version="1.0"?>
+<methodCall>
+<methodName>tests.xmlrpcTest</methodName>
+<params>
+<param>
+<value>
+<array>
+<data>
+<value>
+<int>1</int>
+</value>
+<value>
+<int>2</int>
+</value>
+<value>
+<int>3</int>
+</value>
+</data>
+</array>
+</value>
+</param>
+</params>
+</methodCall>
+}
 
 test xmlrpc-2.5 {XML generation with struct argument} {
     set failed [catch {::XMLRPC::configure ::xmlrpcTest \
@@ -106,8 +153,31 @@ test xmlrpc-2.5 {XML generation with struct argument} {
         set result $::XMLRPC::testXML
     }
     set result
-} {<?xml version='1.0'?>
-<methodCall><methodName>tests.xmlrpcTest</methodName><params><param><value><struct><member><name>x</name><value><int>1</int></value></member><member><name>y</name><value><int>2</int></value></member></struct></value></param></params></methodCall>}
+} {<?xml version="1.0"?>
+<methodCall>
+<methodName>tests.xmlrpcTest</methodName>
+<params>
+<param>
+<value>
+<struct>
+<member>
+<name>x</name>
+<value>
+<int>1</int>
+</value>
+</member>
+<member>
+<name>y</name>
+<value>
+<int>2</int>
+</value>
+</member>
+</struct>
+</value>
+</param>
+</params>
+</methodCall>
+}
 
 # -------------------------------------------------------------------------
 
