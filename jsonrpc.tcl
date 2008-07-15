@@ -21,7 +21,7 @@ package require json
 
 namespace eval ::JSONRPC {
     variable version 0.1.0;     # Software version
-    variable rcs_version { $Id: jsonrpc.tcl,v 1.1 2008/07/04 15:17:34 apnadkarni Exp $ }
+    variable rcs_version { $Id: jsonrpc.tcl,v 1.2 2008/07/05 14:06:52 apnadkarni Exp $ }
 
     variable jsonrpc_state;           # Array to hold global stuff
     set jsonrpc_state(request_id) 0;         # Used to identify requests
@@ -244,7 +244,7 @@ proc ::JSONRPC::request {procVarName args} {
             append msg " " $id
         }
         append msg "\""
-        return -code error -errorcode [list JSONRPC local "Wrong number of arguments." $msg]
+        return -code error -errorcode [list JSONRPC local "Wrong number of arguments."] $msg
     }
     
     # Construct the typed parameter list. The parameter
@@ -364,7 +364,7 @@ proc ::JSONRPC::parse_response { procVarName payload } {
 proc ::JSONRPC::parse_request { payload } {
     set result {}
     if {[catch {set request [::json::json2dict $payload]}]} {
-        return -code error -errorcode [list JSONRPC local "JSON request received with invalid format" \
+        return -code error -errorcode [list JSONRPC local "JSON request received with invalid format"] \
             "Client request is not well-formed JSON.\n\
             Call was '$payload'"
     }
