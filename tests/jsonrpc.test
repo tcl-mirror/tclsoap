@@ -2,7 +2,7 @@
 #
 # Provide a set of tests to excercise the JSONRPC package.
 #
-# @(#)$Id: jsonrpc.test,v 1.1 2008/07/05 14:05:41 apnadkarni Exp $
+# @(#)$Id: jsonrpc.test,v 1.2 2008/07/05 16:38:05 apnadkarni Exp $
 
 # Initialize the required packages
 
@@ -382,6 +382,13 @@ test jsonrpc-command_with_array_of_objects_result-1.0 {
     dict get [lindex [getDataTable] 0] FirstName
 } Nancy
 
+
+test jsonrpc-reflect-1.0 {
+    Verify the reflection transport
+} {
+    JSONRPC::create calc -params {s string} -proxy ::JSONRPC::Transport::reflect -transport ::JSONRPC::Transport::reflect::xfer
+    calc "1+1"
+} 2
 
 
 # -------------------------------------------------------------------------
