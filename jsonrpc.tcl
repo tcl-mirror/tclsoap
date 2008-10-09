@@ -21,7 +21,7 @@ package require json
 
 namespace eval ::JSONRPC {
     variable version 0.1.0;     # Software version
-    variable rcs_version { $Id: jsonrpc.tcl,v 1.2 2008/07/05 14:06:52 apnadkarni Exp $ }
+    variable rcs_version { $Id: jsonrpc.tcl,v 1.3 2008/07/15 13:41:45 apnadkarni Exp $ }
 
     variable jsonrpc_state;           # Array to hold global stuff
     set jsonrpc_state(request_id) 0;         # Used to identify requests
@@ -250,6 +250,7 @@ proc ::JSONRPC::request {procVarName args} {
     # Construct the typed parameter list. The parameter
     # list is constructed as an array (by position) unless specified
     # otherwise by that caller as an object (by name)
+    set plist [list ]
     if { [llength $params] != 0 } {
         if {$procvar(namedparams)} {
             foreach {pname ptype} $params val $args {
@@ -264,7 +265,8 @@ proc ::JSONRPC::request {procVarName args} {
     
     # Sent as a JSON object
     # { "jsonrpc" : VERSIONSTRING, "method" : METHODNAMESTRING, "params" : [ PARAMARRAYLIST ], "id" : ID }
-    # The params element may be missing.
+    # The params element may be left out if no params according to the spec but
+    # some servers object to this so always fill it in.
     # The id element is filled in, but not currently used as the 
     # TclSOAP interface has no way to
     # have the caller associated requests with responses
@@ -276,9 +278,7 @@ proc ::JSONRPC::request {procVarName args} {
         lappend reqflds jsonrpc $procvar(version)
     }
 
-    if {[info exists plist]} {
-        lappend reqflds params $plist
-    }
+    lappend reqflds params $plist
 
     if {$procvar(namedparams)} {
         return [encode_value [rpcvar::rpcvar jsonrequest_namedparams $reqflds]]
