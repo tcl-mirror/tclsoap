@@ -45,7 +45,7 @@ namespace eval ::SOAP {
 	# -----------------------------------------------------------------
 
 	variable rcsid {
-	    $Id: SOAP-CGI.tcl,v 1.15.2.2 2008/03/04 23:12:55 andreas_kupries Exp $
+	    $Id: SOAP-CGI.tcl,v 1.16 2008/07/09 16:14:23 andreas_kupries Exp $
 	}
 	variable methodName  {}
 	variable debugging   0
@@ -393,7 +393,11 @@ proc ::SOAP::CGI::soap_call {doc {interp {}}} {
 	dtrace "methodinfo: ${methodNamespace}::${methodName}"
 
 	# Extract the parameters.
-	set argNodes [selectNode $doc "/SENV:Envelope/SENV:Body/${methodName}/*"]
+	set old [$doc selectNodesNamespaces]
+	$doc selectNodesNamespaces [linsert $old 0 MNAME $methodNamespace]
+	set argNodes [selectNode $doc "/SENV:Envelope/SENV:Body/MNAME:${methodName}/*"]
+	$doc selectNodesNamespaces $old
+
 	set argValues {}
 	foreach node $argNodes {
 	    lappend argValues [decomposeSoap $node]

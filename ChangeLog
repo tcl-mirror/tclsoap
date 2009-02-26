@@ -1,3 +1,10 @@
+2009-02-26  Andreas Kupries  <andreask@activestate.com>
+
+	* SOAP-CGI.tcl (::SOAP::CGI::soap_call): Fix bug in the extraction
+	  of argument and handle the possibility of the methodname tag
+	  having an XML namespace associated with it, reported by Giovanni
+	  Varasano <giovanni.varasano@fastwebnet.it>.
+
 2008-07-09  Andreas Kupries  <andreask@activestate.com>
 
 	* Merged branch 'soap1_6_7_as_tdom' back into the main trunk, up
